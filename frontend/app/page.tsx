@@ -4,8 +4,10 @@ import Sidebar from '../components/Sidebar';
 import LiveMonitoring from '../components/LiveMonitoring';
 import RegistrationManagement from '../components/RegistrationManagement';
 import GateEntry from '../components/GateEntry';
+import CSVUpload from '@/components/CsvUpload';
+import EventRegistration from '@/components/EventRegistration';
 
-type Tab = 'live' | 'registration' | 'gate';
+type Tab = 'live' | 'registration' | 'gate' | 'upload';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('live');
@@ -17,6 +19,7 @@ export default function App() {
         {activeTab === 'live' && <LiveMonitoring />}
         {activeTab === 'registration' && <RegistrationManagement />}
         {activeTab === 'gate' && <GateEntry />}
+        {activeTab === 'upload' && <EventRegistration />}
       </main>
     </div>
   );

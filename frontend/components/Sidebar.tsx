@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { Activity, Users, ScanLine, LayoutDashboard } from 'lucide-react';
 import { clsx } from 'clsx';
 
-type Tab = 'live' | 'registration' | 'gate';
+type Tab = 'live' | 'registration' | 'gate' | 'upload';
 
 interface SidebarProps {
   activeTab: Tab;
@@ -13,6 +13,7 @@ const tabs: { id: Tab; label: string; icon: typeof Activity }[] = [
   { id: 'live', label: 'Live Monitoring', icon: Activity },
   { id: 'registration', label: 'Registration', icon: Users },
   { id: 'gate', label: 'Gate Entry', icon: ScanLine },
+  { id: 'upload', label: 'CSV Upload', icon: LayoutDashboard },
 ];
 
 export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
