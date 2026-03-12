@@ -1,51 +1,198 @@
+# =========================================
+# Zero Stampede Nation - Root .gitignore
+# =========================================
+.github
+# Research & Documentation (sensitive)
 research.md
-__pycache__/
-*.pyc
-venv/
-node_modules/
-.env
-.DS_Store
-.github/
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# dependencies
-/node_modules
+# =========================================
+# Node.js / NPM / YARN / PNPM
+# =========================================
+node_modules/
 /.pnp
-.pnp.*
+.pnp
+.pnp.js
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# Yarn Zero-Install mode
 .yarn/*
+!.yarn/cache
 !.yarn/patches
 !.yarn/plugins
 !.yarn/releases
+!.yarn/sdks
 !.yarn/versions
+!.yarn/.yarnrc
 
-# testing
-/coverage
-
-# next.js
-/.next/
-/out/
-
-# production
-/build
-
-# misc
-.DS_Store
-*.pem
-
-# debug
+# NPM
 npm-debug.log*
+npm-error.log*
 yarn-debug.log*
-yarn-error.log*
+yarn-error.log.log*
+.npm
+.eslintcache
+.node_repl_history
+
+# PNPM
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# =========================================
+# Python
+# =========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.whl
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.virtual_documents
+.ipynb_checkpoints/
 
-# vercel
-.vercel
+# =========================================
+# Environment Variables (SECRETS - NEVER COMMIT)
+# =========================================
+.env
+.env.local
+.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.prod
+.env.staging
 
-# typescript
+# =========================================
+# IDEs / Editors
+# =========================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.AppleDouble
+.LSOverride
+*.sublime-project
+*.sublime-workspace
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+!.vscode/extensions.json
+!.vscode/launch.json
+
+# =========================================
+# Next.js
+# =========================================
+.next/
+out/
+build/
+dist/
+.vercel/
+
+# =========================================
+# TypeScript
+# =========================================
 *.tsbuildinfo
 next-env.d.ts
+*.d.ts
+
+# =========================================
+# Testing
+# =========================================
+/coverage
+.nyc_output
+/.mocha-results
+jest.results.json
+
+# =========================================
+# Build & Production
+# =========================================
+/build
+/.vuepress/dist
+/dist
+/release
+
+# =========================================
+# OS Specific Files
+# =========================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.windows-build-tools
+*.cab
+
+# =========================================
+# Database
+# =========================================
+*.db
+*.sqlite
+*.sqlite3
+*.sql
+database.yml
+.db
+
+# =========================================
+# Logs & Debugging
+# =========================================
+logs/
+*.log
+lerna-debug.log*
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# =========================================
+# Certificates & Keys (SECURITY)
+# =========================================
+*.pem
+*.key
+*.crt
+*.cert
+*.p12
+*.p7b
+
+# =========================================
+# Misc Files
+# =========================================
+.cache/
+tmp/
+temp/
+*.bak
+*.swp
+*.swo
+*~
+.turbo/
+.vercel/
+.env.test
+.env.*.test
+
+# =========================================
+# Prisma
+# =========================================
+prisma/migrations/
+prisma/**/*.db
+.prisma/
+
+# =========================================
+# IDE Cache
+# =========================================
+.eslintignore
+.prettierignore
+*.tgz
 
 /app/generated/prisma

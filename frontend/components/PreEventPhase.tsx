@@ -22,7 +22,7 @@ const nodes = [
     type: 'success' as const,
     description: 'Slots available',
   },
-];
+] as const;
 
 export default function PreEventPhase() {
   return (
