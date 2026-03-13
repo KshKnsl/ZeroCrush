@@ -75,8 +75,8 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
 
-    // ── 1. Validate inputs ──────────────────────────────────────────────────
     const file = formData.get("file");
+    const manualEntriesRaw = formData.get("manualEntries")?.toString() ?? "[]";
     const eventType = formData.get("eventType")?.toString().trim();
     const plate = formData.get("plate")?.toString().trim() || null;
     const description = formData.get("description")?.toString().trim() || null;
@@ -84,33 +84,58 @@ export async function POST(req: NextRequest) {
     if (!eventType) {
       return NextResponse.json({ error: "eventType is required." }, { status: 400 });
     }
-    if (!file || !(file instanceof File)) {
-      return NextResponse.json({ error: "No CSV file provided." }, { status: 400 });
-    }
-    if (!file.name.endsWith(".csv")) {
-      return NextResponse.json({ error: "Only .csv files accepted." }, { status: 400 });
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      return NextResponse.json({ error: "File too large. Max 5MB." }, { status: 400 });
+
+    const parseErrors: string[] = [];
+    let users: ParsedUser[] = [];
+
+    if (file instanceof File) {
+      if (!file.name.endsWith(".csv")) {
+        return NextResponse.json({ error: "Only .csv files accepted." }, { status: 400 });
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        return NextResponse.json({ error: "File too large. Max 5MB." }, { status: 400 });
+      }
+
+      const text = await file.text();
+      const csvResult = extractUsers(text);
+      users = csvResult.users;
+      parseErrors.push(...csvResult.errors);
     }
 
-    // ── 2. Parse CSV ────────────────────────────────────────────────────────
-    const text = await file.text();
-    const { users, errors: parseErrors } = extractUsers(text);
+    let manualEntries: Array<{ name?: string; email?: string }> = [];
+    try {
+      const parsed = JSON.parse(manualEntriesRaw);
+      if (Array.isArray(parsed)) {
+        manualEntries = parsed;
+      }
+    } catch {
+      return NextResponse.json({ error: "Invalid manualEntries format." }, { status: 400 });
+    }
 
-    if (users.length === 0) {
+    manualEntries.forEach((entry, index) => {
+      const email = (entry.email ?? "").toString().trim();
+      const name = (entry.name ?? "").toString().trim();
+
+      if (!email) return;
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        parseErrors.push(`Manual row ${index + 1}: invalid email \"${email}\" — skipped`);
+        return;
+      }
+
+      users.push({ name, email });
+    });
+
+    const dedupedUsers = Array.from(
+      new Map(users.map((user) => [user.email.toLowerCase(), user])).values()
+    );
+
+    if (dedupedUsers.length === 0) {
       return NextResponse.json(
-        { error: "No valid users found in CSV.", details: parseErrors },
+        { error: "No valid attendees found in CSV or manual entries.", details: parseErrors },
         { status: 400 }
       );
     }
 
-    // ── 3. Create event, upsert users, link — sequential (no transaction) ────
-    // Prisma 7 + serverless Postgres can't hold long-lived transactions (P2028).
-    // Sequential awaits are safe here: the event is created first, then each
-    // user is upserted and linked. A partial failure only skips that user.
-
-    // a) Create the root event record
     const event = await prisma.event.create({
       data: {
         type: eventType,
@@ -119,11 +144,10 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // b) Upsert each user, create their linked event row with a verification code, send email
     let usersAdded = 0;
     const dbErrors: string[] = [];
 
-    for (const { name, email } of users) {
+    for (const { name, email } of dedupedUsers) {
       try {
         const user = await prisma.user.upsert({
           where: { email },
@@ -143,7 +167,6 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        // Send email — non-blocking: a mail failure won't abort the whole import
         sendVerificationEmail({
           to: email,
           name: name || email,

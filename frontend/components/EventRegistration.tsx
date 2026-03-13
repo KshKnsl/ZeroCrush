@@ -28,6 +28,7 @@ export default function EventRegistration() {
   const [file, setFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState(false);
   const [preview, setPreview] = useState<UserRow[]>([]);
+  const [manualRows, setManualRows] = useState<UserRow[]>([{ name: "", email: "" }]);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<SubmitResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -66,14 +67,24 @@ export default function EventRegistration() {
 
   const handleSubmit = async () => {
     if (!eventForm.type) { setError("Event type is required."); return; }
-    if (!file) { setError("Please upload a CSV file."); return; }
+
+    const validManualRows = manualRows
+      .map((row) => ({ name: row.name.trim(), email: row.email.trim() }))
+      .filter((row) => row.email.length > 0);
+
+    if (!file && validManualRows.length === 0) {
+      setError("Please upload a CSV file or add at least one manual attendee.");
+      return;
+    }
+
     setLoading(true); setError(null);
 
     const fd = new FormData();
-    fd.append("file", file);
+    if (file) fd.append("file", file);
     fd.append("eventType", eventForm.type);
     fd.append("plate", eventForm.plate);
     fd.append("description", eventForm.description);
+    fd.append("manualEntries", JSON.stringify(validManualRows));
 
     try {
       const res = await fetch("/api/events/register", { method: "POST", body: fd });
@@ -89,8 +100,23 @@ export default function EventRegistration() {
 
   const reset = () => {
     setStep(1); setEventForm({ type: "", plate: "", description: "" });
-    setFile(null); setPreview([]); setResult(null); setError(null);
+    setFile(null); setPreview([]); setManualRows([{ name: "", email: "" }]); setResult(null); setError(null);
     if (inputRef.current) inputRef.current.value = "";
+  };
+
+  const updateManualRow = (index: number, key: keyof UserRow, value: string) => {
+    setManualRows((prev) => prev.map((row, i) => (i === index ? { ...row, [key]: value } : row)));
+  };
+
+  const addManualRow = () => {
+    setManualRows((prev) => [...prev, { name: "", email: "" }]);
+  };
+
+  const removeManualRow = (index: number) => {
+    setManualRows((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      return next.length > 0 ? next : [{ name: "", email: "" }];
+    });
   };
 
   return (
@@ -259,7 +285,7 @@ export default function EventRegistration() {
 
               <div>
                 <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 uppercase tracking-widest mb-2">
-                  Attendees CSV <span className="text-emerald-500">*</span>
+                  Attendees CSV
                 </label>
                 <div
                   className={`rounded-2xl border border-dashed p-6 text-center transition-all cursor-pointer ${dragging ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10" : "border-slate-300 bg-slate-50 hover:border-emerald-400 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-800/70"}`}
@@ -289,6 +315,47 @@ export default function EventRegistration() {
                       <p className="text-slate-400 dark:text-slate-500 text-xs mt-1">Requires name &amp; email columns</p>
                     </div>
                   )}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/60">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs font-medium text-slate-600 dark:text-slate-300 uppercase tracking-widest">Manual Attendees</p>
+                  <button
+                    type="button"
+                    onClick={addManualRow}
+                    className="rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300"
+                  >
+                    + Add Row
+                  </button>
+                </div>
+
+                <div className="mt-3 space-y-2">
+                  {manualRows.map((row, index) => (
+                    <div key={index} className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_1fr_auto]">
+                      <input
+                        type="text"
+                        value={row.name}
+                        onChange={(event) => updateManualRow(index, "name", event.target.value)}
+                        placeholder="Name (optional)"
+                        className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500"
+                      />
+                      <input
+                        type="email"
+                        value={row.email}
+                        onChange={(event) => updateManualRow(index, "email", event.target.value)}
+                        placeholder="Email (required)"
+                        className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeManualRow(index)}
+                        className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:border-rose-300 hover:text-rose-600 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -343,7 +410,7 @@ export default function EventRegistration() {
         </div>
 
         <p className="mt-6 text-center text-xs text-slate-400 dark:text-slate-500">
-          CSV must contain <span className="font-medium text-slate-500 dark:text-slate-400">email</span> and optionally <span className="font-medium text-slate-500 dark:text-slate-400">name</span> columns.
+          CSV and manual entries require an <span className="font-medium text-slate-500 dark:text-slate-400">email</span> and can include an optional <span className="font-medium text-slate-500 dark:text-slate-400">name</span>.
         </p>
       </div>
     </div>

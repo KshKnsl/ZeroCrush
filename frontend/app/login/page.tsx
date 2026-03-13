@@ -9,8 +9,8 @@ type Theme = 'light' | 'dark';
 export default function LoginPage() {
   const router = useRouter();
   const [role, setRole] = useState<UserRole>('admin');
-  const [adminEmail, setAdminEmail] = useState(ADMIN_CREDENTIALS.email);
-  const [adminPassword, setAdminPassword] = useState(ADMIN_CREDENTIALS.password);
+  const [adminEmail, setAdminEmail] = useState<string>(ADMIN_CREDENTIALS.email);
+  const [adminPassword, setAdminPassword] = useState<string>(ADMIN_CREDENTIALS.password);
   const [managementId, setManagementId] = useState('');
   const [managementPassword, setManagementPassword] = useState('');
   const [error, setError] = useState('');
