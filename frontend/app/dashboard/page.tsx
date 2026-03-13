@@ -23,7 +23,7 @@ interface EventOption {
 export default function DashboardPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<DashboardTab>('live');
-  const [theme, setTheme] = useState<Theme>('dark');
+  const [theme, setTheme] = useState<Theme>('light');
   const [session, setSession] = useState<AppSession | null>(null);
   const [events, setEvents] = useState<EventOption[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
@@ -40,10 +40,9 @@ export default function DashboardPage() {
     }
 
     const storedTheme = window.localStorage.getItem('theme') as Theme | null;
-    const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 
     setSession(currentSession);
-    setTheme(storedTheme ?? (systemDark ? 'dark' : 'light'));
+    setTheme(storedTheme ?? 'light');
     setIsReady(true);
   }, [router]);
 

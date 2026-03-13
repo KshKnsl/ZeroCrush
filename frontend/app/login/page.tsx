@@ -16,7 +16,7 @@ export default function LoginPage() {
   const [events, setEvents] = useState<Array<{ id: number; type: string; plate: string | null }>>([]);
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const [error, setError] = useState('');
-  const [theme, setTheme] = useState<Theme>('dark');
+  const [theme, setTheme] = useState<Theme>('light');
 
   useEffect(() => {
     const existingSession = getStoredSession();
@@ -26,8 +26,7 @@ export default function LoginPage() {
     }
 
     const storedTheme = window.localStorage.getItem('theme') as Theme | null;
-    const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const nextTheme = storedTheme ?? (systemDark ? 'dark' : 'light');
+    const nextTheme = storedTheme ?? 'light';
     setTheme(nextTheme);
 
     const loadEvents = async () => {
