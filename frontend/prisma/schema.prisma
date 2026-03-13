@@ -34,6 +34,7 @@ model ManagementAccount {
   id          Int      @id @default(autoincrement())
   loginId     String
   password    String
+  role        String   @default("crowd_operations_lead")
   allowedTabs String[]
   createdAt   DateTime @default(now())
   eventId     Int

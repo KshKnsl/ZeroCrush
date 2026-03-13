@@ -8,7 +8,7 @@ import LiveMonitoring from '@/components/LiveMonitoring';
 import ManagementAccess from '@/components/ManagementAccess';
 import RegistrationManagement from '@/components/RegistrationManagement';
 import EventRegistration from '@/components/EventRegistration';
-import { clearStoredSession, DEFAULT_MANAGEMENT_TABS, getStoredSession, type AppSession, type DashboardTab, type ManagementTab } from '@/lib/auth';
+import { clearStoredSession, getStoredSession, getTabsForSession, type AppSession, type DashboardTab, type ManagementTab } from '@/lib/auth';
 
 type Theme = 'light' | 'dark';
 
@@ -30,9 +30,7 @@ export default function DashboardPage() {
   const [createEventLoading, setCreateEventLoading] = useState(false);
   const [isReady, setIsReady] = useState(false);
 
-  const managementTabs: ManagementTab[] = session?.role === 'management'
-    ? (session.allowedTabs && session.allowedTabs.length > 0 ? session.allowedTabs : DEFAULT_MANAGEMENT_TABS)
-    : DEFAULT_MANAGEMENT_TABS;
+  const managementTabs: ManagementTab[] = getTabsForSession(session);
 
   useEffect(() => {
     const currentSession = getStoredSession();
@@ -141,6 +139,7 @@ export default function DashboardPage() {
         theme={theme}
         role={session.role}
         identifier={session.identifier}
+        managementRole={session.managementRole}
         availableTabs={managementTabs}
         selectedEventId={selectedEventId}
         events={events.map(({ id, type, plate }) => ({ id, type, plate }))}

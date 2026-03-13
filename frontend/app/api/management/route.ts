@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
-import { normalizeManagementTabs } from '@/lib/auth';
+import { normalizeVenueRole } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
         id: true,
         loginId: true,
         password: true,
-        allowedTabs: true,
+        role: true,
         createdAt: true,
         eventId: true,
       },
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     const eventId = Number(body.eventId);
     const loginId = body.loginId?.toString().trim();
     const password = body.password?.toString().trim();
-    const allowedTabs = normalizeManagementTabs(body.allowedTabs);
+    const role = normalizeVenueRole(body.role);
 
     if (!Number.isFinite(eventId) || eventId <= 0) {
       return NextResponse.json({ error: 'Valid eventId is required.' }, { status: 400 });
@@ -50,10 +50,6 @@ export async function POST(request: NextRequest) {
 
     if (!loginId || !password) {
       return NextResponse.json({ error: 'Management ID and password are required.' }, { status: 400 });
-    }
-
-    if (allowedTabs.length === 0) {
-      return NextResponse.json({ error: 'Select at least one dashboard tab.' }, { status: 400 });
     }
 
     const event = await prisma.event.findUnique({ where: { id: eventId }, select: { id: true } });
@@ -75,13 +71,13 @@ export async function POST(request: NextRequest) {
         eventId,
         loginId,
         password,
-        allowedTabs,
+        role,
       },
       select: {
         id: true,
         loginId: true,
         password: true,
-        allowedTabs: true,
+        role: true,
         createdAt: true,
         eventId: true,
       },

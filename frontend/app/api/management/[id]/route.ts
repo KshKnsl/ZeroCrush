@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
-import { normalizeManagementTabs } from '@/lib/auth';
+import { normalizeVenueRole } from '@/lib/auth';
 
 export async function PATCH(
   request: NextRequest,
@@ -11,24 +11,20 @@ export async function PATCH(
     const params = await context.params;
     const accountId = Number(params.id);
     const body = await request.json();
-    const allowedTabs = normalizeManagementTabs(body.allowedTabs);
+    const role = normalizeVenueRole(body.role);
 
     if (!Number.isFinite(accountId) || accountId <= 0) {
       return NextResponse.json({ error: 'Invalid account id.' }, { status: 400 });
     }
 
-    if (allowedTabs.length === 0) {
-      return NextResponse.json({ error: 'Select at least one dashboard tab.' }, { status: 400 });
-    }
-
     const account = await prisma.managementAccount.update({
       where: { id: accountId },
-      data: { allowedTabs },
+      data: { role },
       select: {
         id: true,
         loginId: true,
         password: true,
-        allowedTabs: true,
+        role: true,
         createdAt: true,
         eventId: true,
       },
@@ -44,6 +40,6 @@ export async function PATCH(
     }
 
     console.error('[api/management/:id][PATCH]', error);
-    return NextResponse.json({ error: 'Failed to update account access.' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to update account role.' }, { status: 500 });
   }
 }

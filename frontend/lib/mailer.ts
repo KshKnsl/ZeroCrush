@@ -1,6 +1,14 @@
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const transporter = nodemailer.createTransport({
+  host: "smtp-relay.brevo.com",
+  port: 587,
+  secure: false,
+  auth: {
+    user: process.env.BREVO_SMTP_USER,
+    pass: process.env.BREVO_SMTP_KEY,
+  },
+});
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface SendVerificationParams {
@@ -28,12 +36,10 @@ export async function sendVerificationEmail({
   code,
 }: SendVerificationParams): Promise<void> {
   const displayName = name || to;
-  const fromName    = process.env.MAIL_FROM_NAME || "Events Team";
-  const fromAddress = process.env.MAIL_FROM_ADDRESS || "onboarding@resend.dev";
   const qrData      = encodeURIComponent(`${to}|${code}`);
 
-  const { error } = await resend.emails.send({
-    from:    `${fromName} <${fromAddress}>`,
+  await transporter.sendMail({
+    from:    process.env.BREVO_SMTP_USER,
     to,
     subject: `Your entry code for ${eventType}`,
 
@@ -122,6 +128,4 @@ See you there!
 </html>
     `.trim(),
   });
-
-  if (error) throw new Error(error.message);
 }

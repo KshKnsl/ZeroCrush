@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Activity, Users, ScanLine, LayoutDashboard, Moon, Sun, KeyRound, LogOut, CalendarPlus2 } from 'lucide-react';
 import { clsx } from 'clsx';
-import type { DashboardTab, ManagementTab, UserRole } from '@/lib/auth';
+import { getRoleDefinition, type DashboardTab, type ManagementTab, type UserRole, type VenueRole } from '@/lib/auth';
 
 type Theme = 'light' | 'dark';
 
@@ -20,6 +20,7 @@ interface SidebarProps {
   theme: Theme;
   role: UserRole;
   identifier: string;
+  managementRole?: VenueRole;
   availableTabs?: ManagementTab[];
   selectedEventId: number | null;
   events: EventOption[];
@@ -43,6 +44,7 @@ export default function Sidebar({
   theme,
   role,
   identifier,
+  managementRole,
   availableTabs,
   selectedEventId,
   events,
@@ -53,8 +55,10 @@ export default function Sidebar({
   onLogout,
 }: SidebarProps) {
   const tabs = role === 'admin'
-    ? [{ id: 'access' as DashboardTab, label: 'Access Control', icon: KeyRound }, ...baseTabs]
+    ? [{ id: 'access' as DashboardTab, label: 'Roles & Teams', icon: KeyRound }, ...baseTabs]
     : baseTabs.filter((tab) => (availableTabs ?? []).includes(tab.id as ManagementTab));
+
+  const managementRoleLabel = role === 'management' ? getRoleDefinition(managementRole).label : null;
 
   const [showDialog, setShowDialog] = useState(false);
   const [eventType, setEventType] = useState('');
@@ -93,7 +97,7 @@ export default function Sidebar({
         <div className="px-4 pt-4 space-y-3">
           <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-[#1e1e1e] dark:bg-[#111111] transition-colors">
             <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400 dark:text-[#555555]">Signed In</p>
-            <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{role === 'admin' ? 'Admin' : 'Management'}</p>
+            <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{role === 'admin' ? 'Admin' : managementRoleLabel}</p>
             <p className="mt-1 text-xs text-slate-500 dark:text-[#666666] break-all">{identifier}</p>
           </div>
 

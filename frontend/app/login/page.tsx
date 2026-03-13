@@ -93,6 +93,7 @@ export default function LoginPage() {
     setStoredSession({
       role: 'management',
       identifier: data.account.loginId,
+      managementRole: data.account.role,
       allowedTabs: data.account.allowedTabs,
       eventId: data.account.eventId,
       eventName: data.account.eventName,
@@ -105,25 +106,25 @@ export default function LoginPage() {
       <div className="mx-auto flex max-w-5xl flex-col gap-6 lg:flex-row">
         <section className="flex-1 rounded-4xl border border-slate-200 bg-linear-to-br from-white via-white to-slate-50 p-8 shadow-[0_20px_70px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:from-slate-900 dark:via-slate-900 dark:to-slate-950 lg:p-10">
           <div className="inline-flex rounded-full border border-lime-300/60 bg-lime-50 px-3 py-1 text-[11px] uppercase tracking-[0.24em] text-lime-700 dark:border-lime-500/20 dark:bg-lime-500/10 dark:text-lime-300">
-            ZeroCrush Access
+            ZeroCrush Roles
           </div>
           <h1 className="mt-6 max-w-xl text-4xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 md:text-5xl">
             Login first, then enter the operations dashboard.
           </h1>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-500 dark:text-slate-400 md:text-base">
-            Use the admin account to access the full dashboard and create management credentials. Use management login for day-to-day operations once credentials have been issued.
+            Use the admin account to manage the venue command view and assign operational roles. Role-based staff logins are used for live venue crowd management once credentials have been issued.
           </p>
 
           <div className="mt-8 grid gap-4 md:grid-cols-2">
             <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 dark:border-slate-800 dark:bg-[#111111]/70">
               <p className="text-xs uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">Admin Access</p>
               <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-100">Full dashboard control</p>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Includes live monitoring, registration, gate entry, CSV upload, and management credential creation.</p>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Includes live monitoring, registration, gate entry, CSV upload, and crowd-management role assignment.</p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 dark:border-slate-800 dark:bg-[#111111]/70">
-              <p className="text-xs uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">Management Access</p>
+              <p className="text-xs uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">Role-Based Access</p>
               <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-100">Operational dashboard access</p>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Uses credentials created by the admin and excludes the access-management tab.</p>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Each account receives a venue role such as safety officer, gate supervisor, or registration lead.</p>
             </div>
           </div>
         </section>
@@ -226,7 +227,7 @@ export default function LoginPage() {
                   />
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500 dark:border-slate-800 dark:bg-[#111111]/60 dark:text-slate-400">
-                  Management credentials are created from the admin dashboard.
+                  Staff credentials and operational roles are assigned from the admin dashboard.
                 </div>
               </>
             )}
@@ -241,7 +242,7 @@ export default function LoginPage() {
               type="submit"
               className="w-full rounded-2xl bg-slate-900 py-3.5 text-sm font-medium text-white transition-colors hover:bg-slate-800 dark:bg-[#111111] dark:text-slate-100 dark:hover:bg-[#151515]"
             >
-              {role === 'admin' ? 'Enter Admin Dashboard' : 'Enter Management Dashboard'}
+              {role === 'admin' ? 'Enter Admin Dashboard' : 'Enter Role Dashboard'}
             </button>
           </form>
         </section>
