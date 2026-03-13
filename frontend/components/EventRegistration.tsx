@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 
 interface EventForm {
   type: string;
@@ -33,6 +33,15 @@ export default function EventRegistration() {
   const [result, setResult] = useState<SubmitResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('zerocrush.event.result');
+      if (stored) setResult(JSON.parse(stored));
+    } catch {
+      // ignore
+    }
+  }, []);
 
   const parseCSVPreview = (text: string): UserRow[] => {
     const lines = text.split(/\r?\n/).filter(Boolean);
@@ -89,8 +98,12 @@ export default function EventRegistration() {
     try {
       const res = await fetch("/api/events/register", { method: "POST", body: fd });
       const data = await res.json();
-      if (!res.ok) setError(data.error || "Submission failed.");
-      else setResult(data);
+      if (!res.ok) {
+        setError(data.error || "Submission failed.");
+      } else {
+        setResult(data);
+        try { localStorage.setItem('zerocrush.event.result', JSON.stringify(data)); } catch { /* ignore */ }
+      }
     } catch {
       setError("Network error. Please try again.");
     } finally {
@@ -102,6 +115,7 @@ export default function EventRegistration() {
     setStep(1); setEventForm({ type: "", plate: "", description: "" });
     setFile(null); setPreview([]); setManualRows([{ name: "", email: "" }]); setResult(null); setError(null);
     if (inputRef.current) inputRef.current.value = "";
+    try { localStorage.removeItem('zerocrush.event.result'); } catch { /* ignore */ }
   };
 
   const updateManualRow = (index: number, key: keyof UserRow, value: string) => {
