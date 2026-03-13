@@ -1,25 +1,32 @@
 import { motion } from 'framer-motion';
-import { Activity, Users, ScanLine, LayoutDashboard, Moon, Sun } from 'lucide-react';
+import { Activity, Users, ScanLine, LayoutDashboard, Moon, Sun, KeyRound, LogOut } from 'lucide-react';
 import { clsx } from 'clsx';
+import type { DashboardTab, UserRole } from '@/lib/auth';
 
-type Tab = 'live' | 'registration' | 'gate' | 'upload';
 type Theme = 'light' | 'dark';
 
 interface SidebarProps {
-  activeTab: Tab;
-  onTabChange: (tab: Tab) => void;
+  activeTab: DashboardTab;
+  onTabChange: (tab: DashboardTab) => void;
   theme: Theme;
+  role: UserRole;
+  identifier: string;
   onToggleTheme: () => void;
+  onLogout: () => void;
 }
 
-const tabs: { id: Tab; label: string; icon: typeof Activity }[] = [
+const baseTabs: { id: DashboardTab; label: string; icon: typeof Activity }[] = [
   { id: 'live', label: 'Live Monitoring', icon: Activity },
   { id: 'registration', label: 'Registration', icon: Users },
   { id: 'gate', label: 'Gate Entry', icon: ScanLine },
   { id: 'upload', label: 'CSV Upload', icon: LayoutDashboard },
 ];
 
-export default function Sidebar({ activeTab, onTabChange, theme, onToggleTheme }: SidebarProps) {
+export default function Sidebar({ activeTab, onTabChange, theme, role, identifier, onToggleTheme, onLogout }: SidebarProps) {
+  const tabs = role === 'admin'
+    ? [...baseTabs, { id: 'access' as DashboardTab, label: 'Access Control', icon: KeyRound }]
+    : baseTabs;
+
   return (
     <aside className="w-64 border-r border-slate-200 bg-white/90 dark:border-[#1e1e1e] dark:bg-[#0a0a0a] flex flex-col transition-colors">
       <div className="p-6 border-b border-slate-200 dark:border-[#1e1e1e]">
@@ -31,6 +38,14 @@ export default function Sidebar({ activeTab, onTabChange, theme, onToggleTheme }
             <h1 className="app-heading font-bold text-sm tracking-tight">COMMAND CENTER</h1>
             <p className="app-muted text-xs">Event Operations</p>
           </div>
+        </div>
+      </div>
+
+      <div className="px-4 pt-4">
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-[#1e1e1e] dark:bg-[#111111] transition-colors">
+          <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400 dark:text-[#555555]">Signed In</p>
+          <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{role === 'admin' ? 'Admin' : 'Management'}</p>
+          <p className="mt-1 text-xs text-slate-500 dark:text-[#666666] break-all">{identifier}</p>
         </div>
       </div>
 
@@ -74,6 +89,13 @@ export default function Sidebar({ activeTab, onTabChange, theme, onToggleTheme }
             <span className="text-lime-600 dark:text-[#c8f04a] text-xs font-mono">ALL SYSTEMS ONLINE</span>
           </div>
         </div>
+        <button
+          onClick={onLogout}
+          className="w-full flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors dark:border-[#2a2a2a] dark:bg-[#111111] dark:text-[#bbbbbb] dark:hover:bg-[#151515]"
+        >
+          <LogOut className="w-4 h-4" />
+          Logout
+        </button>
       </div>
     </aside>
   );
