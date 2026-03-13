@@ -77,12 +77,25 @@ export async function POST(req: NextRequest) {
 
     const file = formData.get("file");
     const manualEntriesRaw = formData.get("manualEntries")?.toString() ?? "[]";
-    const eventType = formData.get("eventType")?.toString().trim();
-    const plate = formData.get("plate")?.toString().trim() || null;
-    const description = formData.get("description")?.toString().trim() || null;
+    const eventId = Number(formData.get("eventId")?.toString());
 
-    if (!eventType) {
-      return NextResponse.json({ error: "eventType is required." }, { status: 400 });
+    if (!Number.isFinite(eventId) || eventId <= 0) {
+      return NextResponse.json({ error: "eventId is required." }, { status: 400 });
+    }
+
+    const selectedEvent = await prisma.event.findUnique({
+      where: { id: eventId },
+      select: {
+        id: true,
+        type: true,
+        plate: true,
+        description: true,
+        userId: true,
+      },
+    });
+
+    if (!selectedEvent || selectedEvent.userId !== null) {
+      return NextResponse.json({ error: "Selected event not found." }, { status: 404 });
     }
 
     const parseErrors: string[] = [];
@@ -136,14 +149,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const event = await prisma.event.create({
-      data: {
-        type: eventType,
-        plate: plate ?? undefined,
-        description: description ?? undefined,
-      },
-    });
-
     let usersAdded = 0;
     const dbErrors: string[] = [];
 
@@ -159,9 +164,9 @@ export async function POST(req: NextRequest) {
 
         await prisma.event.create({
           data: {
-            type: eventType,
-            plate: plate ?? undefined,
-            description: description ?? undefined,
+            type: selectedEvent.type,
+            plate: selectedEvent.plate ?? undefined,
+            description: selectedEvent.description ?? undefined,
             userId: user.id,
             verificationCode,
           },
@@ -170,8 +175,8 @@ export async function POST(req: NextRequest) {
         sendVerificationEmail({
           to: email,
           name: name || email,
-          eventType,
-          eventDescription: description,
+          eventType: selectedEvent.type,
+          eventDescription: selectedEvent.description,
           code: verificationCode,
         }).catch((mailErr) => {
           console.error(`[events/register] mail failed for ${email}:`, mailErr);
@@ -184,7 +189,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const result = { eventId: event.id, usersAdded };
+    const result = { eventId: selectedEvent.id, usersAdded };
 
     const allErrors = [...parseErrors, ...dbErrors];
 

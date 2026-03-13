@@ -16,13 +16,17 @@ export interface AppSession {
   role: UserRole;
   identifier: string;
   allowedTabs?: ManagementTab[];
+  eventId?: number;
+  eventName?: string;
 }
 
 export interface ManagementAccount {
-  id: string;
+  id: number;
+  loginId: string;
   password: string;
   createdAt: string;
   allowedTabs: ManagementTab[];
+  eventId: number;
 }
 
 export const ADMIN_CREDENTIALS = {
@@ -31,7 +35,6 @@ export const ADMIN_CREDENTIALS = {
 } as const;
 
 const SESSION_KEY = 'zerocrush.session';
-const MANAGEMENT_ACCOUNTS_KEY = 'zerocrush.management.accounts';
 
 function isBrowser() {
   return typeof window !== 'undefined';
@@ -45,15 +48,6 @@ function normalizeAllowedTabs(tabs?: string[] | null): ManagementTab[] {
   const unique = Array.from(new Set(tabs)).filter((tab): tab is ManagementTab => valid.has(tab as ManagementTab));
 
   return unique.length > 0 ? unique : fallback;
-}
-
-function normalizeAccount(account: Partial<ManagementAccount> & Pick<ManagementAccount, 'id' | 'password' | 'createdAt'>): ManagementAccount {
-  return {
-    id: account.id,
-    password: account.password,
-    createdAt: account.createdAt,
-    allowedTabs: normalizeAllowedTabs(account.allowedTabs),
-  };
 }
 
 export function authenticateAdmin(email: string, password: string) {
@@ -84,82 +78,6 @@ export function clearStoredSession() {
   window.localStorage.removeItem(SESSION_KEY);
 }
 
-export function getManagementAccounts() {
-  if (!isBrowser()) return [] as ManagementAccount[];
-
-  const raw = window.localStorage.getItem(MANAGEMENT_ACCOUNTS_KEY);
-  if (!raw) return [];
-
-  try {
-    const parsed = JSON.parse(raw) as Array<Partial<ManagementAccount> & Pick<ManagementAccount, 'id' | 'password' | 'createdAt'>>;
-    const normalized = parsed.map((account) => normalizeAccount(account));
-    window.localStorage.setItem(MANAGEMENT_ACCOUNTS_KEY, JSON.stringify(normalized));
-    return normalized;
-  } catch {
-    window.localStorage.removeItem(MANAGEMENT_ACCOUNTS_KEY);
-    return [];
-  }
-}
-
-export function authenticateManagement(id: string, password: string) {
-  return getManagementAccounts().find((account) => account.id === id && account.password === password) ?? null;
-}
-
-export function createManagementAccount(id: string, password: string, allowedTabs: ManagementTab[]) {
-  const normalizedId = id.trim();
-  const normalizedPassword = password.trim();
-  const normalizedAllowedTabs = normalizeAllowedTabs(allowedTabs);
-
-  if (!normalizedId || !normalizedPassword) {
-    return { ok: false as const, error: 'ID and password are required.' };
-  }
-
-  if (normalizedAllowedTabs.length === 0) {
-    return { ok: false as const, error: 'Select at least one dashboard tab.' };
-  }
-
-  const accounts = getManagementAccounts();
-  if (accounts.some((account) => account.id.toLowerCase() === normalizedId.toLowerCase())) {
-    return { ok: false as const, error: 'That management ID already exists.' };
-  }
-
-  const nextAccount: ManagementAccount = {
-    id: normalizedId,
-    password: normalizedPassword,
-    createdAt: new Date().toISOString(),
-    allowedTabs: normalizedAllowedTabs,
-  };
-
-  if (isBrowser()) {
-    window.localStorage.setItem(MANAGEMENT_ACCOUNTS_KEY, JSON.stringify([nextAccount, ...accounts]));
-  }
-
-  return { ok: true as const, account: nextAccount };
-}
-
-export function updateManagementAccountAccess(id: string, allowedTabs: ManagementTab[]) {
-  const normalizedAllowedTabs = normalizeAllowedTabs(allowedTabs);
-
-  if (normalizedAllowedTabs.length === 0) {
-    return { ok: false as const, error: 'Select at least one dashboard tab.' };
-  }
-
-  const accounts = getManagementAccounts();
-  const index = accounts.findIndex((account) => account.id === id);
-
-  if (index === -1) {
-    return { ok: false as const, error: 'Management account not found.' };
-  }
-
-  const updated = [...accounts];
-  updated[index] = {
-    ...updated[index],
-    allowedTabs: normalizedAllowedTabs,
-  };
-
-  if (isBrowser()) {
-    window.localStorage.setItem(MANAGEMENT_ACCOUNTS_KEY, JSON.stringify(updated));
-  }
-
-  return { ok: true as const, account: updated[index] };
+export function normalizeManagementTabs(tabs?: string[] | null): ManagementTab[] {
+  return normalizeAllowedTabs(tabs);
 }

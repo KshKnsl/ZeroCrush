@@ -12,11 +12,22 @@ import { clearStoredSession, DEFAULT_MANAGEMENT_TABS, getStoredSession, type App
 
 type Theme = 'light' | 'dark';
 
+interface EventOption {
+  id: number;
+  type: string;
+  plate: string | null;
+  description: string | null;
+  timestamp: string;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<DashboardTab>('live');
   const [theme, setTheme] = useState<Theme>('dark');
   const [session, setSession] = useState<AppSession | null>(null);
+  const [events, setEvents] = useState<EventOption[]>([]);
+  const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
+  const [createEventLoading, setCreateEventLoading] = useState(false);
   const [isReady, setIsReady] = useState(false);
 
   const managementTabs: ManagementTab[] = session?.role === 'management'
@@ -47,6 +58,36 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!session) return;
 
+    const loadEvents = async () => {
+      try {
+        const response = await fetch('/api/events', { cache: 'no-store' });
+        const data = await response.json();
+        if (!response.ok) return;
+
+        const loadedEvents = (data.events ?? []) as EventOption[];
+        setEvents(loadedEvents);
+
+        if (session.role === 'management') {
+          if (session.eventId) {
+            setSelectedEventId(session.eventId);
+          }
+          return;
+        }
+
+        if (loadedEvents.length > 0) {
+          setSelectedEventId((prev) => prev ?? loadedEvents[0].id);
+        }
+      } catch {
+        // ignore fetch failure and keep current UI state
+      }
+    };
+
+    loadEvents();
+  }, [session]);
+
+  useEffect(() => {
+    if (!session) return;
+
     if (session.role === 'admin') {
       return;
     }
@@ -69,6 +110,29 @@ export default function DashboardPage() {
     router.push('/login');
   };
 
+  const handleCreateEvent = async (payload: { type: string; plate: string; description: string }) => {
+    setCreateEventLoading(true);
+    try {
+      const response = await fetch('/api/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Could not create event.');
+      }
+
+      const event = data.event as EventOption;
+      setEvents((prev) => [event, ...prev]);
+      setSelectedEventId(event.id);
+    } finally {
+      setCreateEventLoading(false);
+    }
+  };
+
+  const selectedEvent = events.find((event) => event.id === selectedEventId) ?? null;
+
   return (
     <div className="h-screen flex bg-slate-100 text-slate-900 dark:bg-[#0a0a0a] dark:text-white transition-colors overflow-hidden">
       <Sidebar
@@ -78,15 +142,31 @@ export default function DashboardPage() {
         role={session.role}
         identifier={session.identifier}
         availableTabs={managementTabs}
+        selectedEventId={selectedEventId}
+        events={events.map(({ id, type, plate }) => ({ id, type, plate }))}
+        createEventLoading={createEventLoading}
+        onEventChange={(eventId) => {
+          if (session.role === 'management') return;
+          setSelectedEventId(eventId);
+        }}
+        onCreateEvent={handleCreateEvent}
         onToggleTheme={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
         onLogout={handleLogout}
       />
       <main className="flex-1 overflow-auto p-6">
-        {activeTab === 'live' && <LiveMonitoring />}
-        {activeTab === 'registration' && <RegistrationManagement />}
-        {activeTab === 'gate' && <GateEntry />}
-        {activeTab === 'upload' && <EventRegistration />}
-        {activeTab === 'access' && session.role === 'admin' && <ManagementAccess />}
+        {selectedEvent ? (
+          <>
+            {activeTab === 'live' && <LiveMonitoring />}
+            {activeTab === 'registration' && <RegistrationManagement />}
+            {activeTab === 'gate' && <GateEntry />}
+            {activeTab === 'upload' && <EventRegistration eventId={selectedEvent.id} eventName={selectedEvent.type} />}
+            {activeTab === 'access' && session.role === 'admin' && <ManagementAccess eventId={selectedEvent.id} eventName={selectedEvent.type} />}
+          </>
+        ) : (
+          <div className="rounded-2xl border border-slate-200 bg-white p-8 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
+            No event selected. Create an event from the sidebar to continue.
+          </div>
+        )}
       </main>
     </div>
   );

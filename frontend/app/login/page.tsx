@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ADMIN_CREDENTIALS, authenticateAdmin, authenticateManagement, getStoredSession, setStoredSession, type UserRole } from '@/lib/auth';
+import { ADMIN_CREDENTIALS, authenticateAdmin, getStoredSession, setStoredSession, type UserRole } from '@/lib/auth';
 
 type Theme = 'light' | 'dark';
 
@@ -13,6 +13,8 @@ export default function LoginPage() {
   const [adminPassword, setAdminPassword] = useState<string>(ADMIN_CREDENTIALS.password);
   const [managementId, setManagementId] = useState('');
   const [managementPassword, setManagementPassword] = useState('');
+  const [events, setEvents] = useState<Array<{ id: number; type: string; plate: string | null }>>([]);
+  const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const [error, setError] = useState('');
   const [theme, setTheme] = useState<Theme>('dark');
 
@@ -27,6 +29,23 @@ export default function LoginPage() {
     const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     const nextTheme = storedTheme ?? (systemDark ? 'dark' : 'light');
     setTheme(nextTheme);
+
+    const loadEvents = async () => {
+      try {
+        const response = await fetch('/api/events', { cache: 'no-store' });
+        const data = await response.json();
+        if (!response.ok) return;
+        const nextEvents = (data.events ?? []) as Array<{ id: number; type: string; plate: string | null }>;
+        setEvents(nextEvents);
+        if (nextEvents.length > 0) {
+          setSelectedEventId(nextEvents[0].id);
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    loadEvents();
   }, [router]);
 
   useEffect(() => {
@@ -34,7 +53,7 @@ export default function LoginPage() {
     window.localStorage.setItem('theme', theme);
   }, [theme]);
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError('');
 
@@ -49,13 +68,35 @@ export default function LoginPage() {
       return;
     }
 
-    const account = authenticateManagement(managementId.trim(), managementPassword.trim());
-    if (!account) {
-      setError('Invalid management ID or password.');
+    if (!selectedEventId) {
+      setError('Select an event first.');
       return;
     }
 
-    setStoredSession({ role: 'management', identifier: account.id, allowedTabs: account.allowedTabs });
+    const response = await fetch('/api/auth/management', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        eventId: selectedEventId,
+        loginId: managementId.trim(),
+        password: managementPassword.trim(),
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      setError(data.error || 'Invalid management ID or password.');
+      return;
+    }
+
+    setStoredSession({
+      role: 'management',
+      identifier: data.account.loginId,
+      allowedTabs: data.account.allowedTabs,
+      eventId: data.account.eventId,
+      eventName: data.account.eventName,
+    });
     router.push('/dashboard');
   };
 
@@ -149,6 +190,21 @@ export default function LoginPage() {
               </>
             ) : (
               <>
+                <div>
+                  <label className="mb-2 block text-xs font-medium uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">Event</label>
+                  <select
+                    value={selectedEventId ?? ''}
+                    onChange={(event) => setSelectedEventId(Number(event.target.value))}
+                    className="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3.5 text-sm text-slate-900 focus:border-lime-500 focus:outline-none focus:ring-2 focus:ring-lime-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                  >
+                    {events.length === 0 ? <option value="">No events available</option> : null}
+                    {events.map((event) => (
+                      <option key={event.id} value={event.id}>
+                        {event.type}{event.plate ? ` · ${event.plate}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <div>
                   <label className="mb-2 block text-xs font-medium uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">Management ID</label>
                   <input

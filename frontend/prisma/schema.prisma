@@ -27,6 +27,19 @@ model Event {
   userId    Int?
   user      User?    @relation(fields: [userId], references: [id])
   eventAttendees EventAttendee[]
+  managementAccounts ManagementAccount[]
+}
+
+model ManagementAccount {
+  id          Int      @id @default(autoincrement())
+  loginId     String
+  password    String
+  allowedTabs String[]
+  createdAt   DateTime @default(now())
+  eventId     Int
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, loginId])
 }
 model EventAttendee {
   eventId Int

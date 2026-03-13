@@ -3,16 +3,18 @@
 import { useEffect, useState } from 'react';
 import { KeyRound, ShieldCheck, UserRoundPlus } from 'lucide-react';
 import {
-  createManagementAccount,
   DEFAULT_MANAGEMENT_TABS,
-  getManagementAccounts,
   MANAGEMENT_TAB_OPTIONS,
-  updateManagementAccountAccess,
   type ManagementAccount,
   type ManagementTab,
 } from '@/lib/auth';
 
-export default function ManagementAccess() {
+interface ManagementAccessProps {
+  eventId: number;
+  eventName: string;
+}
+
+export default function ManagementAccess({ eventId, eventName }: ManagementAccessProps) {
   const [accounts, setAccounts] = useState<ManagementAccount[]>([]);
   const [managementId, setManagementId] = useState('manager-01');
   const [password, setPassword] = useState('manage123');
@@ -21,14 +23,21 @@ export default function ManagementAccess() {
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   useEffect(() => {
-    const existingAccounts = getManagementAccounts();
-    setAccounts(existingAccounts);
-    setEditTabs(
-      Object.fromEntries(
-        existingAccounts.map((account) => [account.id, account.allowedTabs])
-      )
-    );
-  }, []);
+    const loadAccounts = async () => {
+      const response = await fetch(`/api/management?eventId=${eventId}`, { cache: 'no-store' });
+      const data = await response.json();
+      if (!response.ok) {
+        setFeedback({ type: 'error', message: data.error || 'Could not load management accounts.' });
+        return;
+      }
+
+      const existingAccounts = (data.accounts ?? []) as ManagementAccount[];
+      setAccounts(existingAccounts);
+      setEditTabs(Object.fromEntries(existingAccounts.map((account) => [String(account.id), account.allowedTabs])));
+    };
+
+    loadAccounts();
+  }, [eventId]);
 
   const toggleTab = (tabs: ManagementTab[], tab: ManagementTab) => {
     if (tabs.includes(tab)) {
@@ -38,37 +47,61 @@ export default function ManagementAccess() {
   };
 
   const refreshAccounts = () => {
-    const nextAccounts = getManagementAccounts();
-    setAccounts(nextAccounts);
-    setEditTabs(Object.fromEntries(nextAccounts.map((account) => [account.id, account.allowedTabs])));
+    void (async () => {
+      const response = await fetch(`/api/management?eventId=${eventId}`, { cache: 'no-store' });
+      const data = await response.json();
+      if (!response.ok) {
+        setFeedback({ type: 'error', message: data.error || 'Could not refresh management accounts.' });
+        return;
+      }
+
+      const nextAccounts = (data.accounts ?? []) as ManagementAccount[];
+      setAccounts(nextAccounts);
+      setEditTabs(Object.fromEntries(nextAccounts.map((account) => [String(account.id), account.allowedTabs])));
+    })();
   };
 
-  const handleCreate = () => {
-    const result = createManagementAccount(managementId, password, newAccountTabs);
+  const handleCreate = async () => {
+    const response = await fetch('/api/management', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        eventId,
+        loginId: managementId,
+        password,
+        allowedTabs: newAccountTabs,
+      }),
+    });
+    const data = await response.json();
 
-    if (!result.ok) {
-      setFeedback({ type: 'error', message: result.error });
+    if (!response.ok) {
+      setFeedback({ type: 'error', message: data.error || 'Could not create account.' });
       return;
     }
 
     refreshAccounts();
-    setFeedback({ type: 'success', message: `Management account ${result.account.id} created.` });
-    setManagementId(`manager-${String(getManagementAccounts().length + 1).padStart(2, '0')}`);
+    setFeedback({ type: 'success', message: `Management account ${data.account.loginId} created.` });
+    setManagementId(`manager-${String(accounts.length + 2).padStart(2, '0')}`);
     setPassword('manage123');
     setNewAccountTabs(DEFAULT_MANAGEMENT_TABS);
   };
 
-  const handleSaveAccess = (accountId: string) => {
-    const currentTabs = editTabs[accountId] ?? [];
-    const result = updateManagementAccountAccess(accountId, currentTabs);
+  const handleSaveAccess = async (accountId: number) => {
+    const currentTabs = editTabs[String(accountId)] ?? [];
+    const response = await fetch(`/api/management/${accountId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ allowedTabs: currentTabs }),
+    });
+    const data = await response.json();
 
-    if (!result.ok) {
-      setFeedback({ type: 'error', message: result.error });
+    if (!response.ok) {
+      setFeedback({ type: 'error', message: data.error || 'Could not update access.' });
       return;
     }
 
     refreshAccounts();
-    setFeedback({ type: 'success', message: `Updated tab access for ${accountId}.` });
+    setFeedback({ type: 'success', message: `Updated tab access for ${data.account.loginId}.` });
   };
 
   return (
@@ -76,7 +109,7 @@ export default function ManagementAccess() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-slate-900 dark:text-white font-bold text-xl">Access Management</h2>
-          <p className="text-slate-500 dark:text-slate-400 text-sm">Create login IDs and passwords for management users.</p>
+          <p className="text-slate-500 dark:text-slate-400 text-sm">Create login IDs and passwords for management users in {eventName}.</p>
         </div>
         <div className="rounded-full border border-lime-300/60 bg-lime-50 px-4 py-2 text-xs font-medium uppercase tracking-[0.22em] text-lime-700 dark:border-lime-500/20 dark:bg-lime-500/10 dark:text-lime-300">
           Admin Only
@@ -172,7 +205,7 @@ export default function ManagementAccess() {
                 <div key={account.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 dark:border-slate-800 dark:bg-slate-950/60">
                   <div className="flex items-center justify-between gap-4">
                     <div>
-                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{account.id}</p>
+                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{account.loginId}</p>
                       <p className="text-xs text-slate-500 dark:text-slate-400">Created {new Date(account.createdAt).toLocaleString()}</p>
                     </div>
                     <div className="text-right">
@@ -185,7 +218,7 @@ export default function ManagementAccess() {
                     <p className="mb-2 text-[11px] uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">Tab Access</p>
                     <div className="grid grid-cols-2 gap-2">
                       {MANAGEMENT_TAB_OPTIONS.map((tab) => {
-                        const selectedTabs = editTabs[account.id] ?? account.allowedTabs;
+                        const selectedTabs = editTabs[String(account.id)] ?? account.allowedTabs;
                         const checked = selectedTabs.includes(tab.id);
 
                         return (
@@ -194,10 +227,10 @@ export default function ManagementAccess() {
                             type="button"
                             onClick={() => {
                               setEditTabs((prev) => {
-                                const current = prev[account.id] ?? account.allowedTabs;
+                                const current = prev[String(account.id)] ?? account.allowedTabs;
                                 return {
                                   ...prev,
-                                  [account.id]: toggleTab(current, tab.id),
+                                  [String(account.id)]: toggleTab(current, tab.id),
                                 };
                               });
                             }}
@@ -210,7 +243,7 @@ export default function ManagementAccess() {
                     </div>
                     <button
                       type="button"
-                      onClick={() => handleSaveAccess(account.id)}
+                      onClick={() => void handleSaveAccess(account.id)}
                       className="mt-3 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition-colors hover:border-lime-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
                     >
                       Save Access
