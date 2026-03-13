@@ -2,12 +2,13 @@ export type UserRole = 'admin' | 'management';
 
 export type DashboardTab = 'live' | 'registration' | 'gate' | 'upload' | 'access';
 export type ManagementTab = Exclude<DashboardTab, 'access'>;
+const GATE_ASSIGNMENT_PREFIX = 'gate:';
 
 export const MANAGEMENT_TAB_OPTIONS = [
   { id: 'live', label: 'Live Monitoring' },
   { id: 'registration', label: 'Registration' },
   { id: 'gate', label: 'Gate Entry' },
-  { id: 'upload', label: 'CSV Upload' },
+  { id: 'upload', label: 'Token Issuer' },
 ] as const satisfies ReadonlyArray<{ id: ManagementTab; label: string }>;
 
 export const DEFAULT_MANAGEMENT_TABS: ManagementTab[] = [...MANAGEMENT_TAB_OPTIONS.map((tab) => tab.id)];
@@ -29,14 +30,14 @@ export const VENUE_ROLE_OPTIONS = [
   },
   {
     id: 'registration_lead',
-    label: 'Registration Lead',
-    description: 'Handles attendee check-in quality, queue balancing, and desk staffing.',
-    responsibilities: 'Runs registration desks and resolves attendee intake issues.',
+    label: 'Token Center Operator',
+    description: 'Handles token issuance from Google Form CSV sync and walk-in counter requests.',
+    responsibilities: 'Runs the token counter and resolves attendee token issuance issues.',
     tabs: ['registration', 'upload'],
   },
   {
     id: 'gate_supervisor',
-    label: 'Gate Supervisor',
+    label: 'Security Guard',
     description: 'Controls entry throughput, lane utilization, and gate-side escalations.',
     responsibilities: 'Manages gate teams and keeps ingress moving safely.',
     tabs: ['gate', 'live'],
@@ -44,8 +45,8 @@ export const VENUE_ROLE_OPTIONS = [
   {
     id: 'data_coordinator',
     label: 'Data Coordinator',
-    description: 'Maintains attendee manifests, uploads, and registration data accuracy.',
-    responsibilities: 'Owns roster imports, reconciliation, and registration data fixes.',
+    description: 'Maintains token manifests, Google Form CSV sync imports, and data accuracy.',
+    responsibilities: 'Owns CSV sync reconciliation and token issuance data fixes.',
     tabs: ['upload', 'registration'],
   },
   {
@@ -73,6 +74,7 @@ export interface AppSession {
   allowedTabs?: ManagementTab[];
   eventId?: number;
   eventName?: string;
+  gateNumber?: number | null;
 }
 
 export interface ManagementAccount {
@@ -82,6 +84,8 @@ export interface ManagementAccount {
   createdAt: string;
   role: VenueRole;
   eventId: number;
+  gateNumber?: number | null;
+  allowedTabs?: string[];
 }
 
 export const ADMIN_CREDENTIALS = {
@@ -158,4 +162,21 @@ export function clearStoredSession() {
 
 export function normalizeManagementTabs(tabs?: string[] | null): ManagementTab[] {
   return normalizeAllowedTabs(tabs);
+}
+
+export function parseGateNumberFromAllowedTabs(tabs?: string[] | null): number | null {
+  if (!tabs || tabs.length === 0) return null;
+  const marker = tabs.find((tab) => tab.toLowerCase().startsWith(GATE_ASSIGNMENT_PREFIX));
+  if (!marker) return null;
+  const value = Number(marker.slice(GATE_ASSIGNMENT_PREFIX.length));
+  if (!Number.isFinite(value) || value <= 0) return null;
+  return Math.trunc(value);
+}
+
+export function withGateAssignment(tabs: string[] | null | undefined, gateNumber?: number | null): string[] {
+  const cleaned = (tabs ?? []).filter((tab) => !tab.toLowerCase().startsWith(GATE_ASSIGNMENT_PREFIX));
+  if (typeof gateNumber !== 'number' || !Number.isFinite(gateNumber) || gateNumber <= 0) {
+    return cleaned;
+  }
+  return [...cleaned, `${GATE_ASSIGNMENT_PREFIX}${Math.trunc(gateNumber)}`];
 }

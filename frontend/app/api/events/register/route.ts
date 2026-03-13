@@ -150,7 +150,9 @@ export async function POST(req: NextRequest) {
     }
 
     let usersAdded = 0;
+    let emailsSent = 0;
     const dbErrors: string[] = [];
+    const mailErrors: string[] = [];
 
     for (const { name, email } of dedupedUsers) {
       try {
@@ -172,31 +174,34 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        sendVerificationEmail({
-          to: email,
-          name: name || email,
-          eventType: selectedEvent.type,
-          eventDescription: selectedEvent.description,
-          code: verificationCode,
-        }).catch((mailErr) => {
-          console.error(`[events/register] mail failed for ${email}:`, mailErr);
-        });
-
         usersAdded++;
+
+        try {
+          await sendVerificationEmail({
+            to: email,
+            name: name || email,
+            eventType: selectedEvent.type,
+            eventDescription: selectedEvent.description,
+            code: verificationCode,
+          });
+          emailsSent++;
+        } catch (mailErr) {
+          console.error(`[events/register] mail failed for ${email}:`, mailErr);
+          mailErrors.push(`${email}: email could not be delivered`);
+        }
       } catch (rowErr) {
         console.error(`[events/register] skipping ${email}:`, rowErr);
         dbErrors.push(`${email}: could not be saved`);
       }
     }
 
-    const result = { eventId: selectedEvent.id, usersAdded };
-
-    const allErrors = [...parseErrors, ...dbErrors];
+    const allErrors = [...parseErrors, ...dbErrors, ...mailErrors];
 
     return NextResponse.json({
       success: true,
-      eventId: result.eventId,
-      usersAdded: result.usersAdded,
+      eventId: selectedEvent.id,
+      usersAdded,
+      emailsSent,
       ...(allErrors.length > 0 && { errors: allErrors }),
     });
   } catch (err) {

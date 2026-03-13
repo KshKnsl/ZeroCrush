@@ -46,7 +46,7 @@ const baseTabs: { id: DashboardTab; label: string; icon: typeof Activity }[] = [
   { id: 'live', label: 'Live Monitoring', icon: Activity },
   { id: 'registration', label: 'Registration', icon: Users },
   { id: 'gate', label: 'Gate Entry', icon: ScanLine },
-  { id: 'upload', label: 'CSV Upload', icon: LayoutDashboard },
+  { id: 'upload', label: 'Token Issuer', icon: LayoutDashboard },
 ];
 
 export default function Sidebar({

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
-import { normalizeVenueRole } from '@/lib/auth';
+import { normalizeVenueRole, parseGateNumberFromAllowedTabs, withGateAssignment } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
@@ -18,12 +18,18 @@ export async function GET(request: NextRequest) {
         loginId: true,
         password: true,
         role: true,
+        allowedTabs: true,
         createdAt: true,
         eventId: true,
       },
     });
 
-    return NextResponse.json({ accounts });
+    return NextResponse.json({
+      accounts: accounts.map((account) => ({
+        ...account,
+        gateNumber: parseGateNumberFromAllowedTabs(account.allowedTabs),
+      })),
+    });
   } catch (error) {
     console.error('[api/management][GET]', error);
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2021') {
@@ -43,6 +49,10 @@ export async function POST(request: NextRequest) {
     const loginId = body.loginId?.toString().trim();
     const password = body.password?.toString().trim();
     const role = normalizeVenueRole(body.role);
+    const rawGateNumber = body.gateNumber;
+    const gateNumber = rawGateNumber === null || rawGateNumber === undefined || rawGateNumber === ''
+      ? null
+      : Number(rawGateNumber);
 
     if (!Number.isFinite(eventId) || eventId <= 0) {
       return NextResponse.json({ error: 'Valid eventId is required.' }, { status: 400 });
@@ -50,6 +60,10 @@ export async function POST(request: NextRequest) {
 
     if (!loginId || !password) {
       return NextResponse.json({ error: 'Management ID and password are required.' }, { status: 400 });
+    }
+
+    if (gateNumber !== null && (!Number.isFinite(gateNumber) || gateNumber <= 0)) {
+      return NextResponse.json({ error: 'gateNumber must be a positive number.' }, { status: 400 });
     }
 
     const event = await prisma.event.findUnique({ where: { id: eventId }, select: { id: true } });
@@ -72,18 +86,26 @@ export async function POST(request: NextRequest) {
         loginId,
         password,
         role,
+        allowedTabs: withGateAssignment([], gateNumber),
       },
       select: {
         id: true,
         loginId: true,
         password: true,
         role: true,
+        allowedTabs: true,
         createdAt: true,
         eventId: true,
       },
     });
 
-    return NextResponse.json({ success: true, account }, { status: 201 });
+    return NextResponse.json({
+      success: true,
+      account: {
+        ...account,
+        gateNumber: parseGateNumberFromAllowedTabs(account.allowedTabs),
+      },
+    }, { status: 201 });
   } catch (error) {
     console.error('[api/management][POST]', error);
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2021') {

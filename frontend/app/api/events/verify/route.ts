@@ -12,12 +12,20 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const email = body.email?.toString().trim().toLowerCase();
     const code  = body.code?.toString().trim().toUpperCase();
+    const rawGateNumber = body.gateNumber;
+    const gateNumber = rawGateNumber === undefined || rawGateNumber === null || rawGateNumber === ''
+      ? null
+      : Number(rawGateNumber);
 
     if (!email || !code) {
       return NextResponse.json(
         { error: "email and code are required." },
         { status: 400 }
       );
+    }
+
+    if (gateNumber !== null && (!Number.isFinite(gateNumber) || gateNumber <= 0)) {
+      return NextResponse.json({ error: 'gateNumber must be a positive number.' }, { status: 400 });
     }
 
     // Find the user
@@ -86,6 +94,7 @@ export async function POST(req: NextRequest) {
         description: verified.description,
         plate:       verified.plate,
         verifiedAt:  verified.verifiedAt,
+        gateNumber,
       },
     });
   } catch (err) {

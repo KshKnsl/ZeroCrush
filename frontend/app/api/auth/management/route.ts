@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
-import { getTabsForManagementRole } from '@/lib/auth';
+import { getTabsForManagementRole, parseGateNumberFromAllowedTabs } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,6 +21,7 @@ export async function POST(request: NextRequest) {
         loginId: true,
         password: true,
         role: true,
+        allowedTabs: true,
         eventId: true,
         event: {
           select: {
@@ -42,6 +43,7 @@ export async function POST(request: NextRequest) {
         loginId: account.loginId,
         role: account.role,
         allowedTabs: getTabsForManagementRole(account.role),
+        gateNumber: parseGateNumberFromAllowedTabs(account.allowedTabs),
         eventId: account.eventId,
         eventName: account.event.type,
       },

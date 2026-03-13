@@ -156,7 +156,12 @@ export default function DashboardPage() {
           <>
             {activeTab === 'live' && <LiveMonitoring event={selectedEvent} />}
             {activeTab === 'registration' && <RegistrationManagement event={selectedEvent} />}
-            {activeTab === 'gate' && <GateEntry />}
+            {activeTab === 'gate' && (
+              <GateEntry
+                assignedGateNumber={session.role === 'management' ? (session.gateNumber ?? null) : null}
+                guardIdentifier={session.role === 'management' ? session.identifier : null}
+              />
+            )}
             {activeTab === 'upload' && <EventRegistration eventId={selectedEvent.id} eventName={selectedEvent.type} />}
             {activeTab === 'access' && session.role === 'admin' && <ManagementAccess eventId={selectedEvent.id} eventName={selectedEvent.type} />}
           </>

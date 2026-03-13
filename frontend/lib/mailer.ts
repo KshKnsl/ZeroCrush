@@ -41,18 +41,18 @@ export async function sendVerificationEmail({
   await transporter.sendMail({
     from:    `${fromName} <${fromAddress}>`,
     to,
-    subject: `Your entry code for ${eventType}`,
+    subject: `Your QR token for ${eventType}`,
 
     text: `
 Hi ${displayName},
 
 You're registered for: ${eventType}
 ${eventDescription ? `\n${eventDescription}\n` : ""}
-Your entry verification code is:
+Your QR token verification code is:
 
   ${code}
 
-Show this code at the event entrance to be verified.
+Show this QR token at the event entrance to be verified.
 
 See you there!
     `.trim(),
@@ -73,7 +73,7 @@ See you there!
           <!-- Header -->
           <tr>
             <td style="background:linear-gradient(135deg,#0f172a,#1e293b);padding:30px 36px;">
-              <p style="margin:0;color:#cbd5e1;font-size:11px;letter-spacing:2px;text-transform:uppercase;">ZeroCrush Registration</p>
+              <p style="margin:0;color:#cbd5e1;font-size:11px;letter-spacing:2px;text-transform:uppercase;">ZeroCrush Token Issuer</p>
               <h1 style="margin:8px 0 0;color:#f8fafc;font-size:22px;font-weight:700;line-height:1.25;">${eventType}</h1>
               ${eventDescription ? `<p style="margin:10px 0 0;color:#94a3b8;font-size:13px;line-height:1.5;">${eventDescription}</p>` : ""}
             </td>
@@ -83,15 +83,15 @@ See you there!
           <tr>
             <td style="padding:34px 36px;">
               <p style="margin:0 0 24px;color:#475569;font-size:15px;line-height:1.65;">
-                Hi <strong style="color:#0f172a;">${displayName}</strong>, you're confirmed for this event.
-                Present the code below at the entrance to check in.
+                Hi <strong style="color:#0f172a;">${displayName}</strong>, your token is issued for this event.
+                Present the token below at the entrance to check in.
               </p>
 
               <!-- Code + QR block -->
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td align="center" style="background:#f8fafc;border:1.5px dashed #84cc16;border-radius:12px;padding:28px 20px;">
-                    <p style="margin:0 0 16px;color:#64748b;font-size:11px;letter-spacing:2px;text-transform:uppercase;">Your Entry Code</p>
+                    <p style="margin:0 0 16px;color:#64748b;font-size:11px;letter-spacing:2px;text-transform:uppercase;">Your QR Token</p>
                     <img
                       src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${qrData}&bgcolor=f8fafc&color=0f172a&margin=4"
                       alt="QR Code"

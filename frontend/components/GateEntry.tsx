@@ -9,7 +9,14 @@ interface VerifySuccess {
   success: true;
   message: string;
   user: { id: number; name: string | null; email: string };
-  event: { id: number; type: string; description: string | null; plate: string | null; verifiedAt: string };
+  event: {
+    id: number;
+    type: string;
+    description: string | null;
+    plate: string | null;
+    verifiedAt: string;
+    gateNumber?: number | null;
+  };
 }
 
 interface VerifyError {
@@ -37,12 +44,17 @@ function parseQRData(raw: string): { email: string; code: string } | null {
   return { email: parts[0].trim(), code: parts[1].trim().toUpperCase() };
 }
 
-export default function GateEntry() {
+interface GateEntryProps {
+  assignedGateNumber?: number | null;
+  guardIdentifier?: string | null;
+}
+
+export default function GateEntry({ assignedGateNumber = null, guardIdentifier = null }: GateEntryProps) {
   const [scanStatus, setScanStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [manualEmail, setManualEmail] = useState("");
   const [manualCode, setManualCode] = useState("");
   const [manualStatus, setManualStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
-  const [activeGate, setActiveGate] = useState(1);
+  const [activeGate, setActiveGate] = useState(assignedGateNumber ?? 1);
   const [resultData, setResultData] = useState<VerifyResult | null>(null);
   const [manualResult, setManualResult] = useState<VerifyResult | null>(null);
   const [recentCheckIns, setRecentCheckIns] = useState<CheckInEntry[]>([]);
@@ -55,6 +67,7 @@ export default function GateEntry() {
   const [cameraError, setCameraError] = useState<string | null>(null);
 
   const gates = [1, 2, 3, 4];
+  const gateSelectionLocked = assignedGateNumber !== null;
 
   const verify = useCallback(
     async (email: string, code: string, mode: "scan" | "manual") => {
@@ -70,7 +83,7 @@ export default function GateEntry() {
         const res = await fetch("/api/events/verify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, code }),
+          body: JSON.stringify({ email, code, gateNumber: activeGate }),
         });
         const data: VerifyResult = await res.json();
 
@@ -87,7 +100,7 @@ export default function GateEntry() {
             {
               name: data.user.name || data.user.email,
               email: data.user.email,
-              gate: activeGate,
+              gate: data.event.gateNumber ?? activeGate,
               time: data.event.verifiedAt,
               eventType: data.event.type,
             },
@@ -180,6 +193,12 @@ export default function GateEntry() {
 
   useEffect(() => () => stopCamera(), [stopCamera]);
 
+  useEffect(() => {
+    if (typeof assignedGateNumber === "number" && assignedGateNumber > 0) {
+      setActiveGate(assignedGateNumber);
+    }
+  }, [assignedGateNumber]);
+
   const handleManualSubmit = () => {
     const email = manualEmail.trim().toLowerCase();
     const code = manualCode.trim().toUpperCase();
@@ -202,17 +221,18 @@ export default function GateEntry() {
           <p className="app-muted text-sm">Scan QR codes or manually check-in attendees</p>
         </div>
         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-          <span className="app-muted text-xs uppercase">Active Gate:</span>
+          <span className="app-muted text-xs uppercase">{gateSelectionLocked ? 'Assigned Gate:' : 'Active Gate:'}</span>
           <div className="flex flex-wrap gap-1">
             {gates.map((gate) => (
               <button
                 key={gate}
                 onClick={() => setActiveGate(gate)}
+                disabled={gateSelectionLocked}
                 className={`px-3 py-1.5 rounded-lg text-sm font-mono transition-all border ${
                   activeGate === gate
                     ? "bg-lime-500/20 border-lime-500 text-lime-600 dark:text-[#c8f04a]"
                     : "bg-slate-100 border-slate-300 text-slate-600 hover:border-slate-400 dark:bg-[#111111] dark:border-[#2a2a2a] dark:text-[#666666] dark:hover:border-[#444444]"
-                }`}
+                } ${gateSelectionLocked ? 'cursor-not-allowed opacity-70' : ''}`}
               >
                 G{gate}
               </button>
@@ -220,6 +240,12 @@ export default function GateEntry() {
           </div>
         </div>
       </motion.div>
+
+      {gateSelectionLocked ? (
+        <div className="rounded-xl border border-lime-300/60 bg-lime-50 px-4 py-3 text-xs text-lime-800 dark:border-lime-500/30 dark:bg-lime-500/10 dark:text-lime-300">
+          Gate control is locked to <span className="font-semibold">GATE {activeGate}</span>{guardIdentifier ? ` for ${guardIdentifier}` : ''}.
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }} className="app-panel overflow-hidden">

@@ -22,7 +22,9 @@ export default function ManagementAccess({ eventId, eventName }: ManagementAcces
   const [managementId, setManagementId] = useState('manager-01');
   const [password, setPassword] = useState('manage123');
   const [newAccountRole, setNewAccountRole] = useState<VenueRole>(DEFAULT_VENUE_ROLE);
+  const [newAccountGateNumber, setNewAccountGateNumber] = useState(1);
   const [editRoles, setEditRoles] = useState<Record<string, VenueRole>>({});
+  const [editGateNumbers, setEditGateNumbers] = useState<Record<string, number>>({});
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const loadAccounts = async () => {
@@ -43,6 +45,11 @@ export default function ManagementAccess({ eventId, eventName }: ManagementAcces
     const existingAccounts = (data.accounts ?? []) as ManagementAccount[];
     setAccounts(existingAccounts);
     setEditRoles(Object.fromEntries(existingAccounts.map((account) => [String(account.id), account.role])));
+    setEditGateNumbers(
+      Object.fromEntries(
+        existingAccounts.map((account) => [String(account.id), account.gateNumber ?? 1])
+      )
+    );
   };
 
   useEffect(() => {
@@ -68,6 +75,7 @@ export default function ManagementAccess({ eventId, eventName }: ManagementAcces
         loginId: managementId,
         password,
         role: newAccountRole,
+        gateNumber: (getRoleDefinition(newAccountRole).tabs as readonly string[]).includes('gate') ? newAccountGateNumber : null,
       }),
     });
     const data = await response.json();
@@ -82,6 +90,7 @@ export default function ManagementAccess({ eventId, eventName }: ManagementAcces
     setManagementId(`manager-${String(accounts.length + 2).padStart(2, '0')}`);
     setPassword('manage123');
     setNewAccountRole(DEFAULT_VENUE_ROLE);
+    setNewAccountGateNumber(1);
   };
 
   const handleSaveRole = async (accountId: number) => {
@@ -89,7 +98,12 @@ export default function ManagementAccess({ eventId, eventName }: ManagementAcces
     const response = await fetch(`/api/management/${accountId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ role: currentRole }),
+      body: JSON.stringify({
+        role: currentRole,
+        gateNumber: (getRoleDefinition(currentRole).tabs as readonly string[]).includes('gate')
+          ? editGateNumbers[String(accountId)] ?? 1
+          : null,
+      }),
     });
     const data = await response.json();
 
@@ -167,6 +181,26 @@ export default function ManagementAccess({ eventId, eventName }: ManagementAcces
                   );
                 })}
               </div>
+              {(selectedRole.tabs as readonly string[]).includes('gate') ? (
+                <div className="mt-3">
+                  <p className="mb-2 block text-xs font-medium uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">Assigned Gate Number</p>
+                  <Select
+                    value={String(newAccountGateNumber)}
+                    onValueChange={(value) => setNewAccountGateNumber(Number(value))}
+                  >
+                    <SelectTrigger className="w-full rounded-xl border-slate-300 bg-white text-sm text-slate-700 dark:border-slate-700 dark:bg-[#111111] dark:text-slate-200">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[1, 2, 3, 4, 5, 6, 7, 8].map((gate) => (
+                        <SelectItem key={`new-gate-${gate}`} value={String(gate)}>
+                          Gate {gate}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : null}
               <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:border-slate-800 dark:bg-[#111111]/60 dark:text-slate-300">
                 <p className="font-semibold text-slate-900 dark:text-slate-100">{selectedRole.label}</p>
                 <p className="mt-1">{selectedRole.responsibilities}</p>
@@ -243,6 +277,28 @@ export default function ManagementAccess({ eventId, eventName }: ManagementAcces
                         ))}
                       </SelectContent>
                     </Select>
+                    {(getRoleDefinition(editRoles[String(account.id)] ?? account.role).tabs as readonly string[]).includes('gate') ? (
+                      <div className="mt-3">
+                        <p className="mb-2 text-[11px] uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">Assigned Gate Number</p>
+                        <Select
+                          value={String(editGateNumbers[String(account.id)] ?? account.gateNumber ?? 1)}
+                          onValueChange={(value) => {
+                            setEditGateNumbers((prev) => ({ ...prev, [String(account.id)]: Number(value) }));
+                          }}
+                        >
+                          <SelectTrigger className="w-full rounded-xl border-slate-300 bg-white text-sm text-slate-700 dark:border-slate-700 dark:bg-[#111111] dark:text-slate-200">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {[1, 2, 3, 4, 5, 6, 7, 8].map((gate) => (
+                              <SelectItem key={`${account.id}-gate-${gate}`} value={String(gate)}>
+                                Gate {gate}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ) : null}
                     <div className="mt-3 rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-600 dark:border-slate-800 dark:bg-[#111111] dark:text-slate-300">
                       <p className="font-semibold text-slate-900 dark:text-slate-100">{getRoleDefinition(editRoles[String(account.id)] ?? account.role).label}</p>
                       <p className="mt-1">{getRoleDefinition(editRoles[String(account.id)] ?? account.role).responsibilities}</p>

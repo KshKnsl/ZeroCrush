@@ -96,6 +96,7 @@ export default function LoginPage() {
       identifier: data.account.loginId,
       managementRole: data.account.role,
       allowedTabs: data.account.allowedTabs,
+      gateNumber: typeof data.account.gateNumber === 'number' ? data.account.gateNumber : null,
       eventId: data.account.eventId,
       eventName: data.account.eventName,
     });
@@ -120,12 +121,12 @@ export default function LoginPage() {
             <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 dark:border-slate-800 dark:bg-[#111111]/70">
               <p className="text-xs uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">Admin Access</p>
               <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-100">Full dashboard control</p>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Includes live monitoring, registration, gate entry, CSV upload, and crowd-management role assignment.</p>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Includes live monitoring, registration, gate entry, token issuer, and crowd-management role assignment.</p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 dark:border-slate-800 dark:bg-[#111111]/70">
               <p className="text-xs uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">Role-Based Access</p>
               <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-100">Operational dashboard access</p>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Each account receives a venue role such as safety officer, gate supervisor, or registration lead.</p>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Each account receives a venue role such as safety officer, gate supervisor, or token center operator.</p>
             </div>
           </div>
         </section>
@@ -185,9 +186,6 @@ export default function LoginPage() {
                     onChange={(event) => setAdminPassword(event.target.value)}
                     className="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3.5 text-sm text-slate-900 focus:border-lime-500 focus:outline-none focus:ring-2 focus:ring-lime-500/20 dark:border-slate-700 dark:bg-[#111111] dark:text-slate-100"
                   />
-                </div>
-                <div className="rounded-2xl border border-lime-300/60 bg-lime-50 px-4 py-3 text-sm text-lime-800 dark:border-lime-500/20 dark:bg-lime-500/10 dark:text-lime-300">
-                  Admin login is prefilled with <span className="font-semibold">abcd@gmail.com</span> and <span className="font-semibold">abcd</span>.
                 </div>
               </>
             ) : (

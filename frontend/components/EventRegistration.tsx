@@ -12,6 +12,7 @@ interface SubmitResult {
   success: boolean;
   eventId: number;
   usersAdded: number;
+  emailsSent?: number;
   errors?: string[];
 }
 
@@ -110,7 +111,7 @@ export default function EventRegistration({ eventId, eventName }: EventRegistrat
       .filter((row) => row.email.length > 0);
 
     if (!file && validManualRows.length === 0) {
-      setError("Please upload a CSV file or add at least one manual attendee.");
+      setError("Upload a CSV from Google Form sync or add at least one token-counter entry.");
       return;
     }
 
@@ -166,13 +167,13 @@ export default function EventRegistration({ eventId, eventName }: EventRegistrat
       <div className="w-full max-w-6xl animate-in fade-in slide-in-from-bottom-2 duration-300">
         <div className="mb-8 rounded-[28px] border border-slate-200 bg-linear-to-br from-white via-white to-slate-50 px-6 py-8 shadow-[0_20px_70px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:from-slate-900 dark:via-slate-900 dark:to-slate-950">
           <p className="mb-4 inline-flex rounded-full border border-amber-300/60 bg-amber-50 px-3 py-1 text-[11px] tracking-[0.22em] uppercase text-amber-800 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-300">
-            Event Management
+            Token Issuer
           </p>
           <h1 className="max-w-xl text-4xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 leading-tight md:text-5xl">
-            Add Attendees
+            Issue QR Tokens
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400 md:text-base">
-            Register attendees for <span className="font-semibold text-slate-800 dark:text-slate-200">{eventName}</span> via CSV or manual rows.
+            Issue attendee entry tokens for <span className="font-semibold text-slate-800 dark:text-slate-200">{eventName}</span> from Google Form CSV sync or the Token Counter.
           </p>
         </div>
 
@@ -183,11 +184,22 @@ export default function EventRegistration({ eventId, eventName }: EventRegistrat
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-900 text-slate-100 shadow-[0_0_0_8px_rgba(15,23,42,0.08),0_0_0_16px_rgba(15,23,42,0.04)] dark:bg-[#111111] dark:text-slate-100">
                 <span className="text-2xl">✓</span>
               </div>
-              <h2 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 mb-1">Attendees saved</h2>
-              <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">
-                Event <span className="font-medium text-slate-900 dark:text-slate-100">#{result.eventId}</span> received{' '}
-                <span className="font-medium text-slate-900 dark:text-slate-100">{result.usersAdded}</span> attendees.
+              <h2 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 mb-1">Tokens issued</h2>
+              <p className="text-slate-500 dark:text-slate-400 text-sm mb-2">
+                Event <span className="font-medium text-slate-900 dark:text-slate-100">#{result.eventId}</span> &mdash; issued{' '}
+                <span className="font-medium text-slate-900 dark:text-slate-100">{result.usersAdded}</span> QR entry token{result.usersAdded !== 1 ? 's' : ''}.
               </p>
+              {typeof result.emailsSent === 'number' ? (
+                <p className="text-sm font-medium mb-6">
+                  {result.emailsSent === result.usersAdded ? (
+                    <span className="text-lime-600 dark:text-lime-400">✓ QR token email sent to {result.emailsSent} attendee{result.emailsSent !== 1 ? 's' : ''}.</span>
+                  ) : result.emailsSent === 0 ? (
+                    <span className="text-rose-600 dark:text-rose-400">⚠ QR token emails could not be delivered. Check server mail settings.</span>
+                  ) : (
+                    <span className="text-amber-600 dark:text-amber-400">⚠ {result.emailsSent} of {result.usersAdded} emails delivered. Check errors below.</span>
+                  )}
+                </p>
+              ) : null}
               {result.errors && result.errors.length > 0 ? (
                 <div className="text-left mb-6 rounded-lg border border-amber-300/60 bg-amber-50 p-4 dark:border-amber-500/30 dark:bg-amber-500/10">
                   <p className="text-xs text-amber-700 dark:text-amber-300 font-medium mb-2 uppercase tracking-wide">
@@ -199,7 +211,7 @@ export default function EventRegistration({ eventId, eventName }: EventRegistrat
                 </div>
               ) : null}
               <button onClick={reset} className="w-full rounded-xl bg-slate-900 py-3 text-sm font-medium text-slate-100 hover:bg-slate-800 dark:bg-[#111111] dark:text-slate-100 dark:hover:bg-[#151515] transition-colors">
-                Add More Attendees
+                Issue More Tokens
               </button>
             </div>
             ) : (
@@ -212,9 +224,14 @@ export default function EventRegistration({ eventId, eventName }: EventRegistrat
                 </div>
               </div>
 
+              <div className="grid gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-600 dark:border-slate-700 dark:bg-[#0d0d0d] dark:text-slate-300 sm:grid-cols-2">
+                <p><span className="font-semibold text-slate-900 dark:text-slate-100">Source A:</span> Google Form CSV sync import</p>
+                <p><span className="font-semibold text-slate-900 dark:text-slate-100">Source B:</span> Token Counter manual entry</p>
+              </div>
+
               <div>
                 <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 uppercase tracking-widest mb-2">
-                  Attendees CSV
+                  Google Form CSV Sync
                 </label>
                 <div
                   className={`rounded-2xl border border-dashed p-6 text-center transition-all cursor-pointer ${dragging ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10" : "border-slate-300 bg-slate-50 hover:border-emerald-400 hover:bg-slate-100 dark:border-slate-700 dark:bg-[#111111] dark:hover:bg-[#151515]/70"}`}
@@ -231,7 +248,7 @@ export default function EventRegistration({ eventId, eventName }: EventRegistrat
                     type="file"
                     accept=".csv"
                     className="hidden"
-                    title="Upload a CSV file containing attendees"
+                    title="Upload a CSV file synced from Google Form"
                     onChange={(event) => event.target.files?.[0] && handleFile(event.target.files[0])}
                   />
                   {file ? (
@@ -247,7 +264,7 @@ export default function EventRegistration({ eventId, eventName }: EventRegistrat
                         Drop <span className="text-slate-900 dark:text-slate-100">.csv</span> here or{' '}
                         <span className="text-emerald-600 dark:text-emerald-400">browse</span>
                       </p>
-                      <p className="text-slate-400 dark:text-slate-500 text-xs mt-1">Requires email column, name optional</p>
+                      <p className="text-slate-400 dark:text-slate-500 text-xs mt-1">Requires email column, name optional. QR token is issued automatically.</p>
                     </div>
                   )}
                 </div>
@@ -255,13 +272,13 @@ export default function EventRegistration({ eventId, eventName }: EventRegistrat
 
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-[#111111]">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-xs font-medium text-slate-600 dark:text-slate-300 uppercase tracking-widest">Manual Attendees</p>
+                  <p className="text-xs font-medium text-slate-600 dark:text-slate-300 uppercase tracking-widest">Token Counter Entries</p>
                   <button
                     type="button"
                     onClick={addManualRow}
                     className="rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300"
                   >
-                    + Add Row
+                    + Add Entry
                   </button>
                 </div>
 
@@ -331,9 +348,9 @@ export default function EventRegistration({ eventId, eventName }: EventRegistrat
                       <circle cx="12" cy="12" r="10" strokeOpacity="0.2" />
                       <path d="M12 2a10 10 0 0 1 10 10" />
                     </svg>
-                    Saving attendees...
+                    Issuing tokens...
                   </>
-                ) : "Save Attendees"}
+                ) : "Issue Tokens"}
               </button>
             </div>
             )}
@@ -342,7 +359,7 @@ export default function EventRegistration({ eventId, eventName }: EventRegistrat
           <aside className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_20px_70px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-[#111111] h-fit lg:sticky lg:top-6">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">Already Registered</p>
+                <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">Tokens Issued</p>
                 <p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">{totalRegistered}</p>
               </div>
               <button
@@ -354,7 +371,7 @@ export default function EventRegistration({ eventId, eventName }: EventRegistrat
               </button>
             </div>
 
-            <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">Latest attendees for this selected event.</p>
+            <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">Latest token recipients for this selected event.</p>
 
             <div className="mt-4 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
               {attendeesLoading ? (
@@ -362,7 +379,7 @@ export default function EventRegistration({ eventId, eventName }: EventRegistrat
               ) : attendeesError ? (
                 <p className="px-3 py-4 text-xs text-rose-600 dark:text-rose-300">{attendeesError}</p>
               ) : existingAttendees.length === 0 ? (
-                <p className="px-3 py-4 text-xs text-slate-500 dark:text-slate-400">No attendees yet for this event.</p>
+                <p className="px-3 py-4 text-xs text-slate-500 dark:text-slate-400">No tokens issued yet for this event.</p>
               ) : (
                 <div className="divide-y divide-slate-200 dark:divide-slate-700">
                   {existingAttendees.slice(0, 8).map((attendee) => (
