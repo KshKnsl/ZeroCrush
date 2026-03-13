@@ -193,7 +193,7 @@ export default function Sidebar({
               initial={{ opacity: 0, y: 12, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 12, scale: 0.98 }}
-              className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900"
+              className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-[#111111]"
             >
               <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Create Event</h3>
               <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">This event will become available in the event dropdown.</p>

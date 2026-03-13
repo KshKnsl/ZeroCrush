@@ -176,7 +176,7 @@ export default function EventRegistration({ eventId, eventName }: EventRegistrat
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_20px_70px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-slate-900 md:p-8 transition-colors">
+          <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_20px_70px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-[#111111] md:p-8 transition-colors">
             {result ? (
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 text-center py-4">
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-900 text-slate-100 shadow-[0_0_0_8px_rgba(15,23,42,0.08),0_0_0_16px_rgba(15,23,42,0.04)] dark:bg-slate-100 dark:text-slate-900">
@@ -203,7 +203,7 @@ export default function EventRegistration({ eventId, eventName }: EventRegistrat
             </div>
             ) : (
             <div className="space-y-5">
-              <div className="flex items-center gap-3 rounded-xl bg-slate-100 px-4 py-3 dark:bg-slate-800/70">
+              <div className="flex items-center gap-3 rounded-xl bg-slate-100 px-4 py-3 dark:bg-[#111111]">
                 <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white text-xs">✓</div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide font-medium">Selected Event</p>
@@ -252,7 +252,7 @@ export default function EventRegistration({ eventId, eventName }: EventRegistrat
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/60">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-[#111111]">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-xs font-medium text-slate-600 dark:text-slate-300 uppercase tracking-widest">Manual Attendees</p>
                   <button
@@ -299,7 +299,7 @@ export default function EventRegistration({ eventId, eventName }: EventRegistrat
                     Preview (first {preview.length} rows)
                   </p>
                   <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700">
-                    <div className="grid grid-cols-2 px-4 py-2 bg-slate-100 dark:bg-slate-800">
+                    <div className="grid grid-cols-2 px-4 py-2 bg-slate-100 dark:bg-[#111111]">
                       <span className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Name</span>
                       <span className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Email</span>
                     </div>
@@ -338,7 +338,7 @@ export default function EventRegistration({ eventId, eventName }: EventRegistrat
             )}
           </div>
 
-          <aside className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_20px_70px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-slate-900 h-fit lg:sticky lg:top-6">
+          <aside className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_20px_70px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-[#111111] h-fit lg:sticky lg:top-6">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">Already Registered</p>
