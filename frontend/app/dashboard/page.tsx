@@ -70,7 +70,7 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-screen flex bg-slate-100 text-slate-900 dark:bg-[#0a0a0a] dark:text-white transition-colors">
+    <div className="h-screen flex bg-slate-100 text-slate-900 dark:bg-[#0a0a0a] dark:text-white transition-colors overflow-hidden">
       <Sidebar
         activeTab={activeTab}
         onTabChange={setActiveTab}

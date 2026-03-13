@@ -29,7 +29,7 @@ export default function Sidebar({ activeTab, onTabChange, theme, role, identifie
     : baseTabs.filter((tab) => (availableTabs ?? []).includes(tab.id as ManagementTab));
 
   return (
-    <aside className="w-64 border-r border-slate-200 bg-white/90 dark:border-[#1e1e1e] dark:bg-[#0a0a0a] flex flex-col transition-colors">
+    <aside className="w-64 h-screen sticky top-0 border-r border-slate-200 bg-white/90 dark:border-[#1e1e1e] dark:bg-[#0a0a0a] flex flex-col transition-colors overflow-hidden">
       <div className="p-6 border-b border-slate-200 dark:border-[#1e1e1e]">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-linear-to-br from-lime-500 to-lime-600 flex items-center justify-center shadow-lg shadow-lime-500/20">
@@ -50,7 +50,7 @@ export default function Sidebar({ activeTab, onTabChange, theme, role, identifie
         </div>
       </div>
 
-      <nav className="flex-1 p-4 space-y-2">
+      <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
