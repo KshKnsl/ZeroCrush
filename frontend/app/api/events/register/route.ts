@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { generateVerificationCode, sendVerificationEmail } from "@/lib/mailer";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 interface ParsedUser {
@@ -118,7 +119,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // b) Upsert each user then create their linked event row
+    // b) Upsert each user, create their linked event row with a verification code, send email
     let usersAdded = 0;
     const dbErrors: string[] = [];
 
@@ -130,13 +131,27 @@ export async function POST(req: NextRequest) {
           create: { email, name: name || null },
         });
 
+        const verificationCode = generateVerificationCode();
+
         await prisma.event.create({
           data: {
             type: eventType,
             plate: plate ?? undefined,
             description: description ?? undefined,
             userId: user.id,
+            verificationCode,
           },
+        });
+
+        // Send email — non-blocking: a mail failure won't abort the whole import
+        sendVerificationEmail({
+          to: email,
+          name: name || email,
+          eventType,
+          eventDescription: description,
+          code: verificationCode,
+        }).catch((mailErr) => {
+          console.error(`[events/register] mail failed for ${email}:`, mailErr);
         });
 
         usersAdded++;

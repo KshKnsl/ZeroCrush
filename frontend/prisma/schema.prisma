@@ -21,6 +21,9 @@ model Event {
   timestamp DateTime @default(now())
   plate     String?
   description String?
+  verificationCode String?           
+  verified         Boolean   @default(false)
+  verifiedAt       DateTime?
   userId    Int?
   user      User?    @relation(fields: [userId], references: [id])
   eventAttendees EventAttendee[]
