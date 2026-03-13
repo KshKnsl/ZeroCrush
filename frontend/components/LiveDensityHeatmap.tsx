@@ -25,14 +25,14 @@ export default function LiveDensityHeatmap() {
           ))}
         </div>
         <div className="flex items-center justify-between text-xs">
-          <span className="text-slate-500">Zone Density</span>
+          <span className="text-slate-500 dark:text-slate-400">Zone Density</span>
           <div className="flex items-center gap-2">
             <span className="w-3 h-3 rounded bg-emerald-500/30" />
-            <span className="text-slate-400">Low</span>
+            <span className="text-slate-500 dark:text-slate-400">Low</span>
             <span className="w-3 h-3 rounded bg-amber-500/50" />
-            <span className="text-slate-400">Med</span>
+            <span className="text-slate-500 dark:text-slate-400">Med</span>
             <span className="w-3 h-3 rounded bg-rose-500/60" />
-            <span className="text-slate-400">High</span>
+            <span className="text-slate-500 dark:text-slate-400">High</span>
           </div>
         </div>
       </div>

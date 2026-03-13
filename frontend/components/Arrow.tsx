@@ -10,8 +10,8 @@ export default function Arrow() {
       className="flex items-center justify-center"
     >
       <div className="relative">
-        <div className="absolute inset-0 bg-linear-to-r from-slate-300 to-slate-400 blur-sm opacity-50" />
-        <ChevronRight className="relative w-8 h-8 text-slate-500" strokeWidth={2.5} />
+        <div className="absolute inset-0 bg-linear-to-r from-lime-300 to-lime-500 blur-sm opacity-40 dark:opacity-30" />
+        <ChevronRight className="relative w-8 h-8 text-lime-600 dark:text-[#c8f04a]" strokeWidth={2.5} />
       </div>
     </motion.div>
   );

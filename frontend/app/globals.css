@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -12,6 +14,32 @@
   --font-mono: var(--font-geist-mono);
 }
 
+@layer components {
+  .app-panel {
+    @apply rounded-xl border border-slate-200 bg-white/90 backdrop-blur-xl transition-colors dark:border-[#1e1e1e] dark:bg-[#111111];
+  }
+
+  .app-muted {
+    @apply text-slate-500 dark:text-[#666666];
+  }
+
+  .app-heading {
+    @apply text-slate-900 dark:text-white;
+  }
+
+  .app-field {
+    @apply w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-lime-500 dark:border-[#2a2a2a] dark:bg-[#0f0f0f] dark:text-white dark:placeholder:text-[#555555];
+  }
+
+  .app-btn-primary {
+    @apply rounded-lg border border-lime-500/30 bg-lime-500/20 px-4 py-2 text-sm font-medium text-lime-600 hover:bg-lime-500/30 transition-colors dark:text-[#c8f04a];
+  }
+
+  .app-btn-secondary {
+    @apply rounded-lg border border-slate-300 bg-slate-100 px-4 py-2 text-sm text-slate-600 hover:border-slate-400 transition-colors dark:border-[#2a2a2a] dark:bg-[#111111] dark:text-[#666666] dark:hover:border-[#444444];
+  }
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
@@ -22,5 +50,5 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), sans-serif;
 }

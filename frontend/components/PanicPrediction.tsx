@@ -72,7 +72,7 @@ export default function PanicPrediction() {
       </svg>
       
       <div className="mt-2 flex items-center justify-between">
-        <span className="text-slate-400 text-xs">Risk Score</span>
+        <span className="text-slate-500 dark:text-slate-400 text-xs">Risk Score</span>
         <span className="text-amber-400 font-mono text-sm">28%</span>
       </div>
     </div>

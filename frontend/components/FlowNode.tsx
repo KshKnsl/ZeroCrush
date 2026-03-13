@@ -13,22 +13,22 @@ interface FlowNodeProps {
 
 const typeStyles: Record<NodeType, { bg: string; border: string; icon: typeof CheckCircle; shadow: string }> = {
   registration: {
-    bg: 'bg-sky-100',
-    border: 'border-sky-200',
+    bg: 'bg-slate-100 dark:bg-[#141414]',
+    border: 'border-slate-300 dark:border-[#2a2a2a]',
     icon: UserPlus,
-    shadow: 'shadow-sky-200/50',
+    shadow: 'shadow-slate-200/50 dark:shadow-black/20',
   },
   success: {
-    bg: 'bg-emerald-100',
-    border: 'border-emerald-200',
+    bg: 'bg-lime-100 dark:bg-lime-500/10',
+    border: 'border-lime-300 dark:border-lime-500/30',
     icon: CheckCircle,
-    shadow: 'shadow-emerald-200/50',
+    shadow: 'shadow-lime-200/50 dark:shadow-lime-500/10',
   },
   'id-issuance': {
-    bg: 'bg-purple-100',
-    border: 'border-purple-200',
+    bg: 'bg-slate-100 dark:bg-[#141414]',
+    border: 'border-slate-300 dark:border-[#2a2a2a]',
     icon: IdCard,
-    shadow: 'shadow-purple-200/50',
+    shadow: 'shadow-slate-200/50 dark:shadow-black/20',
   },
 };
 
@@ -49,12 +49,12 @@ export default function FlowNode({ id, label, type, description }: FlowNodeProps
       )}
     >
       <div className="mb-3">
-        <Icon className="w-6 h-6 text-slate-700" strokeWidth={2} />
+        <Icon className="w-6 h-6 text-slate-700 dark:text-[#c8f04a]" strokeWidth={2} />
       </div>
-      <span className="text-xs font-bold uppercase tracking-wide text-slate-700">
+      <span className="text-xs font-bold uppercase tracking-wide text-slate-800 dark:text-white">
         {label}
       </span>
-      <span className="text-xs text-slate-500 mt-1">{description}</span>
+      <span className="text-xs app-muted mt-1">{description}</span>
     </motion.div>
   );
 }

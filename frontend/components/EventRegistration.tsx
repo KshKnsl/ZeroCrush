@@ -33,7 +33,6 @@ export default function EventRegistration() {
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // ── CSV parsing (client-side preview) ──────────────────────────────────────
   const parseCSVPreview = (text: string): UserRow[] => {
     const lines = text.split(/\r?\n/).filter(Boolean);
     if (lines.length < 2) return [];
@@ -65,7 +64,6 @@ export default function EventRegistration() {
     if (f) handleFile(f);
   }, [handleFile]);
 
-  // ── Submit ──────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     if (!eventForm.type) { setError("Event type is required."); return; }
     if (!file) { setError("Please upload a CSV file."); return; }
@@ -95,177 +93,94 @@ export default function EventRegistration() {
     if (inputRef.current) inputRef.current.value = "";
   };
 
-  // ── UI ──────────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#f5f0e8] flex items-start justify-center py-16 px-4">
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500&display=swap');
-        .page { font-family: 'DM Sans', sans-serif; }
-        .display { font-family: 'Playfair Display', serif; }
-
-        .card {
-          background: #fffdf7;
-          border: 1px solid #e8e0d0;
-          box-shadow: 0 2px 24px rgba(0,0,0,0.06), 0 0 0 1px rgba(255,255,255,0.8) inset;
-        }
-        .input-field {
-          background: #f9f5ed;
-          border: 1px solid #ddd5c0;
-          color: #2a2218;
-          transition: all 0.2s;
-          font-family: 'DM Sans', sans-serif;
-        }
-        .input-field:focus {
-          outline: none;
-          border-color: #b8946a;
-          background: #fffdf7;
-          box-shadow: 0 0 0 3px rgba(184,148,106,0.12);
-        }
-        .input-field::placeholder { color: #b8ac9c; }
-        select.input-field option { background: #fffdf7; }
-
-        .btn-primary {
-          background: #2a2218;
-          color: #f5f0e8;
-          font-family: 'DM Sans', sans-serif;
-          transition: all 0.2s;
-          letter-spacing: 0.02em;
-        }
-        .btn-primary:hover:not(:disabled) {
-          background: #3d3326;
-          transform: translateY(-1px);
-          box-shadow: 0 4px 16px rgba(42,34,24,0.25);
-        }
-        .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
-
-        .btn-ghost {
-          color: #8a7d6b;
-          border: 1px solid #ddd5c0;
-          font-family: 'DM Sans', sans-serif;
-          transition: all 0.2s;
-        }
-        .btn-ghost:hover { border-color: #b8946a; color: #2a2218; }
-
-        .drop-zone {
-          border: 1.5px dashed #c8baa6;
-          background: #f9f5ed;
-          transition: all 0.2s;
-          cursor: pointer;
-        }
-        .drop-zone:hover, .drop-zone.dragging {
-          border-color: #b8946a;
-          background: #f3ede1;
-        }
-
-        .step-dot {
-          width: 28px; height: 28px;
-          border-radius: 50%;
-          display: flex; align-items: center; justify-content: center;
-          font-size: 12px; font-weight: 500;
-          transition: all 0.3s;
-        }
-        .step-dot.active { background: #2a2218; color: #f5f0e8; }
-        .step-dot.done { background: #b8946a; color: #fff; }
-        .step-dot.idle { background: #e8e0d0; color: #9a8d7c; }
-
-        .tag { background: #eee7d8; color: #7a6a52; border-radius: 4px; }
-
-        @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(12px); }
-          to { opacity: 1; transform: none; }
-        }
-        .fade-up { animation: fadeUp 0.35s ease forwards; }
-
-        .preview-row { border-bottom: 1px solid #ede5d6; }
-        .preview-row:last-child { border-bottom: none; }
-
-        .success-ring {
-          width: 64px; height: 64px; border-radius: 50%;
-          background: #2a2218;
-          display: flex; align-items: center; justify-content: center;
-          margin: 0 auto 16px;
-          box-shadow: 0 0 0 8px rgba(42,34,24,0.08), 0 0 0 16px rgba(42,34,24,0.04);
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .spinner { animation: spin 0.8s linear infinite; }
-      `}</style>
-
-      <div className="page w-full max-w-lg fade-up">
-        {/* Header */}
-        <div className="mb-8 text-center">
-          <p className="tag text-xs px-3 py-1 inline-block mb-3 tracking-widest uppercase">
+    <div className="flex justify-center px-4 py-10 md:px-6 md:py-14">
+      <div className="w-full max-w-3xl animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <div className="mb-8 rounded-[28px] border border-slate-200 bg-linear-to-br from-white via-white to-slate-50 px-6 py-8 shadow-[0_20px_70px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:from-slate-900 dark:via-slate-900 dark:to-slate-950">
+          <p className="mb-4 inline-flex rounded-full border border-amber-300/60 bg-amber-50 px-3 py-1 text-[11px] tracking-[0.22em] uppercase text-amber-800 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-300">
             Event Management
           </p>
-          <h1 className="display text-4xl text-[#2a2218] leading-tight">
+          <h1 className="max-w-xl text-4xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 leading-tight md:text-5xl">
             Register an Event
           </h1>
-          <p className="text-[#8a7d6b] mt-2 text-sm">
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400 md:text-base">
             Create your event and bulk-import attendees via CSV
           </p>
+
+          {!result && (
+            <div className="mt-8 grid gap-3 md:grid-cols-2">
+              {[
+                { n: 1, label: "Event Details", copy: "Choose a type, add a reference, and describe the session." },
+                { n: 2, label: "Import Attendees", copy: "Upload a CSV to preview and register attendees in one pass." },
+              ].map(({ n, label, copy }) => {
+                const isCurrent = step === n;
+                const isDone = step > n;
+
+                return (
+                  <div
+                    key={n}
+                    className={`rounded-2xl border px-4 py-4 transition-colors ${isCurrent ? "border-emerald-400/60 bg-emerald-50 dark:border-emerald-500/30 dark:bg-emerald-500/10" : "border-slate-200 bg-white/80 dark:border-slate-800 dark:bg-slate-900/70"}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold ${isDone ? "bg-emerald-500 text-white" : isCurrent ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900" : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"}`}>
+                        {isDone ? "✓" : n}
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{label}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{copy}</p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
-        {/* Step indicator */}
-        {!result && (
-          <div className="flex items-center justify-center gap-3 mb-8">
-            {[
-              { n: 1, label: "Event Details" },
-              { n: 2, label: "Import Attendees" },
-            ].map(({ n, label }, i) => (
-              <div key={n} className="flex items-center gap-3">
-                {i > 0 && <div className={`h-px w-10 transition-all duration-500 ${step >= n ? "bg-[#b8946a]" : "bg-[#ddd5c0]"}`} />}
-                <div className="flex items-center gap-2">
-                  <div className={`step-dot ${step === n ? "active" : step > n ? "done" : "idle"}`}>
-                    {step > n ? "✓" : n}
-                  </div>
-                  <span className={`text-xs font-medium ${step >= n ? "text-[#2a2218]" : "text-[#b8ac9c]"}`}>
-                    {label}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="card rounded-2xl p-8">
-          {/* ── SUCCESS ── */}
+        <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_20px_70px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-slate-900 md:p-8 transition-colors">
           {result && (
-            <div className="fade-up text-center py-4">
-              <div className="success-ring">
-                <span className="text-2xl text-[#f5f0e8]">✓</span>
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 text-center py-4">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-900 text-slate-100 shadow-[0_0_0_8px_rgba(15,23,42,0.08),0_0_0_16px_rgba(15,23,42,0.04)] dark:bg-slate-100 dark:text-slate-900">
+                <span className="text-2xl">✓</span>
               </div>
-              <h2 className="display text-2xl text-[#2a2218] mb-1">All done!</h2>
-              <p className="text-[#8a7d6b] text-sm mb-6">
-                Event <span className="text-[#2a2218] font-medium">#{result.eventId}</span> created with{" "}
-                <span className="text-[#2a2218] font-medium">{result.usersAdded}</span> attendees registered.
+              <h2 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 mb-1">All done!</h2>
+              <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">
+                Event <span className="text-slate-900 dark:text-slate-100 font-medium">#{result.eventId}</span> created with{" "}
+                <span className="text-slate-900 dark:text-slate-100 font-medium">{result.usersAdded}</span> attendees registered.
               </p>
               {result.errors && result.errors.length > 0 && (
-                <div className="text-left mb-6 bg-[#f9f2e4] border border-[#e8d9be] rounded-lg p-4">
-                  <p className="text-xs text-[#b8946a] font-medium mb-2 uppercase tracking-wide">
+                <div className="text-left mb-6 rounded-lg border border-amber-300/60 bg-amber-50 p-4 dark:border-amber-500/30 dark:bg-amber-500/10">
+                  <p className="text-xs text-amber-700 dark:text-amber-300 font-medium mb-2 uppercase tracking-wide">
                     {result.errors.length} rows skipped
                   </p>
                   {result.errors.map((e, i) => (
-                    <p key={i} className="text-xs text-[#9a7a52]">{e}</p>
+                    <p key={i} className="text-xs text-amber-700 dark:text-amber-300/90">{e}</p>
                   ))}
                 </div>
               )}
-              <button onClick={reset} className="btn-primary w-full py-3 rounded-xl text-sm font-medium">
+              <button onClick={reset} className="w-full rounded-xl bg-slate-900 py-3 text-sm font-medium text-slate-100 hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200 transition-colors">
                 Register Another Event
               </button>
             </div>
           )}
 
-          {/* ── STEP 1: Event Details ── */}
           {!result && step === 1 && (
-            <div className="fade-up space-y-5">
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-5">
+              <div className="mb-1">
+                <p className="text-xs font-medium uppercase tracking-[0.24em] text-slate-400 dark:text-slate-500">Step 1</p>
+                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Event Details</h2>
+                <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">Set the event type, add a reference code if you use one, and write a short description for operations.</p>
+              </div>
+
               <div>
-                <label className="block text-xs font-medium text-[#6a5d4d] uppercase tracking-widest mb-2">
-                  Event Type <span className="text-[#b8946a]">*</span>
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 uppercase tracking-widest mb-2">
+                  Event Type <span className="text-emerald-500">*</span>
                 </label>
                 <select
                   title="Event Type"
                   value={eventForm.type}
                   onChange={(e) => setEventForm({ ...eventForm, type: e.target.value })}
-                  className="input-field w-full px-4 py-3 rounded-xl text-sm"
+                  className="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3.5 text-sm text-slate-900 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                 >
                   <option value="">Select a type...</option>
                   {EVENT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
@@ -273,7 +188,7 @@ export default function EventRegistration() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-[#6a5d4d] uppercase tracking-widest mb-2">
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 uppercase tracking-widest mb-2">
                   Plate / Reference
                 </label>
                 <input
@@ -281,12 +196,12 @@ export default function EventRegistration() {
                   placeholder="e.g. EVT-2024-001"
                   value={eventForm.plate}
                   onChange={(e) => setEventForm({ ...eventForm, plate: e.target.value })}
-                  className="input-field w-full px-4 py-3 rounded-xl text-sm"
+                  className="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3.5 text-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-[#6a5d4d] uppercase tracking-widest mb-2">
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 uppercase tracking-widest mb-2">
                   Description
                 </label>
                 <textarea
@@ -294,7 +209,7 @@ export default function EventRegistration() {
                   placeholder="What's this event about?"
                   value={eventForm.description}
                   onChange={(e) => setEventForm({ ...eventForm, description: e.target.value })}
-                  className="input-field w-full px-4 py-3 rounded-xl text-sm resize-none"
+                  className="w-full resize-none rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3.5 text-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
                 />
               </div>
 
@@ -304,42 +219,50 @@ export default function EventRegistration() {
                 </p>
               )}
 
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-950/60">
+                <p className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-slate-500">Next</p>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Import attendees from a CSV with an <span className="font-medium text-slate-700 dark:text-slate-300">email</span> column and an optional <span className="font-medium text-slate-700 dark:text-slate-300">name</span> column.</p>
+              </div>
+
               <button
                 onClick={() => {
                   if (!eventForm.type) { setError("Event type is required."); return; }
                   setError(null); setStep(2);
                 }}
-                className="btn-primary w-full py-3 rounded-xl text-sm font-medium mt-2"
+                className="mt-2 w-full rounded-2xl bg-slate-900 py-3.5 text-sm font-medium text-slate-100 hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200 transition-colors"
               >
                 Continue to Attendees →
               </button>
             </div>
           )}
 
-          {/* ── STEP 2: CSV Upload ── */}
           {!result && step === 2 && (
-            <div className="fade-up space-y-5">
-              {/* Summary of step 1 */}
-              <div className="flex items-center gap-3 bg-[#f3ede1] rounded-xl px-4 py-3">
-                <div className="w-8 h-8 rounded-full bg-[#b8946a] flex items-center justify-center text-white text-xs">✓</div>
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-5">
+              <div className="mb-1">
+                <p className="text-xs font-medium uppercase tracking-[0.24em] text-slate-400 dark:text-slate-500">Step 2</p>
+                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Import Attendees</h2>
+                <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">Upload the attendee CSV, inspect the first rows, then commit the event and registrations together.</p>
+              </div>
+
+              <div className="flex items-center gap-3 rounded-xl bg-slate-100 px-4 py-3 dark:bg-slate-800/70">
+                <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white text-xs">✓</div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-[#6a5d4d] uppercase tracking-wide font-medium">Event</p>
-                  <p className="text-sm text-[#2a2218] font-medium truncate">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide font-medium">Event</p>
+                  <p className="text-sm text-slate-900 dark:text-slate-100 font-medium truncate">
                     {eventForm.type}{eventForm.plate ? ` · ${eventForm.plate}` : ""}
                   </p>
                 </div>
-                <button onClick={() => setStep(1)} className="text-xs text-[#b8946a] hover:text-[#2a2218]">
+                <button onClick={() => setStep(1)} className="text-xs text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300">
                   Edit
                 </button>
               </div>
 
-              {/* Drop zone */}
               <div>
-                <label className="block text-xs font-medium text-[#6a5d4d] uppercase tracking-widest mb-2">
-                  Attendees CSV <span className="text-[#b8946a]">*</span>
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 uppercase tracking-widest mb-2">
+                  Attendees CSV <span className="text-emerald-500">*</span>
                 </label>
                 <div
-                  className={`drop-zone rounded-xl p-6 text-center ${dragging ? "dragging" : ""}`}
+                  className={`rounded-2xl border border-dashed p-6 text-center transition-all cursor-pointer ${dragging ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10" : "border-slate-300 bg-slate-50 hover:border-emerald-400 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-800/70"}`}
                   onDrop={onDrop}
                   onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
                   onDragLeave={() => setDragging(false)}
@@ -352,38 +275,37 @@ export default function EventRegistration() {
                   />
                   {file ? (
                     <div>
-                      <p className="text-[#b8946a] text-xl mb-1">📄</p>
-                      <p className="text-[#2a2218] text-sm font-medium">{file.name}</p>
-                      <p className="text-[#9a8d7c] text-xs">{(file.size / 1024).toFixed(1)} KB</p>
+                      <p className="text-emerald-500 text-xl mb-1">📄</p>
+                      <p className="text-slate-900 dark:text-slate-100 text-sm font-medium">{file.name}</p>
+                      <p className="text-slate-500 dark:text-slate-400 text-xs">{(file.size / 1024).toFixed(1)} KB</p>
                     </div>
                   ) : (
                     <div>
-                      <p className="text-[#c8baa6] text-2xl mb-2">⬆</p>
-                      <p className="text-[#9a8d7c] text-sm">
-                        Drop <span className="text-[#2a2218]">.csv</span> here or{" "}
-                        <span className="text-[#b8946a]">browse</span>
+                      <p className="text-slate-400 dark:text-slate-500 text-2xl mb-2">⬆</p>
+                      <p className="text-slate-500 dark:text-slate-400 text-sm">
+                        Drop <span className="text-slate-900 dark:text-slate-100">.csv</span> here or{" "}
+                        <span className="text-emerald-600 dark:text-emerald-400">browse</span>
                       </p>
-                      <p className="text-[#b8ac9c] text-xs mt-1">Requires name &amp; email columns</p>
+                      <p className="text-slate-400 dark:text-slate-500 text-xs mt-1">Requires name &amp; email columns</p>
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Preview */}
               {preview.length > 0 && (
-                <div className="fade-up">
-                  <p className="text-xs text-[#6a5d4d] uppercase tracking-widest font-medium mb-2">
+                <div className="animate-in fade-in duration-200">
+                  <p className="text-xs text-slate-600 dark:text-slate-400 uppercase tracking-widest font-medium mb-2">
                     Preview (first {preview.length} rows)
                   </p>
-                  <div className="border border-[#e8e0d0] rounded-xl overflow-hidden">
-                    <div className="grid grid-cols-2 px-4 py-2 bg-[#f3ede1]">
-                      <span className="text-xs text-[#9a8d7c] uppercase tracking-wide">Name</span>
-                      <span className="text-xs text-[#9a8d7c] uppercase tracking-wide">Email</span>
+                  <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700">
+                    <div className="grid grid-cols-2 px-4 py-2 bg-slate-100 dark:bg-slate-800">
+                      <span className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Name</span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Email</span>
                     </div>
                     {preview.map((u, i) => (
-                      <div key={i} className="preview-row grid grid-cols-2 px-4 py-2.5">
-                        <span className="text-xs text-[#2a2218] truncate pr-2">{u.name || <span className="text-[#c8baa6]">—</span>}</span>
-                        <span className="text-xs text-[#8a7d6b] truncate">{u.email}</span>
+                      <div key={i} className="grid grid-cols-2 px-4 py-2.5 border-b border-slate-200 dark:border-slate-700 last:border-b-0">
+                        <span className="text-xs text-slate-900 dark:text-slate-100 truncate pr-2">{u.name || <span className="text-slate-400 dark:text-slate-500">—</span>}</span>
+                        <span className="text-xs text-slate-500 dark:text-slate-400 truncate">{u.email}</span>
                       </div>
                     ))}
                   </div>
@@ -397,17 +319,17 @@ export default function EventRegistration() {
               )}
 
               <div className="flex gap-3 pt-1">
-                <button onClick={() => { setStep(1); setError(null); }} className="btn-ghost px-4 py-3 rounded-xl text-sm">
+                <button onClick={() => { setStep(1); setError(null); }} className="px-4 py-3 rounded-2xl text-sm border border-slate-300 text-slate-600 hover:border-emerald-400 hover:text-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:border-emerald-500 dark:hover:text-white transition-colors">
                   ← Back
                 </button>
                 <button
                   onClick={handleSubmit}
                   disabled={!file || loading}
-                  className="btn-primary flex-1 py-3 rounded-xl text-sm font-medium flex items-center justify-center gap-2"
+                  className="flex-1 py-3 rounded-2xl text-sm font-medium flex items-center justify-center gap-2 bg-slate-900 text-slate-100 hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {loading ? (
                     <>
-                      <svg className="spinner w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                         <circle cx="12" cy="12" r="10" strokeOpacity="0.2" />
                         <path d="M12 2a10 10 0 0 1 10 10" />
                       </svg>
@@ -420,8 +342,8 @@ export default function EventRegistration() {
           )}
         </div>
 
-        <p className="text-center text-xs text-[#b8ac9c] mt-6">
-          CSV must contain <span className="text-[#8a7d6b]">email</span> and optionally <span className="text-[#8a7d6b]">name</span> columns.
+        <p className="mt-6 text-center text-xs text-slate-400 dark:text-slate-500">
+          CSV must contain <span className="font-medium text-slate-500 dark:text-slate-400">email</span> and optionally <span className="font-medium text-slate-500 dark:text-slate-400">name</span> columns.
         </p>
       </div>
     </div>

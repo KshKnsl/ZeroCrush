@@ -16,20 +16,20 @@ export default function LiveMonitoring() {
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, }}
-        className="bg-slate y: 0-900/80 backdrop-blur-xl rounded-xl border border-slate-800 p-4 flex items-center justify-between"
+        className="app-panel p-4 flex items-center justify-between"
       >
         <div className="flex items-center gap-6">
           <div>
-            <p className="text-slate-500 text-xs uppercase tracking-wider">Active Event</p>
-            <h2 className="text-white font-bold text-lg">Tech Summit 2025</h2>
+            <p className="app-muted text-xs uppercase tracking-wider">Active Event</p>
+            <h2 className="app-heading font-bold text-lg">Tech Summit 2025</h2>
           </div>
-          <div className="h-10 w-px bg-slate-700" />
+          <div className="h-10 w-px bg-slate-300 dark:bg-[#2a2a2a]" />
           <div className="flex items-center gap-2">
-            <Users className="w-4 h-4 text-slate-400" />
-            <span className="text-white font-mono text-sm">{liveCount.toLocaleString()}</span>
-            <span className="text-slate-500 text-xs">in venue</span>
+            <Users className="w-4 h-4 app-muted" />
+            <span className="app-heading font-mono text-sm">{liveCount.toLocaleString()}</span>
+            <span className="app-muted text-xs">in venue</span>
           </div>
-          <div className="h-10 w-px bg-slate-700" />
+          <div className="h-10 w-px bg-slate-300 dark:bg-[#2a2a2a]" />
           <RiskMeter level={riskLevel} />
         </div>
 
@@ -38,8 +38,8 @@ export default function LiveMonitoring() {
             onClick={() => setShowHeatmap(!showHeatmap)}
             className={`px-4 py-2 rounded-lg text-xs font-medium transition-all duration-200 border ${
               showHeatmap
-                ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400 shadow-lg shadow-emerald-500/20'
-                : 'bg-transparent border-slate-600 text-slate-400 hover:border-slate-400'
+                ? 'bg-lime-500/20 border-lime-500 text-lime-600 dark:text-[#c8f04a] shadow-lg shadow-lime-500/20'
+                : 'bg-transparent border-slate-300 text-slate-600 hover:border-slate-400 dark:border-[#2a2a2a] dark:text-[#666666] dark:hover:border-[#444444]'
             }`}
           >
             <Zap className="w-4 h-4 inline mr-2" />
@@ -53,7 +53,7 @@ export default function LiveMonitoring() {
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.1 }}
-          className="col-span-2 bg-slate-900/80 backdrop-blur-xl rounded-xl border border-slate-800 overflow-hidden"
+          className="col-span-2 app-panel overflow-hidden"
         >
           <VideoFeed showHeatmap={showHeatmap} />
         </motion.div>
@@ -63,11 +63,11 @@ export default function LiveMonitoring() {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.2 }}
-            className="bg-slate-900/80 backdrop-blur-xl rounded-xl border border-slate-800 p-4"
+            className="app-panel p-4"
           >
             <div className="flex items-center gap-2 mb-4">
               <AlertTriangle className="w-4 h-4 text-amber-400" />
-              <h3 className="text-white font-semibold text-sm">PANIC PREDICTION</h3>
+              <h3 className="app-heading font-semibold text-sm">PANIC PREDICTION</h3>
             </div>
             <PanicPrediction />
           </motion.div>
@@ -76,11 +76,11 @@ export default function LiveMonitoring() {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.3 }}
-            className="bg-slate-900/80 backdrop-blur-xl rounded-xl border border-slate-800 p-4"
+            className="app-panel p-4"
           >
             <div className="flex items-center gap-2 mb-4">
               <Users className="w-4 h-4 text-rose-400" />
-              <h3 className="text-white font-semibold text-sm">LIVE DENSITY</h3>
+              <h3 className="app-heading font-semibold text-sm">LIVE DENSITY</h3>
             </div>
             <LiveDensityHeatmap />
           </motion.div>
@@ -91,9 +91,9 @@ export default function LiveMonitoring() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
-        className="bg-slate-900/80 backdrop-blur-xl rounded-xl border border-slate-800 p-4"
+        className="app-panel p-4"
       >
-        <h3 className="text-white font-semibold text-sm mb-4">LIVE ALERTS</h3>
+        <h3 className="app-heading font-semibold text-sm mb-4">LIVE ALERTS</h3>
         <div className="space-y-2 font-mono text-xs">
           <AlertItem time="14:32:05" message="Gate 3: Crowd density approaching threshold" type="warning" />
           <AlertItem time="14:31:42" message="Registration: New batch of 50 attendees checked in" type="info" />
@@ -113,8 +113,8 @@ function AlertItem({ time, message, type }: { time: string; message: string; typ
   };
 
   return (
-    <div className="flex items-start gap-3 p-2 rounded bg-slate-800/50">
-      <span className="text-slate-500 font-mono">{time}</span>
+    <div className="flex items-start gap-3 p-2 rounded bg-slate-100 dark:bg-[#0f0f0f] transition-colors">
+      <span className="app-muted font-mono">{time}</span>
       <span className={colors[type]}>{message}</span>
     </div>
   );

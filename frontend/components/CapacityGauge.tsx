@@ -39,21 +39,21 @@ export default function CapacityGauge({ current, max }: CapacityGaugeProps) {
         </svg>
         
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-4xl font-bold font-mono text-white">
+          <span className="text-4xl font-bold font-mono text-slate-900 dark:text-white">
             {percentage.toFixed(0)}%
           </span>
-          <span className="text-slate-500 text-xs mt-1">CAPACITY</span>
+          <span className="text-slate-500 dark:text-slate-400 text-xs mt-1">CAPACITY</span>
         </div>
       </div>
 
       <div className="mt-4 flex items-center gap-6 text-sm">
         <div>
-          <span className="text-slate-400">Current:</span>
-          <span className="text-white font-mono ml-2">{current.toLocaleString()}</span>
+          <span className="text-slate-500 dark:text-slate-400">Current:</span>
+          <span className="text-slate-900 dark:text-white font-mono ml-2">{current.toLocaleString()}</span>
         </div>
         <div>
-          <span className="text-slate-400">Max:</span>
-          <span className="text-white font-mono ml-2">{max.toLocaleString()}</span>
+          <span className="text-slate-500 dark:text-slate-400">Max:</span>
+          <span className="text-slate-900 dark:text-white font-mono ml-2">{max.toLocaleString()}</span>
         </div>
       </div>
 
@@ -65,7 +65,7 @@ export default function CapacityGauge({ current, max }: CapacityGaugeProps) {
         </div>
       )}
 
-      <div className="mt-4 w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+      <div className="mt-4 w-full bg-slate-200 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
         <motion.div
           className="h-full bg-linear-to-r from-emerald-500 to-amber-500"
           initial={{ width: 0 }}
@@ -73,7 +73,7 @@ export default function CapacityGauge({ current, max }: CapacityGaugeProps) {
           transition={{ duration: 1, delay: 0.5 }}
         />
       </div>
-      <div className="mt-2 flex justify-between w-full text-xs text-slate-500">
+      <div className="mt-2 flex justify-between w-full text-xs text-slate-500 dark:text-slate-400">
         <span>0%</span>
         <span>100%</span>
         <span className="text-amber-400">Buffer</span>

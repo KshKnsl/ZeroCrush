@@ -31,11 +31,11 @@ const nodes = [
 
 export default function EntryPhase() {
   return (
-    <div className="relative bg-white/70 backdrop-blur-xl rounded-2xl border border-white/50 shadow-xl overflow-hidden">
-      <div className="absolute inset-0 bg-linear-to-r from-green-100/30 via-transparent to-blue-100/30 pointer-events-none" />
+    <div className="relative app-panel rounded-2xl shadow-xl overflow-hidden">
+      <div className="absolute inset-0 bg-linear-to-r from-lime-100/20 via-transparent to-slate-100/20 dark:from-lime-500/5 dark:to-transparent pointer-events-none" />
       
-      <div className="relative px-6 py-4 border-b border-slate-200/50">
-        <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Entry Phase</span>
+      <div className="relative px-6 py-4 border-b border-slate-200 dark:border-[#1e1e1e]">
+        <span className="text-xs font-bold uppercase tracking-widest app-muted">Entry Phase</span>
       </div>
       
       <div className="relative p-8">
