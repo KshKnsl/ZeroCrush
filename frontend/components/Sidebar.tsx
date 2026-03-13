@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { Activity, Users, ScanLine, LayoutDashboard, Moon, Sun, KeyRound, LogOut } from 'lucide-react';
 import { clsx } from 'clsx';
-import type { DashboardTab, UserRole } from '@/lib/auth';
+import type { DashboardTab, ManagementTab, UserRole } from '@/lib/auth';
 
 type Theme = 'light' | 'dark';
 
@@ -11,6 +11,7 @@ interface SidebarProps {
   theme: Theme;
   role: UserRole;
   identifier: string;
+  availableTabs?: ManagementTab[];
   onToggleTheme: () => void;
   onLogout: () => void;
 }
@@ -22,10 +23,10 @@ const baseTabs: { id: DashboardTab; label: string; icon: typeof Activity }[] = [
   { id: 'upload', label: 'CSV Upload', icon: LayoutDashboard },
 ];
 
-export default function Sidebar({ activeTab, onTabChange, theme, role, identifier, onToggleTheme, onLogout }: SidebarProps) {
+export default function Sidebar({ activeTab, onTabChange, theme, role, identifier, availableTabs, onToggleTheme, onLogout }: SidebarProps) {
   const tabs = role === 'admin'
-    ? [...baseTabs, { id: 'access' as DashboardTab, label: 'Access Control', icon: KeyRound }]
-    : baseTabs;
+    ? [{ id: 'access' as DashboardTab, label: 'Access Control', icon: KeyRound }, ...baseTabs]
+    : baseTabs.filter((tab) => (availableTabs ?? []).includes(tab.id as ManagementTab));
 
   return (
     <aside className="w-64 border-r border-slate-200 bg-white/90 dark:border-[#1e1e1e] dark:bg-[#0a0a0a] flex flex-col transition-colors">

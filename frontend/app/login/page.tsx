@@ -55,7 +55,7 @@ export default function LoginPage() {
       return;
     }
 
-    setStoredSession({ role: 'management', identifier: account.id });
+    setStoredSession({ role: 'management', identifier: account.id, allowedTabs: account.allowedTabs });
     router.push('/dashboard');
   };
 

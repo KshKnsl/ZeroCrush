@@ -8,7 +8,7 @@ import LiveMonitoring from '@/components/LiveMonitoring';
 import ManagementAccess from '@/components/ManagementAccess';
 import RegistrationManagement from '@/components/RegistrationManagement';
 import EventRegistration from '@/components/EventRegistration';
-import { clearStoredSession, getStoredSession, type AppSession, type DashboardTab } from '@/lib/auth';
+import { clearStoredSession, DEFAULT_MANAGEMENT_TABS, getStoredSession, type AppSession, type DashboardTab, type ManagementTab } from '@/lib/auth';
 
 type Theme = 'light' | 'dark';
 
@@ -18,6 +18,10 @@ export default function DashboardPage() {
   const [theme, setTheme] = useState<Theme>('dark');
   const [session, setSession] = useState<AppSession | null>(null);
   const [isReady, setIsReady] = useState(false);
+
+  const managementTabs: ManagementTab[] = session?.role === 'management'
+    ? (session.allowedTabs && session.allowedTabs.length > 0 ? session.allowedTabs : DEFAULT_MANAGEMENT_TABS)
+    : DEFAULT_MANAGEMENT_TABS;
 
   useEffect(() => {
     const currentSession = getStoredSession();
@@ -41,10 +45,16 @@ export default function DashboardPage() {
   }, [isReady, theme]);
 
   useEffect(() => {
-    if (session?.role !== 'admin' && activeTab === 'access') {
-      setActiveTab('live');
+    if (!session) return;
+
+    if (session.role === 'admin') {
+      return;
     }
-  }, [activeTab, session]);
+
+    if (activeTab === 'access' || !managementTabs.includes(activeTab as ManagementTab)) {
+      setActiveTab(managementTabs[0] ?? 'live');
+    }
+  }, [activeTab, managementTabs, session]);
 
   if (!isReady || !session) {
     return (
@@ -67,6 +77,7 @@ export default function DashboardPage() {
         theme={theme}
         role={session.role}
         identifier={session.identifier}
+        availableTabs={managementTabs}
         onToggleTheme={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
         onLogout={handleLogout}
       />
