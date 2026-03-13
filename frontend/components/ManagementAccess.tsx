@@ -22,21 +22,28 @@ export default function ManagementAccess({ eventId, eventName }: ManagementAcces
   const [editTabs, setEditTabs] = useState<Record<string, ManagementTab[]>>({});
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
+  const loadAccounts = async () => {
+    const requestKey = Date.now();
+    const response = await fetch(`/api/management?eventId=${eventId}&_r=${requestKey}`, {
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-store',
+        Pragma: 'no-cache',
+      },
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      setFeedback({ type: 'error', message: data.error || 'Could not load management accounts.' });
+      return;
+    }
+
+    const existingAccounts = (data.accounts ?? []) as ManagementAccount[];
+    setAccounts(existingAccounts);
+    setEditTabs(Object.fromEntries(existingAccounts.map((account) => [String(account.id), account.allowedTabs])));
+  };
+
   useEffect(() => {
-    const loadAccounts = async () => {
-      const response = await fetch(`/api/management?eventId=${eventId}`, { cache: 'no-store' });
-      const data = await response.json();
-      if (!response.ok) {
-        setFeedback({ type: 'error', message: data.error || 'Could not load management accounts.' });
-        return;
-      }
-
-      const existingAccounts = (data.accounts ?? []) as ManagementAccount[];
-      setAccounts(existingAccounts);
-      setEditTabs(Object.fromEntries(existingAccounts.map((account) => [String(account.id), account.allowedTabs])));
-    };
-
-    loadAccounts();
+    void loadAccounts();
   }, [eventId]);
 
   const toggleTab = (tabs: ManagementTab[], tab: ManagementTab) => {
@@ -48,16 +55,11 @@ export default function ManagementAccess({ eventId, eventName }: ManagementAcces
 
   const refreshAccounts = () => {
     void (async () => {
-      const response = await fetch(`/api/management?eventId=${eventId}`, { cache: 'no-store' });
-      const data = await response.json();
-      if (!response.ok) {
-        setFeedback({ type: 'error', message: data.error || 'Could not refresh management accounts.' });
-        return;
+      try {
+        await loadAccounts();
+      } catch {
+        setFeedback({ type: 'error', message: 'Could not refresh management accounts.' });
       }
-
-      const nextAccounts = (data.accounts ?? []) as ManagementAccount[];
-      setAccounts(nextAccounts);
-      setEditTabs(Object.fromEntries(nextAccounts.map((account) => [String(account.id), account.allowedTabs])));
     })();
   };
 
