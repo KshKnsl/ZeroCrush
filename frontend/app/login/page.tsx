@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ADMIN_CREDENTIALS, authenticateAdmin, getStoredSession, setStoredSession, type UserRole } from '@/lib/auth';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type Theme = 'light' | 'dark';
 
@@ -107,7 +109,7 @@ export default function LoginPage() {
           <div className="inline-flex rounded-full border border-lime-300/60 bg-lime-50 px-3 py-1 text-[11px] uppercase tracking-[0.24em] text-lime-700 dark:border-lime-500/20 dark:bg-lime-500/10 dark:text-lime-300">
             ZeroCrush Roles
           </div>
-          <h1 className="mt-6 max-w-xl text-4xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 md:text-5xl">
+          <h1 className="mt-6 max-w-xl text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 sm:text-4xl md:text-5xl">
             Login first, then enter the operations dashboard.
           </h1>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-500 dark:text-slate-400 md:text-base">
@@ -128,7 +130,7 @@ export default function LoginPage() {
           </div>
         </section>
 
-        <section className="w-full max-w-xl rounded-4xl border border-slate-200 bg-white p-6 shadow-[0_20px_70px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-[#111111] md:p-8">
+        <section className="w-full max-w-xl rounded-4xl border border-slate-200 bg-white p-5 shadow-[0_20px_70px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-[#111111] sm:p-6 md:p-8">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-slate-500">Authentication</p>
@@ -168,7 +170,7 @@ export default function LoginPage() {
               <>
                 <div>
                   <label className="mb-2 block text-xs font-medium uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">Admin Email</label>
-                  <input
+                  <Input
                     type="email"
                     value={adminEmail}
                     onChange={(event) => setAdminEmail(event.target.value)}
@@ -177,7 +179,7 @@ export default function LoginPage() {
                 </div>
                 <div>
                   <label className="mb-2 block text-xs font-medium uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">Password</label>
-                  <input
+                  <Input
                     type="password"
                     value={adminPassword}
                     onChange={(event) => setAdminPassword(event.target.value)}
@@ -192,22 +194,26 @@ export default function LoginPage() {
               <>
                 <div>
                   <label className="mb-2 block text-xs font-medium uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">Event</label>
-                  <select
-                    value={selectedEventId ?? ''}
-                    onChange={(event) => setSelectedEventId(Number(event.target.value))}
-                    className="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3.5 text-sm text-slate-900 focus:border-lime-500 focus:outline-none focus:ring-2 focus:ring-lime-500/20 dark:border-slate-700 dark:bg-[#111111] dark:text-slate-100"
+                  <Select
+                    value={selectedEventId ? String(selectedEventId) : undefined}
+                    onValueChange={(value) => setSelectedEventId(Number(value))}
+                    disabled={events.length === 0}
                   >
-                    {events.length === 0 ? <option value="">No events available</option> : null}
-                    {events.map((event) => (
-                      <option key={event.id} value={event.id}>
-                        {event.type}{event.plate ? ` · ${event.plate}` : ''}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="w-full rounded-2xl border-slate-300 bg-slate-50 px-4 py-3.5 text-sm text-slate-900 dark:border-slate-700 dark:bg-[#111111] dark:text-slate-100">
+                      <SelectValue placeholder="No events available" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {events.map((event) => (
+                        <SelectItem key={event.id} value={String(event.id)}>
+                          {event.type}{event.plate ? ` · ${event.plate}` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <label className="mb-2 block text-xs font-medium uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">Management ID</label>
-                  <input
+                  <Input
                     type="text"
                     value={managementId}
                     onChange={(event) => setManagementId(event.target.value)}
@@ -217,7 +223,7 @@ export default function LoginPage() {
                 </div>
                 <div>
                   <label className="mb-2 block text-xs font-medium uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">Password</label>
-                  <input
+                  <Input
                     type="password"
                     value={managementPassword}
                     onChange={(event) => setManagementPassword(event.target.value)}

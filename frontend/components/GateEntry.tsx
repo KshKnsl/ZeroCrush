@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { QrCode, CheckCircle, XCircle, ArrowRight, Camera, Keyboard, Loader2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 
 interface VerifySuccess {
   success: true;
@@ -195,14 +196,14 @@ export default function GateEntry() {
 
   return (
     <div className="space-y-6">
-      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
+      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
         <div>
           <h2 className="app-heading font-bold text-xl">Gate Entry</h2>
           <p className="app-muted text-sm">Scan QR codes or manually check-in attendees</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
           <span className="app-muted text-xs uppercase">Active Gate:</span>
-          <div className="flex gap-1">
+          <div className="flex flex-wrap gap-1">
             {gates.map((gate) => (
               <button
                 key={gate}
@@ -220,7 +221,7 @@ export default function GateEntry() {
         </div>
       </motion.div>
 
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }} className="app-panel overflow-hidden">
           <div className="p-4 border-b border-slate-200 dark:border-[#1e1e1e] flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -346,7 +347,7 @@ export default function GateEntry() {
 
             <div>
               <label className="app-muted text-xs uppercase tracking-wider">Email Address</label>
-              <input
+              <Input
                 type="email"
                 value={manualEmail}
                 onChange={(e) => setManualEmail(e.target.value)}
@@ -357,7 +358,7 @@ export default function GateEntry() {
 
             <div>
               <label className="app-muted text-xs uppercase tracking-wider">Entry Code</label>
-              <input
+              <Input
                 type="text"
                 value={manualCode}
                 onChange={(e) => setManualCode(e.target.value.toUpperCase())}
@@ -368,7 +369,7 @@ export default function GateEntry() {
               />
             </div>
 
-            <div className="flex gap-2 pt-1">
+            <div className="flex flex-col gap-2 pt-1 sm:flex-row">
               <button
                 onClick={handleManualSubmit}
                 disabled={!manualEmail || !manualCode || manualStatus === "loading"}
@@ -395,7 +396,7 @@ export default function GateEntry() {
       </div>
 
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="app-panel overflow-hidden">
-        <div className="p-4 border-b border-slate-200 dark:border-[#1e1e1e] flex items-center justify-between">
+        <div className="flex flex-col items-start justify-between gap-2 border-b border-slate-200 p-4 dark:border-[#1e1e1e] sm:flex-row sm:items-center">
           <h3 className="app-heading font-semibold">Recent Check-ins</h3>
           <span className="app-muted text-xs font-mono">{recentCheckIns.length} this session</span>
         </div>
@@ -411,7 +412,7 @@ export default function GateEntry() {
                   initial={{ opacity: 0, y: -12 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i === 0 ? 0 : 0 }}
-                  className="p-4 flex items-center justify-between hover:bg-slate-100 dark:hover:bg-[#151515] transition-colors"
+                  className="flex flex-col items-start justify-between gap-3 p-4 hover:bg-slate-100 dark:hover:bg-[#151515] transition-colors sm:flex-row sm:items-center"
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-full bg-lime-500/20 flex items-center justify-center shrink-0">

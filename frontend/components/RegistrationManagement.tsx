@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { BarChart3, Send, Calendar, MapPin } from 'lucide-react';
 import CapacityGauge from './CapacityGauge';
+import { Input } from '@/components/ui/input';
 
 interface RegistrationEvent {
   id: number;
@@ -101,7 +102,7 @@ export default function RegistrationManagement({ event }: RegistrationManagement
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-between"
+        className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between"
       >
         <div>
           <h2 className="app-heading font-bold text-xl">Registration Management</h2>
@@ -113,7 +114,7 @@ export default function RegistrationManagement({ event }: RegistrationManagement
         </button>
       </motion.div>
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
         {stats.map((stat, i) => (
           <motion.div
             key={stat.label}
@@ -129,7 +130,7 @@ export default function RegistrationManagement({ event }: RegistrationManagement
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -144,7 +145,7 @@ export default function RegistrationManagement({ event }: RegistrationManagement
           <div className="space-y-4">
             <div>
               <label className="app-muted text-xs uppercase tracking-wider">Event Name</label>
-              <input
+              <Input
                 type="text"
                 value={eventName}
                 readOnly
@@ -153,10 +154,10 @@ export default function RegistrationManagement({ event }: RegistrationManagement
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="app-muted text-xs uppercase tracking-wider">Date</label>
-                <input
+                <Input
                   type="date"
                   value={eventDate}
                   readOnly
@@ -167,7 +168,7 @@ export default function RegistrationManagement({ event }: RegistrationManagement
               </div>
               <div>
                 <label className="app-muted text-xs uppercase tracking-wider">Plate / Code</label>
-                <input
+                <Input
                   type="text"
                   value={eventPlate}
                   readOnly
@@ -181,13 +182,13 @@ export default function RegistrationManagement({ event }: RegistrationManagement
               <label className="app-muted text-xs uppercase tracking-wider">Location</label>
               <div className="flex items-center gap-2 mt-1 px-4 py-2 rounded-lg bg-slate-50 border border-slate-300 dark:bg-[#111111] dark:border-[#2a2a2a]">
                 <MapPin className="w-4 h-4 app-muted" />
-                <input
+                <Input
                   type="text"
                   value={eventLocation}
                   readOnly
                   placeholder="Enter event location"
                   title="Event Location"
-                  className="flex-1 bg-transparent app-heading text-sm focus:outline-none"
+                  className="flex-1 border-0 bg-transparent p-0 shadow-none app-heading text-sm focus-visible:ring-0"
                 />
               </div>
             </div>
@@ -227,43 +228,45 @@ export default function RegistrationManagement({ event }: RegistrationManagement
             Refresh
           </button>
         </div>
-        <table className="w-full">
-          <thead>
-            <tr className="bg-slate-100 dark:bg-[#111111]">
-              <th className="px-4 py-3 text-left text-xs font-medium app-muted uppercase">Name</th>
-              <th className="px-4 py-3 text-left text-xs font-medium app-muted uppercase">Email</th>
-              <th className="px-4 py-3 text-left text-xs font-medium app-muted uppercase">Status</th>
-              <th className="px-4 py-3 text-left text-xs font-medium app-muted uppercase">Gate</th>
-              <th className="px-4 py-3 text-right text-xs font-medium app-muted uppercase">Action</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-200 dark:divide-[#1e1e1e]">
-            {attendeesLoading ? (
-              <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-sm app-muted">Loading registrations...</td>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-160">
+            <thead>
+              <tr className="bg-slate-100 dark:bg-[#111111]">
+                <th className="px-4 py-3 text-left text-xs font-medium app-muted uppercase">Name</th>
+                <th className="px-4 py-3 text-left text-xs font-medium app-muted uppercase">Email</th>
+                <th className="px-4 py-3 text-left text-xs font-medium app-muted uppercase">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-medium app-muted uppercase">Gate</th>
+                <th className="px-4 py-3 text-right text-xs font-medium app-muted uppercase">Action</th>
               </tr>
-            ) : attendeesError ? (
-              <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-sm text-rose-500">{attendeesError}</td>
-              </tr>
-            ) : attendees.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-sm app-muted">No registrations yet for this event.</td>
-              </tr>
-            ) : (
-              attendees.map((attendee, index) => (
-                <RegistrationRow
-                  key={attendee.id}
-                  name={attendee.name || 'Unnamed attendee'}
-                  email={attendee.email}
-                  status="registered"
-                  gate="-"
-                  rowNumber={index + 1}
-                />
-              ))
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-slate-200 dark:divide-[#1e1e1e]">
+              {attendeesLoading ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-6 text-center text-sm app-muted">Loading registrations...</td>
+                </tr>
+              ) : attendeesError ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-6 text-center text-sm text-rose-500">{attendeesError}</td>
+                </tr>
+              ) : attendees.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-6 text-center text-sm app-muted">No registrations yet for this event.</td>
+                </tr>
+              ) : (
+                attendees.map((attendee, index) => (
+                  <RegistrationRow
+                    key={attendee.id}
+                    name={attendee.name || 'Unnamed attendee'}
+                    email={attendee.email}
+                    status="registered"
+                    gate="-"
+                    rowNumber={index + 1}
+                  />
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </motion.div>
     </div>
   );

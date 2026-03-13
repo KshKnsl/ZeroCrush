@@ -131,7 +131,7 @@ export default function DashboardPage() {
   const selectedEvent = events.find((event) => event.id === selectedEventId) ?? null;
 
   return (
-    <div className="h-screen flex bg-slate-100 text-slate-900 dark:bg-[#0a0a0a] dark:text-white transition-colors overflow-hidden">
+    <div className="min-h-screen md:h-screen flex flex-col md:flex-row bg-slate-100 text-slate-900 dark:bg-[#0a0a0a] dark:text-white transition-colors overflow-hidden">
       <Sidebar
         activeTab={activeTab}
         onTabChange={setActiveTab}
@@ -151,7 +151,7 @@ export default function DashboardPage() {
         onToggleTheme={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
         onLogout={handleLogout}
       />
-      <main className="flex-1 overflow-auto p-4 pt-16 sm:p-6 sm:pt-6">
+      <main className="flex-1 overflow-auto p-3 pb-24 pt-3 sm:p-6 sm:pb-24 md:pb-6">
         {selectedEvent ? (
           <>
             {activeTab === 'live' && <LiveMonitoring event={selectedEvent} />}

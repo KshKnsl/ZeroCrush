@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
+import { Input } from "@/components/ui/input";
 
 interface UserRow {
   name: string;
@@ -267,14 +268,14 @@ export default function EventRegistration({ eventId, eventName }: EventRegistrat
                 <div className="mt-3 space-y-2">
                   {manualRows.map((row, index) => (
                     <div key={index} className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
-                      <input
+                      <Input
                         type="text"
                         value={row.name}
                         onChange={(event) => updateManualRow(index, "name", event.target.value)}
                         placeholder="Name (optional)"
                         className="min-w-0 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 dark:border-slate-600 dark:bg-[#111111] dark:text-slate-100 dark:placeholder:text-slate-500"
                       />
-                      <input
+                      <Input
                         type="email"
                         value={row.email}
                         onChange={(event) => updateManualRow(index, "email", event.target.value)}

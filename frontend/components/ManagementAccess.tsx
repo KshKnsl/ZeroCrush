@@ -9,6 +9,8 @@ import {
   type ManagementAccount,
   type VenueRole,
 } from '@/lib/auth';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface ManagementAccessProps {
   eventId: number;
@@ -104,7 +106,7 @@ export default function ManagementAccess({ eventId, eventName }: ManagementAcces
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
         <div>
           <h2 className="text-slate-900 dark:text-white font-bold text-xl">Role Management</h2>
           <p className="text-slate-500 dark:text-slate-400 text-sm">Create staff credentials and assign venue crowd-management roles for {eventName}.</p>
@@ -129,7 +131,7 @@ export default function ManagementAccess({ eventId, eventName }: ManagementAcces
           <div className="mt-6 space-y-4">
             <div>
               <label className="mb-2 block text-xs font-medium uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">Management ID</label>
-              <input
+              <Input
                 type="text"
                 value={managementId}
                 onChange={(event) => setManagementId(event.target.value)}
@@ -139,7 +141,7 @@ export default function ManagementAccess({ eventId, eventName }: ManagementAcces
 
             <div>
               <label className="mb-2 block text-xs font-medium uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">Password</label>
-              <input
+              <Input
                 type="text"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
@@ -181,7 +183,7 @@ export default function ManagementAccess({ eventId, eventName }: ManagementAcces
 
             <button
               onClick={handleCreate}
-              className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-slate-800 dark:bg-[#111111] dark:text-slate-100 dark:hover:bg-[#151515]"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-slate-800 dark:bg-[#111111] dark:text-slate-100 dark:hover:bg-[#151515] sm:w-auto"
             >
               <KeyRound className="h-4 w-4" />
               Create Role Login
@@ -221,22 +223,26 @@ export default function ManagementAccess({ eventId, eventName }: ManagementAcces
 
                   <div className="mt-4">
                     <p className="mb-2 text-[11px] uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">Assigned Role</p>
-                    <select
+                    <Select
                       value={editRoles[String(account.id)] ?? account.role}
-                      onChange={(event) => {
+                      onValueChange={(value) => {
                         setEditRoles((prev) => ({
                           ...prev,
-                          [String(account.id)]: event.target.value as VenueRole,
+                          [String(account.id)]: value as VenueRole,
                         }));
                       }}
-                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-lime-500 focus:outline-none focus:ring-2 focus:ring-lime-500/20 dark:border-slate-700 dark:bg-[#111111] dark:text-slate-200"
                     >
-                      {VENUE_ROLE_OPTIONS.map((role) => (
-                        <option key={`${account.id}-${role.id}`} value={role.id}>
-                          {role.label}
-                        </option>
-                      ))}
-                    </select>
+                      <SelectTrigger className="w-full rounded-xl border-slate-300 bg-white text-sm text-slate-700 dark:border-slate-700 dark:bg-[#111111] dark:text-slate-200">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {VENUE_ROLE_OPTIONS.map((role) => (
+                          <SelectItem key={`${account.id}-${role.id}`} value={role.id}>
+                            {role.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <div className="mt-3 rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-600 dark:border-slate-800 dark:bg-[#111111] dark:text-slate-300">
                       <p className="font-semibold text-slate-900 dark:text-slate-100">{getRoleDefinition(editRoles[String(account.id)] ?? account.role).label}</p>
                       <p className="mt-1">{getRoleDefinition(editRoles[String(account.id)] ?? account.role).responsibilities}</p>

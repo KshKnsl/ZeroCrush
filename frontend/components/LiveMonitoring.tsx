@@ -28,9 +28,9 @@ export default function LiveMonitoring({ event }: LiveMonitoringProps) {
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, }}
-        className="app-panel p-4 flex items-center justify-between"
+        className="app-panel flex flex-col gap-4 p-4 lg:flex-row lg:items-center lg:justify-between"
       >
-        <div className="flex items-center gap-6">
+        <div className="flex flex-wrap items-center gap-4 lg:gap-6">
           <div>
             <p className="app-muted text-xs uppercase tracking-wider">Active Event</p>
             <h2 className="app-heading font-bold text-lg">{event.type}</h2>
@@ -38,20 +38,20 @@ export default function LiveMonitoring({ event }: LiveMonitoringProps) {
               {event.plate ? `${event.plate} · ` : ''}Event #{event.id}
             </p>
           </div>
-          <div className="h-10 w-px bg-slate-300 dark:bg-[#2a2a2a]" />
+          <div className="hidden h-10 w-px bg-slate-300 dark:bg-[#2a2a2a] lg:block" />
           <div className="flex items-center gap-2">
             <Users className="w-4 h-4 app-muted" />
             <span className="app-heading font-mono text-sm">{liveCount.toLocaleString()}</span>
             <span className="app-muted text-xs">in venue</span>
           </div>
-          <div className="h-10 w-px bg-slate-300 dark:bg-[#2a2a2a]" />
+          <div className="hidden h-10 w-px bg-slate-300 dark:bg-[#2a2a2a] lg:block" />
           <RiskMeter level={riskLevel} />
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex w-full items-center gap-4 lg:w-auto">
           <button
             onClick={() => setShowHeatmap(!showHeatmap)}
-            className={`px-4 py-2 rounded-lg text-xs font-medium transition-all duration-200 border ${
+            className={`w-full px-4 py-2 rounded-lg text-xs font-medium transition-all duration-200 border lg:w-auto ${
               showHeatmap
                 ? 'bg-lime-500/20 border-lime-500 text-lime-600 dark:text-[#c8f04a] shadow-lg shadow-lime-500/20'
                 : 'bg-transparent border-slate-300 text-slate-600 hover:border-slate-400 dark:border-[#2a2a2a] dark:text-[#666666] dark:hover:border-[#444444]'
@@ -63,12 +63,12 @@ export default function LiveMonitoring({ event }: LiveMonitoringProps) {
         </div>
       </motion.div>
 
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.1 }}
-          className="col-span-2 app-panel overflow-hidden"
+          className="app-panel overflow-hidden xl:col-span-2"
         >
           <VideoFeed showHeatmap={showHeatmap} />
         </motion.div>
