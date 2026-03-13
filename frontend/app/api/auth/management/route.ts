@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 
 export async function POST(request: NextRequest) {
@@ -44,6 +45,13 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2021') {
+      return NextResponse.json(
+        { error: 'Database schema is outdated. Run migrations to create ManagementAccount table.' },
+        { status: 503 },
+      );
+    }
+
     console.error('[api/auth/management][POST]', error);
     return NextResponse.json({ error: 'Failed to authenticate management account.' }, { status: 500 });
   }

@@ -1,6 +1,6 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { BarChart3, Send, Plus, Trash2, Calendar, MapPin } from 'lucide-react';
+import { BarChart3, Send, Calendar, MapPin } from 'lucide-react';
 import CapacityGauge from './CapacityGauge';
 
 interface RegistrationEvent {
@@ -13,6 +13,13 @@ interface RegistrationEvent {
 
 interface RegistrationManagementProps {
   event: RegistrationEvent;
+}
+
+interface RegisteredAttendee {
+  id: number;
+  name: string | null;
+  email: string;
+  registeredAt: string;
 }
 
 function toDateInputValue(timestamp: string) {
@@ -40,8 +47,50 @@ export default function RegistrationManagement({ event }: RegistrationManagement
     return byType[event.type.toLowerCase()] ?? 1500;
   }, [event.type]);
 
+  const [attendees, setAttendees] = useState<RegisteredAttendee[]>([]);
+  const [attendeesLoading, setAttendeesLoading] = useState(false);
+  const [attendeesError, setAttendeesError] = useState<string | null>(null);
+  const [totalRegistered, setTotalRegistered] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const loadAttendees = async () => {
+      setAttendeesLoading(true);
+      setAttendeesError(null);
+
+      try {
+        const response = await fetch(`/api/events/${event.id}/attendees`, {
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to load attendees.');
+        }
+
+        setAttendees(Array.isArray(data.attendees) ? data.attendees : []);
+        setTotalRegistered(typeof data.totalRegistered === 'number' ? data.totalRegistered : 0);
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        setAttendees([]);
+        setTotalRegistered(0);
+        setAttendeesError(error instanceof Error ? error.message : 'Failed to load attendees.');
+      } finally {
+        if (!controller.signal.aborted) {
+          setAttendeesLoading(false);
+        }
+      }
+    };
+
+    loadAttendees();
+
+    return () => controller.abort();
+  }, [event.id]);
+
   const stats = [
-    { label: 'Total Registered', value: '1,247', change: '+12%' },
+    { label: 'Total Registered', value: totalRegistered.toLocaleString(), change: 'Live' },
     { label: 'Checked In', value: '892', change: '+8%' },
     { label: 'Pending', value: '355', change: '-5%' },
     { label: 'Capacity', value: '83%', change: '98%' },
@@ -171,9 +220,11 @@ export default function RegistrationManagement({ event }: RegistrationManagement
       >
         <div className="p-4 border-b border-slate-200 dark:border-[#1e1e1e] flex items-center justify-between">
           <h3 className="app-heading font-semibold">Recent Registrations</h3>
-          <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs border bg-slate-100 border-slate-300 text-slate-700 hover:border-lime-500 transition-all dark:bg-[#111111] dark:border-[#2a2a2a] dark:text-[#777777]">
-            <Plus className="w-3 h-3" />
-            Add Manual
+          <button
+            onClick={() => window.location.reload()}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs border bg-slate-100 border-slate-300 text-slate-700 hover:border-lime-500 transition-all dark:bg-[#111111] dark:border-[#2a2a2a] dark:text-[#777777]"
+          >
+            Refresh
           </button>
         </div>
         <table className="w-full">
@@ -187,10 +238,30 @@ export default function RegistrationManagement({ event }: RegistrationManagement
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200 dark:divide-[#1e1e1e]">
-            <RegistrationRow name="John Smith" email="john@example.com" status="checked-in" gate={1} />
-            <RegistrationRow name="Sarah Johnson" email="sarah@example.com" status="registered" gate={3} />
-            <RegistrationRow name="Mike Davis" email="mike@example.com" status="registered" gate={2} />
-            <RegistrationRow name="Emily Chen" email="emily@example.com" status="checked-in" gate={1} />
+            {attendeesLoading ? (
+              <tr>
+                <td colSpan={5} className="px-4 py-6 text-center text-sm app-muted">Loading registrations...</td>
+              </tr>
+            ) : attendeesError ? (
+              <tr>
+                <td colSpan={5} className="px-4 py-6 text-center text-sm text-rose-500">{attendeesError}</td>
+              </tr>
+            ) : attendees.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-4 py-6 text-center text-sm app-muted">No registrations yet for this event.</td>
+              </tr>
+            ) : (
+              attendees.map((attendee, index) => (
+                <RegistrationRow
+                  key={attendee.id}
+                  name={attendee.name || 'Unnamed attendee'}
+                  email={attendee.email}
+                  status="registered"
+                  gate="-"
+                  rowNumber={index + 1}
+                />
+              ))
+            )}
           </tbody>
         </table>
       </motion.div>
@@ -198,7 +269,19 @@ export default function RegistrationManagement({ event }: RegistrationManagement
   );
 }
 
-function RegistrationRow({ name, email, status, gate }: { name: string; email: string; status: string; gate: number }) {
+function RegistrationRow({
+  name,
+  email,
+  status,
+  gate,
+  rowNumber,
+}: {
+  name: string;
+  email: string;
+  status: string;
+  gate: string;
+  rowNumber: number;
+}) {
   const statusColors: Record<string, string> = {
     'checked-in': 'text-emerald-400 bg-emerald-500/20',
     registered: 'text-blue-400 bg-blue-500/20',
@@ -213,11 +296,9 @@ function RegistrationRow({ name, email, status, gate }: { name: string; email: s
           {status}
         </span>
       </td>
-      <td className="px-4 py-3 app-muted text-sm font-mono">GATE-{gate}</td>
+      <td className="px-4 py-3 app-muted text-sm font-mono">{gate}</td>
       <td className="px-4 py-3 text-right">
-        <button className="p-1.5 text-slate-500 hover:text-rose-400 transition-colors" title="Delete">
-          <Trash2 className="w-4 h-4" />
-        </button>
+        <span className="text-xs app-muted">#{rowNumber}</span>
       </td>
     </tr>
   );

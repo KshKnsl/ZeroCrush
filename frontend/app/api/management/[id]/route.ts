@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { normalizeManagementTabs } from '@/lib/auth';
 
@@ -35,6 +36,13 @@ export async function PATCH(
 
     return NextResponse.json({ success: true, account });
   } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2021') {
+      return NextResponse.json(
+        { error: 'Database schema is outdated. Run migrations to create ManagementAccount table.' },
+        { status: 503 },
+      );
+    }
+
     console.error('[api/management/:id][PATCH]', error);
     return NextResponse.json({ error: 'Failed to update account access.' }, { status: 500 });
   }
