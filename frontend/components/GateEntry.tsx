@@ -411,7 +411,7 @@ export default function GateEntry() {
                   initial={{ opacity: 0, y: -12 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i === 0 ? 0 : 0 }}
-                  className="p-4 flex items-center justify-between hover:bg-slate-100 dark:hover:bg-[#111111] transition-colors"
+                  className="p-4 flex items-center justify-between hover:bg-slate-100 dark:hover:bg-[#151515] transition-colors"
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-full bg-lime-500/20 flex items-center justify-center shrink-0">

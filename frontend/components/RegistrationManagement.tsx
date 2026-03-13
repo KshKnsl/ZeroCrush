@@ -179,7 +179,7 @@ export default function RegistrationManagement({ event }: RegistrationManagement
 
             <div>
               <label className="app-muted text-xs uppercase tracking-wider">Location</label>
-              <div className="flex items-center gap-2 mt-1 px-4 py-2 rounded-lg bg-slate-50 border border-slate-300 dark:bg-[#0f0f0f] dark:border-[#2a2a2a]">
+              <div className="flex items-center gap-2 mt-1 px-4 py-2 rounded-lg bg-slate-50 border border-slate-300 dark:bg-[#111111] dark:border-[#2a2a2a]">
                 <MapPin className="w-4 h-4 app-muted" />
                 <input
                   type="text"
@@ -288,7 +288,7 @@ function RegistrationRow({
   };
 
   return (
-    <tr className="hover:bg-slate-100 dark:hover:bg-[#111111] transition-colors">
+    <tr className="hover:bg-slate-100 dark:hover:bg-[#151515] transition-colors">
       <td className="px-4 py-3 app-heading text-sm font-medium">{name}</td>
       <td className="px-4 py-3 app-muted text-sm font-mono">{email}</td>
       <td className="px-4 py-3">

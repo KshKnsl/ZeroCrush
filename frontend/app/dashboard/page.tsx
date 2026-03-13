@@ -99,7 +99,7 @@ export default function DashboardPage() {
 
   if (!isReady || !session) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-100 text-slate-500 dark:bg-slate-950 dark:text-slate-400">
+      <div className="flex min-h-screen items-center justify-center bg-slate-100 text-slate-500 dark:bg-[#111111] dark:text-slate-400">
         Loading dashboard...
       </div>
     );
@@ -153,7 +153,7 @@ export default function DashboardPage() {
         onToggleTheme={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
         onLogout={handleLogout}
       />
-      <main className="flex-1 overflow-auto p-6">
+      <main className="flex-1 overflow-auto p-4 pt-16 sm:p-6 sm:pt-6">
         {selectedEvent ? (
           <>
             {activeTab === 'live' && <LiveMonitoring event={selectedEvent} />}
@@ -163,7 +163,7 @@ export default function DashboardPage() {
             {activeTab === 'access' && session.role === 'admin' && <ManagementAccess eventId={selectedEvent.id} eventName={selectedEvent.type} />}
           </>
         ) : (
-          <div className="rounded-2xl border border-slate-200 bg-white p-8 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
+          <div className="rounded-2xl border border-slate-200 bg-white p-8 text-sm text-slate-500 dark:border-slate-800 dark:bg-[#111111] dark:text-slate-400">
             No event selected. Create an event from the sidebar to continue.
           </div>
         )}

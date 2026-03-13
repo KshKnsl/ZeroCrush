@@ -65,7 +65,7 @@ export default function CapacityGauge({ current, max }: CapacityGaugeProps) {
         </div>
       )}
 
-      <div className="mt-4 w-full bg-slate-200 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
+      <div className="mt-4 w-full bg-slate-200 dark:bg-[#111111] rounded-full h-2 overflow-hidden">
         <motion.div
           className="h-full bg-linear-to-r from-emerald-500 to-amber-500"
           initial={{ width: 0 }}

@@ -179,7 +179,7 @@ export default function EventRegistration({ eventId, eventName }: EventRegistrat
           <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_20px_70px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-[#111111] md:p-8 transition-colors">
             {result ? (
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 text-center py-4">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-900 text-slate-100 shadow-[0_0_0_8px_rgba(15,23,42,0.08),0_0_0_16px_rgba(15,23,42,0.04)] dark:bg-slate-100 dark:text-slate-900">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-900 text-slate-100 shadow-[0_0_0_8px_rgba(15,23,42,0.08),0_0_0_16px_rgba(15,23,42,0.04)] dark:bg-[#111111] dark:text-slate-100">
                 <span className="text-2xl">✓</span>
               </div>
               <h2 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 mb-1">Attendees saved</h2>
@@ -197,7 +197,7 @@ export default function EventRegistration({ eventId, eventName }: EventRegistrat
                   ))}
                 </div>
               ) : null}
-              <button onClick={reset} className="w-full rounded-xl bg-slate-900 py-3 text-sm font-medium text-slate-100 hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200 transition-colors">
+              <button onClick={reset} className="w-full rounded-xl bg-slate-900 py-3 text-sm font-medium text-slate-100 hover:bg-slate-800 dark:bg-[#111111] dark:text-slate-100 dark:hover:bg-[#151515] transition-colors">
                 Add More Attendees
               </button>
             </div>
@@ -216,7 +216,7 @@ export default function EventRegistration({ eventId, eventName }: EventRegistrat
                   Attendees CSV
                 </label>
                 <div
-                  className={`rounded-2xl border border-dashed p-6 text-center transition-all cursor-pointer ${dragging ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10" : "border-slate-300 bg-slate-50 hover:border-emerald-400 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-800/70"}`}
+                  className={`rounded-2xl border border-dashed p-6 text-center transition-all cursor-pointer ${dragging ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10" : "border-slate-300 bg-slate-50 hover:border-emerald-400 hover:bg-slate-100 dark:border-slate-700 dark:bg-[#111111] dark:hover:bg-[#151515]/70"}`}
                   onDrop={onDrop}
                   onDragOver={(event) => {
                     event.preventDefault();
@@ -266,25 +266,25 @@ export default function EventRegistration({ eventId, eventName }: EventRegistrat
 
                 <div className="mt-3 space-y-2">
                   {manualRows.map((row, index) => (
-                    <div key={index} className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_1fr_auto]">
+                    <div key={index} className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
                       <input
                         type="text"
                         value={row.name}
                         onChange={(event) => updateManualRow(index, "name", event.target.value)}
                         placeholder="Name (optional)"
-                        className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500"
+                        className="min-w-0 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 dark:border-slate-600 dark:bg-[#111111] dark:text-slate-100 dark:placeholder:text-slate-500"
                       />
                       <input
                         type="email"
                         value={row.email}
                         onChange={(event) => updateManualRow(index, "email", event.target.value)}
                         placeholder="Email (required)"
-                        className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500"
+                        className="min-w-0 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 dark:border-slate-600 dark:bg-[#111111] dark:text-slate-100 dark:placeholder:text-slate-500"
                       />
                       <button
                         type="button"
                         onClick={() => removeManualRow(index)}
-                        className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:border-rose-300 hover:text-rose-600 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300"
+                        className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:border-rose-300 hover:text-rose-600 dark:border-slate-600 dark:bg-[#111111] dark:text-slate-300"
                       >
                         Remove
                       </button>
@@ -322,7 +322,7 @@ export default function EventRegistration({ eventId, eventName }: EventRegistrat
               <button
                 onClick={handleSubmit}
                 disabled={loading}
-                className="w-full py-3 rounded-2xl text-sm font-medium flex items-center justify-center gap-2 bg-slate-900 text-slate-100 hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                className="w-full py-3 rounded-2xl text-sm font-medium flex items-center justify-center gap-2 bg-slate-900 text-slate-100 hover:bg-slate-800 dark:bg-[#111111] dark:text-slate-100 dark:hover:bg-[#151515] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {loading ? (
                   <>
@@ -347,7 +347,7 @@ export default function EventRegistration({ eventId, eventName }: EventRegistrat
               <button
                 type="button"
                 onClick={loadExistingAttendees}
-                className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-[11px] font-medium text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-[11px] font-medium text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-[#151515]"
               >
                 Refresh
               </button>

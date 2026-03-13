@@ -137,7 +137,7 @@ export default function ManagementAccess({ eventId, eventName }: ManagementAcces
                 type="text"
                 value={managementId}
                 onChange={(event) => setManagementId(event.target.value)}
-                className="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3.5 text-sm text-slate-900 focus:border-lime-500 focus:outline-none focus:ring-2 focus:ring-lime-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                className="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3.5 text-sm text-slate-900 focus:border-lime-500 focus:outline-none focus:ring-2 focus:ring-lime-500/20 dark:border-slate-700 dark:bg-[#111111] dark:text-slate-100"
               />
             </div>
 
@@ -147,7 +147,7 @@ export default function ManagementAccess({ eventId, eventName }: ManagementAcces
                 type="text"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                className="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3.5 text-sm text-slate-900 focus:border-lime-500 focus:outline-none focus:ring-2 focus:ring-lime-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                className="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3.5 text-sm text-slate-900 focus:border-lime-500 focus:outline-none focus:ring-2 focus:ring-lime-500/20 dark:border-slate-700 dark:bg-[#111111] dark:text-slate-100"
               />
             </div>
 
@@ -161,7 +161,7 @@ export default function ManagementAccess({ eventId, eventName }: ManagementAcces
                       key={tab.id}
                       type="button"
                       onClick={() => setNewAccountTabs((prev) => toggleTab(prev, tab.id))}
-                      className={`rounded-xl border px-3 py-2 text-left text-xs font-medium transition-colors ${checked ? 'border-lime-500/60 bg-lime-50 text-lime-700 dark:border-lime-500/30 dark:bg-lime-500/10 dark:text-lime-300' : 'border-slate-300 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'}`}
+                      className={`rounded-xl border px-3 py-2 text-left text-xs font-medium transition-colors ${checked ? 'border-lime-500/60 bg-lime-50 text-lime-700 dark:border-lime-500/30 dark:bg-lime-500/10 dark:text-lime-300' : 'border-slate-300 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-[#111111] dark:text-slate-300'}`}
                     >
                       {tab.label}
                     </button>
@@ -178,7 +178,7 @@ export default function ManagementAccess({ eventId, eventName }: ManagementAcces
 
             <button
               onClick={handleCreate}
-              className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+              className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-slate-800 dark:bg-[#111111] dark:text-slate-100 dark:hover:bg-[#151515]"
             >
               <KeyRound className="h-4 w-4" />
               Create Management Login
@@ -188,7 +188,7 @@ export default function ManagementAccess({ eventId, eventName }: ManagementAcces
 
         <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_20px_70px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-[#111111]">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100 text-slate-700 dark:bg-[#111111] dark:text-slate-300">
               <ShieldCheck className="h-5 w-5" />
             </div>
             <div>
@@ -204,7 +204,7 @@ export default function ManagementAccess({ eventId, eventName }: ManagementAcces
               </div>
             ) : (
               accounts.map((account) => (
-                <div key={account.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 dark:border-slate-800 dark:bg-slate-950/60">
+                <div key={account.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 dark:border-slate-800 dark:bg-[#111111]/60">
                   <div className="flex items-center justify-between gap-4">
                     <div>
                       <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{account.loginId}</p>
@@ -236,7 +236,7 @@ export default function ManagementAccess({ eventId, eventName }: ManagementAcces
                                 };
                               });
                             }}
-                            className={`rounded-xl border px-3 py-2 text-left text-xs font-medium transition-colors ${checked ? 'border-lime-500/60 bg-lime-50 text-lime-700 dark:border-lime-500/30 dark:bg-lime-500/10 dark:text-lime-300' : 'border-slate-300 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'}`}
+                            className={`rounded-xl border px-3 py-2 text-left text-xs font-medium transition-colors ${checked ? 'border-lime-500/60 bg-lime-50 text-lime-700 dark:border-lime-500/30 dark:bg-lime-500/10 dark:text-lime-300' : 'border-slate-300 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-[#111111] dark:text-slate-300'}`}
                           >
                             {tab.label}
                           </button>
@@ -246,7 +246,7 @@ export default function ManagementAccess({ eventId, eventName }: ManagementAcces
                     <button
                       type="button"
                       onClick={() => void handleSaveAccess(account.id)}
-                      className="mt-3 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition-colors hover:border-lime-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                      className="mt-3 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition-colors hover:border-lime-500 dark:border-slate-700 dark:bg-[#111111] dark:text-slate-300"
                     >
                       Save Access
                     </button>
