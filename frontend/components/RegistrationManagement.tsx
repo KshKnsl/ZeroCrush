@@ -1,13 +1,44 @@
-import { useState } from 'react';
+import { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Users, BarChart3, Send, Plus, Trash2, Calendar, MapPin } from 'lucide-react';
+import { BarChart3, Send, Plus, Trash2, Calendar, MapPin } from 'lucide-react';
 import CapacityGauge from './CapacityGauge';
 
-export default function RegistrationManagement() {
-  const [eventName, setEventName] = useState('Tech Summit 2025');
-  const [maxCapacity, setMaxCapacity] = useState(1500);
-  const [eventDate, setEventDate] = useState('2025-03-15');
-  const [eventLocation, setEventLocation] = useState('Convention Center Hall A');
+interface RegistrationEvent {
+  id: number;
+  type: string;
+  plate: string | null;
+  description: string | null;
+  timestamp: string;
+}
+
+interface RegistrationManagementProps {
+  event: RegistrationEvent;
+}
+
+function toDateInputValue(timestamp: string) {
+  const parsed = new Date(timestamp);
+  if (Number.isNaN(parsed.getTime())) return '';
+  return parsed.toISOString().slice(0, 10);
+}
+
+export default function RegistrationManagement({ event }: RegistrationManagementProps) {
+  const eventName = event.type;
+  const eventDate = toDateInputValue(event.timestamp);
+  const eventPlate = event.plate ?? '';
+  const eventLocation = event.description ?? '';
+
+  const configuredCapacity = useMemo(() => {
+    const byType: Record<string, number> = {
+      conference: 1800,
+      concert: 3000,
+      sports: 2500,
+      exhibition: 1500,
+      festival: 5000,
+      marathon: 8000,
+    };
+
+    return byType[event.type.toLowerCase()] ?? 1500;
+  }, [event.type]);
 
   const stats = [
     { label: 'Total Registered', value: '1,247', change: '+12%' },
@@ -67,7 +98,7 @@ export default function RegistrationManagement() {
               <input
                 type="text"
                 value={eventName}
-                onChange={(e) => setEventName(e.target.value)}
+                readOnly
                 placeholder="Enter event name"
                 className="app-field mt-1"
               />
@@ -79,19 +110,19 @@ export default function RegistrationManagement() {
                 <input
                   type="date"
                   value={eventDate}
-                  onChange={(e) => setEventDate(e.target.value)}
+                  readOnly
                   placeholder="Select event date"
                   title="Event Date"
                   className="app-field mt-1"
                 />
               </div>
               <div>
-                <label className="app-muted text-xs uppercase tracking-wider">Max Capacity</label>
+                <label className="app-muted text-xs uppercase tracking-wider">Plate / Code</label>
                 <input
-                  type="number"
-                  value={maxCapacity}
-                  onChange={(e) => setMaxCapacity(Number(e.target.value))}
-                  placeholder="Enter max capacity"
+                  type="text"
+                  value={eventPlate}
+                  readOnly
+                  placeholder="Event plate or internal code"
                   className="app-field mt-1"
                 />
               </div>
@@ -104,7 +135,7 @@ export default function RegistrationManagement() {
                 <input
                   type="text"
                   value={eventLocation}
-                  onChange={(e) => setEventLocation(e.target.value)}
+                  readOnly
                   placeholder="Enter event location"
                   title="Event Location"
                   className="flex-1 bg-transparent app-heading text-sm focus:outline-none"
@@ -112,8 +143,8 @@ export default function RegistrationManagement() {
               </div>
             </div>
 
-            <button className="w-full py-3 app-btn-secondary font-medium hover:border-lime-500">
-              Update Event Details
+            <button disabled className="w-full py-3 app-btn-secondary font-medium opacity-60 cursor-not-allowed">
+              Event Details Synced From Active Event
             </button>
           </div>
         </motion.div>
@@ -128,7 +159,7 @@ export default function RegistrationManagement() {
             <BarChart3 className="w-4 h-4 text-amber-400" />
             <h3 className="app-heading font-semibold">Capacity Monitor</h3>
           </div>
-          <CapacityGauge current={1247} max={maxCapacity} />
+          <CapacityGauge current={1247} max={configuredCapacity} />
         </motion.div>
       </div>
 

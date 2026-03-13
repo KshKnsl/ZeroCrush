@@ -6,7 +6,19 @@ import LiveDensityHeatmap from './LiveDensityHeatmap';
 import RiskMeter from './RiskMeter';
 import { Users, AlertTriangle, Zap } from 'lucide-react';
 
-export default function LiveMonitoring() {
+interface LiveMonitoringEvent {
+  id: number;
+  type: string;
+  plate: string | null;
+  description: string | null;
+  timestamp: string;
+}
+
+interface LiveMonitoringProps {
+  event: LiveMonitoringEvent;
+}
+
+export default function LiveMonitoring({ event }: LiveMonitoringProps) {
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [riskLevel, setRiskLevel] = useState<'LOW' | 'MED' | 'HIGH'>('LOW');
   const [liveCount, setLiveCount] = useState(1247);
@@ -21,7 +33,10 @@ export default function LiveMonitoring() {
         <div className="flex items-center gap-6">
           <div>
             <p className="app-muted text-xs uppercase tracking-wider">Active Event</p>
-            <h2 className="app-heading font-bold text-lg">Tech Summit 2025</h2>
+            <h2 className="app-heading font-bold text-lg">{event.type}</h2>
+            <p className="app-muted text-[11px] mt-0.5">
+              {event.plate ? `${event.plate} · ` : ''}Event #{event.id}
+            </p>
           </div>
           <div className="h-10 w-px bg-slate-300 dark:bg-[#2a2a2a]" />
           <div className="flex items-center gap-2">

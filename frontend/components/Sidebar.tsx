@@ -90,18 +90,6 @@ export default function Sidebar({
   return (
     <>
       <aside className="w-72 h-screen sticky top-0 border-r border-slate-200 bg-white/90 dark:border-[#1e1e1e] dark:bg-[#0a0a0a] flex flex-col transition-colors overflow-hidden">
-        <div className="p-6 border-b border-slate-200 dark:border-[#1e1e1e]">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-linear-to-br from-lime-500 to-lime-600 flex items-center justify-center shadow-lg shadow-lime-500/20">
-              <LayoutDashboard className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h1 className="app-heading font-bold text-sm tracking-tight">COMMAND CENTER</h1>
-              <p className="app-muted text-xs">Event Operations</p>
-            </div>
-          </div>
-        </div>
-
         <div className="px-4 pt-4 space-y-3">
           <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-[#1e1e1e] dark:bg-[#111111] transition-colors">
             <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400 dark:text-[#555555]">Signed In</p>

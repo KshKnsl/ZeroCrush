@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import PWARegister from "@/components/PWARegister";
 import "./globals.css";
@@ -18,7 +18,6 @@ export const metadata: Metadata = {
   description: "ZeroCrush operations dashboard",
   applicationName: "ZeroCrush",
   manifest: "/manifest.webmanifest",
-  themeColor: "#0a0a0a",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -31,6 +30,10 @@ export const metadata: Metadata = {
     ],
     apple: [{ url: "/icons/apple-touch-icon.svg", type: "image/svg+xml", sizes: "180x180" }],
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0a0a0a",
 };
 
 export default function RootLayout({

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { normalizeManagementTabs } from '@/lib/auth';
 
@@ -25,6 +26,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ accounts });
   } catch (error) {
     console.error('[api/management][GET]', error);
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2021') {
+      return NextResponse.json(
+        { error: 'Database schema is outdated. Run migrations to create ManagementAccount table.' },
+        { status: 503 },
+      );
+    }
     return NextResponse.json({ error: 'Failed to fetch management accounts.' }, { status: 500 });
   }
 }
@@ -83,6 +90,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, account }, { status: 201 });
   } catch (error) {
     console.error('[api/management][POST]', error);
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2021') {
+      return NextResponse.json(
+        { error: 'Database schema is outdated. Run migrations to create ManagementAccount table.' },
+        { status: 503 },
+      );
+    }
     return NextResponse.json({ error: 'Failed to create management account.' }, { status: 500 });
   }
 }

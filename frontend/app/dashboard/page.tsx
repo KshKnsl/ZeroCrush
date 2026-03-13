@@ -156,8 +156,8 @@ export default function DashboardPage() {
       <main className="flex-1 overflow-auto p-6">
         {selectedEvent ? (
           <>
-            {activeTab === 'live' && <LiveMonitoring />}
-            {activeTab === 'registration' && <RegistrationManagement />}
+            {activeTab === 'live' && <LiveMonitoring event={selectedEvent} />}
+            {activeTab === 'registration' && <RegistrationManagement event={selectedEvent} />}
             {activeTab === 'gate' && <GateEntry />}
             {activeTab === 'upload' && <EventRegistration eventId={selectedEvent.id} eventName={selectedEvent.type} />}
             {activeTab === 'access' && session.role === 'admin' && <ManagementAccess eventId={selectedEvent.id} eventName={selectedEvent.type} />}
