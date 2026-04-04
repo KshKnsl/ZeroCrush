@@ -1,198 +1,33 @@
-# =========================================
-# Zero Stampede Nation - Root .gitignore
-# =========================================
-.github
-# Research & Documentation (sensitive)
-research.md
-
-# =========================================
-# Node.js / NPM / YARN / PNPM
-# =========================================
-node_modules/
-/.pnp
-.pnp
-.pnp.js
-pnpm-lock.yaml
-package-lock.json
-yarn.lock
-
-# Yarn Zero-Install mode
-.yarn/*
-!.yarn/cache
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/sdks
-!.yarn/versions
-!.yarn/.yarnrc
-
-# NPM
-npm-debug.log*
-npm-error.log*
-yarn-debug.log*
-yarn-error.log.log*
-.npm
-.eslintcache
-.node_repl_history
-
-# PNPM
-.pnpm-debug.log*
-
-# =========================================
-# Python
-# =========================================
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-*.egg
-*.egg-info/
-dist/
-build/
-*.whl
-.Python
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-.virtual_documents
-.ipynb_checkpoints/
-
-# =========================================
-# Environment Variables (SECRETS - NEVER COMMIT)
-# =========================================
-.env
-.env.local
-.env.*.local
-.env.development.local
-.env.test.local
-.env.production.local
-.env.prod
-.env.staging
-
-# =========================================
-# IDEs / Editors
-# =========================================
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
+# OS and logs
 .DS_Store
-.AppleDouble
-.LSOverride
-*.sublime-project
-*.sublime-workspace
-.project
-.classpath
-.c9/
-*.launch
-.settings/
-*.sublime-workspace
-!.vscode/extensions.json
-!.vscode/launch.json
-
-# =========================================
-# Next.js
-# =========================================
-.next/
-out/
-build/
-dist/
-.vercel/
-
-# =========================================
-# TypeScript
-# =========================================
-*.tsbuildinfo
-next-env.d.ts
-*.d.ts
-
-# =========================================
-# Testing
-# =========================================
-/coverage
-.nyc_output
-/.mocha-results
-jest.results.json
-
-# =========================================
-# Build & Production
-# =========================================
-/build
-/.vuepress/dist
-/dist
-/release
-
-# =========================================
-# OS Specific Files
-# =========================================
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
-.windows-build-tools
-*.cab
-
-# =========================================
-# Database
-# =========================================
-*.db
-*.sqlite
-*.sqlite3
-*.sql
-database.yml
-.db
-
-# =========================================
-# Logs & Debugging
-# =========================================
-logs/
 *.log
-lerna-debug.log*
-report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
-# =========================================
-# Certificates & Keys (SECURITY)
-# =========================================
-*.pem
-*.key
-*.crt
-*.cert
-*.p12
-*.p7b
+# Env files
+.env
+.env.*
 
-# =========================================
-# Misc Files
-# =========================================
-.cache/
-tmp/
-temp/
-*.bak
-*.swp
-*.swo
-*~
-.turbo/
-.vercel/
-.env.test
-.env.*.test
+# Frontend (Next.js)
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.vercel/
 
-# =========================================
-# Prisma
-# =========================================
-prisma/migrations/
-prisma/**/*.db
-.prisma/
+# Python backend
+ai-exp-backend/__pycache__/
+ai-exp-backend/**/*.py[cod]
+ai-exp-backend/.venv/
+ai-exp-backend/venv/
+ai-exp-backend/.uv-cache/
 
-# =========================================
-# IDE Cache
-# =========================================
-.eslintignore
-.prettierignore
-*.tgz
-
-/app/generated/prisma
+# Backend generated artifacts
+ai-exp-backend/processed_data/
+ai-exp-backend/video/*.mp4
+ai-exp-backend/video/*.avi
+ai-exp-backend/video/*.mov
+ai-exp-backend/models/*.h5
+ai-exp-backend/models/*.pt
+ai-exp-backend/YOLOv4-tiny/
+ai-exp-backend/model_data/
+.github
+migrations
