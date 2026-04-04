@@ -191,7 +191,10 @@ export default function GateEntry({ assignedGateNumber = null, guardIdentifier =
     return () => cancelAnimationFrame(rafId);
   }, [cameraActive, verify]);
 
-  useEffect(() => () => stopCamera(), [stopCamera]);
+  useEffect(() => {
+    void startCamera();
+    return () => stopCamera();
+  }, [startCamera, stopCamera]);
 
   useEffect(() => {
     if (typeof assignedGateNumber === "number" && assignedGateNumber > 0) {
@@ -324,15 +327,20 @@ export default function GateEntry({ assignedGateNumber = null, guardIdentifier =
             </div>
 
             <button
-              onClick={cameraActive ? stopCamera : startCamera}
+              onClick={() => {
+                if (!cameraActive) {
+                  void startCamera();
+                }
+              }}
+              disabled={cameraActive}
               className={`w-full py-3 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 border ${
                 cameraActive
-                  ? "bg-rose-500/20 border-rose-500/30 text-rose-400 hover:bg-rose-500/30"
-                  : "bg-lime-500/20 border-lime-500/30 text-lime-600 dark:text-[#c8f04a] hover:bg-lime-500/30"
+                  ? "bg-lime-500/20 border-lime-500/30 text-lime-600 dark:text-[#c8f04a] cursor-default"
+                  : "bg-slate-100 border-slate-300 text-slate-600 hover:border-slate-400 dark:bg-[#111111] dark:border-[#2a2a2a] dark:text-[#666666] dark:hover:border-[#444444]"
               }`}
             >
               <Camera className="w-4 h-4" />
-              {cameraActive ? "Stop Camera" : "Start Camera"}
+              {cameraActive ? "Camera Live" : "Retry Camera"}
             </button>
           </div>
         </motion.div>

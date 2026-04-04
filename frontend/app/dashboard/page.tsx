@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import GateEntry from '@/components/GateEntry';
 import LiveMonitoring from '@/components/LiveMonitoring';
@@ -22,6 +22,8 @@ interface EventOption {
 
 export default function DashboardPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<DashboardTab>('live');
   const [theme, setTheme] = useState<Theme>('light');
   const [session, setSession] = useState<AppSession | null>(null);
@@ -31,6 +33,10 @@ export default function DashboardPage() {
   const [isReady, setIsReady] = useState(false);
 
   const managementTabs: ManagementTab[] = getTabsForSession(session);
+
+  const isDashboardTab = (value: string | null): value is DashboardTab => {
+    return value === 'live' || value === 'registration' || value === 'gate' || value === 'upload' || value === 'access';
+  };
 
   useEffect(() => {
     const currentSession = getStoredSession();
@@ -42,9 +48,13 @@ export default function DashboardPage() {
     const storedTheme = window.localStorage.getItem('theme') as Theme | null;
 
     setSession(currentSession);
+    const tabFromUrl = searchParams.get('activeTab');
+    if (isDashboardTab(tabFromUrl)) {
+      setActiveTab(tabFromUrl);
+    }
     setTheme(storedTheme ?? 'light');
     setIsReady(true);
-  }, [router]);
+  }, [router, searchParams]);
 
   useEffect(() => {
     if (!isReady) return;
@@ -93,6 +103,17 @@ export default function DashboardPage() {
       setActiveTab(managementTabs[0] ?? 'live');
     }
   }, [activeTab, managementTabs, session]);
+
+  useEffect(() => {
+    if (!isReady) return;
+
+    const current = searchParams.get('activeTab');
+    if (current === activeTab) return;
+
+    const next = new URLSearchParams(searchParams.toString());
+    next.set('activeTab', activeTab);
+    router.replace(`${pathname}?${next.toString()}`, { scroll: false });
+  }, [activeTab, isReady, pathname, router, searchParams]);
 
   if (!isReady || !session) {
     return (

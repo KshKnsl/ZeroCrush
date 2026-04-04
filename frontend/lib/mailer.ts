@@ -1,12 +1,20 @@
 import nodemailer from "nodemailer";
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.EMAIL,
-    pass: process.env.EMAILPASSWORD,
-  },
-});
+function getMailCredentials() {
+  const user = process.env.EMAIL ?? process.env.SMTP_USER ?? "";
+  const pass =
+    process.env.EMAILPASSWORD ??
+    process.env.EMAIL_PASSWORD ??
+    "";
+
+  if (!user || !pass) {
+    throw new Error(
+      "Mail credentials are missing. Set EMAIL and EMAILPASSWORD in environment variables."
+    );
+  }
+
+  return { user, pass };
+}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface SendVerificationParams {
@@ -15,6 +23,14 @@ interface SendVerificationParams {
   eventType: string;
   eventDescription?: string | null;
   code: string;
+}
+
+interface SendEntrySuccessParams {
+  to: string;
+  name: string;
+  eventType: string;
+  verifiedAt: Date;
+  gateNumber?: number | null;
 }
 
 // ── Generate a random 6-char alphanumeric code ────────────────────────────────
@@ -33,10 +49,19 @@ export async function sendVerificationEmail({
   eventDescription,
   code,
 }: SendVerificationParams): Promise<void> {
+  const { user, pass } = getMailCredentials();
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user,
+      pass,
+    },
+  });
+
   const displayName = name || to;
   const qrData      = encodeURIComponent(`${to}|${code}`);
   const fromName    = process.env.MAIL_FROM_NAME || "ZeroCrush Events";
-  const fromAddress = process.env.MAIL_FROM_ADDRESS || process.env.EMAIL;
+  const fromAddress = process.env.MAIL_FROM_ADDRESS || user;
 
   await transporter.sendMail({
     from:    `${fromName} <${fromAddress}>`,
@@ -120,6 +145,76 @@ See you there!
             </td>
           </tr>
 
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+    `.trim(),
+  });
+}
+
+export async function sendEntrySuccessEmail({
+  to,
+  name,
+  eventType,
+  verifiedAt,
+  gateNumber,
+}: SendEntrySuccessParams): Promise<void> {
+  const { user, pass } = getMailCredentials();
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user,
+      pass,
+    },
+  });
+
+  const displayName = name || to;
+  const fromName = process.env.MAIL_FROM_NAME || "ZeroCrush Events";
+  const fromAddress = process.env.MAIL_FROM_ADDRESS || user;
+  const verifiedTime = verifiedAt.toLocaleString("en-US", { hour12: false });
+
+  await transporter.sendMail({
+    from: `${fromName} <${fromAddress}>`,
+    to,
+    subject: `Token authenticated for ${eventType}`,
+    text: `
+Hi ${displayName},
+
+Your QR token was successfully authenticated for ${eventType}.
+Verification time: ${verifiedTime}
+${gateNumber ? `Gate: ${gateNumber}` : ""}
+
+If this was not you, contact venue support immediately.
+    `.trim(),
+    html: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+</head>
+<body style="margin:0;padding:0;background:#f8fafc;font-family:Inter,'Segoe UI',Helvetica,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table width="520" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;">
+          <tr>
+            <td style="background:linear-gradient(135deg,#0f172a,#1e293b);padding:24px 32px;">
+              <p style="margin:0;color:#cbd5e1;font-size:11px;letter-spacing:2px;text-transform:uppercase;">ZeroCrush Gate Verification</p>
+              <h1 style="margin:8px 0 0;color:#f8fafc;font-size:22px;font-weight:700;">Token Authenticated</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px 32px;color:#475569;font-size:14px;line-height:1.7;">
+              <p style="margin:0 0 14px;">Hi <strong style="color:#0f172a;">${displayName}</strong>,</p>
+              <p style="margin:0 0 14px;">Your token for <strong style="color:#0f172a;">${eventType}</strong> was successfully authenticated at the gate.</p>
+              <p style="margin:0 0 6px;"><strong style="color:#0f172a;">Verification time:</strong> ${verifiedTime}</p>
+              ${gateNumber ? `<p style="margin:0;"><strong style="color:#0f172a;">Gate:</strong> ${gateNumber}</p>` : ""}
+            </td>
+          </tr>
         </table>
       </td>
     </tr>

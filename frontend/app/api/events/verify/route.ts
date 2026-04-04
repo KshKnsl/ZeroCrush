@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { sendEntrySuccessEmail } from "@/lib/mailer";
 
 // POST /api/events/verify
 // Body: { email: string; code: string }
@@ -9,6 +10,7 @@ import prisma from "@/lib/prisma";
 
 export async function POST(req: NextRequest) {
   try {
+    const RESCAN_GRACE_MS = 30 * 1000;
     const body = await req.json();
     const email = body.email?.toString().trim().toLowerCase();
     const code  = body.code?.toString().trim().toUpperCase();
@@ -56,9 +58,34 @@ export async function POST(req: NextRequest) {
           verificationCode: code,
           verified:         true,
         },
+        orderBy: { verifiedAt: "desc" },
       });
 
       if (alreadyVerified) {
+        const verifiedAtMs = alreadyVerified.verifiedAt ? new Date(alreadyVerified.verifiedAt).getTime() : 0;
+        const withinGraceWindow = verifiedAtMs > 0 && Date.now() - verifiedAtMs <= RESCAN_GRACE_MS;
+
+        if (withinGraceWindow) {
+          return NextResponse.json({
+            success: true,
+            message: `Re-scan accepted for ${user.name || user.email}.`,
+            user: {
+              id: user.id,
+              name: user.name,
+              email: user.email,
+            },
+            event: {
+              id: alreadyVerified.id,
+              type: alreadyVerified.type,
+              description: alreadyVerified.description,
+              plate: alreadyVerified.plate,
+              verifiedAt: alreadyVerified.verifiedAt,
+              gateNumber,
+            },
+            duplicate: true,
+          });
+        }
+
         return NextResponse.json(
           {
             error: "This code has already been used.",
@@ -78,6 +105,16 @@ export async function POST(req: NextRequest) {
     const verified = await prisma.event.update({
       where: { id: event.id },
       data:  { verified: true, verifiedAt: new Date() },
+    });
+
+    sendEntrySuccessEmail({
+      to: user.email,
+      name: user.name || user.email,
+      eventType: verified.type,
+      verifiedAt: verified.verifiedAt ?? new Date(),
+      gateNumber,
+    }).catch((mailErr) => {
+      console.error(`[events/verify] success mail failed for ${user.email}:`, mailErr);
     });
 
     return NextResponse.json({
