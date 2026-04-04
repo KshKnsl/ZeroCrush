@@ -1,19 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { BarChart3, Bell, Camera, LayoutDashboard, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const items = [
-  { href: "/smartwatch/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/smartwatch/analytics", label: "Analytics", icon: BarChart3 },
-  { href: "/smartwatch/alerts", label: "Alerts", icon: Bell },
-  { href: "/smartwatch/settings", label: "Settings", icon: Settings },
+  { href: "/dashboard?mode=smartwatch&swTab=dashboard", tab: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dashboard?mode=smartwatch&swTab=analytics", tab: "analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/dashboard?mode=smartwatch&swTab=alerts", tab: "alerts", label: "Alerts", icon: Bell },
+  { href: "/dashboard?mode=smartwatch&swTab=settings", tab: "settings", label: "Settings", icon: Settings },
 ] as const;
 
 export function SmartWatchSidebar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const mode = searchParams.get("mode");
+  const tab = searchParams.get("swTab");
   return (
     <aside className="flex h-full w-16 flex-col border-r border-border bg-sidebar md:w-60">
       <div className="flex h-14 items-center border-b border-border px-3 md:px-4">
@@ -21,8 +24,8 @@ export function SmartWatchSidebar() {
         <span className="ml-2 hidden font-semibold tracking-tight md:inline">SmartWatch</span>
       </div>
       <nav className="flex flex-1 flex-col gap-1 p-2">
-        {items.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href || pathname.startsWith(`${href}/`);
+        {items.map(({ href, tab: itemTab, label, icon: Icon }) => {
+          const active = pathname === "/dashboard" && mode === "smartwatch" && tab === itemTab;
           return (
             <Link
               key={href}

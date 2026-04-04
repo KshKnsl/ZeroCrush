@@ -107,12 +107,16 @@ function DashboardPageContent() {
   useEffect(() => {
     if (!isReady) return;
 
-    const current = searchParams.get('activeTab');
-    if (current === activeTab) return;
-
     const next = new URLSearchParams(searchParams.toString());
-    next.set('activeTab', activeTab);
-    router.replace(`${pathname}?${next.toString()}`, { scroll: false });
+    if (next.get('activeTab') !== activeTab) {
+      next.set('activeTab', activeTab);
+    }
+
+    const nextString = next.toString();
+    const currentString = searchParams.toString();
+    if (nextString === currentString) return;
+
+    router.replace(`${pathname}?${nextString}`, { scroll: false });
   }, [activeTab, isReady, pathname, router, searchParams]);
 
   if (!isReady || !session) {
@@ -152,7 +156,7 @@ function DashboardPageContent() {
   const selectedEvent = events.find((event) => event.id === selectedEventId) ?? null;
 
   return (
-    <div className="min-h-screen md:h-screen flex flex-col md:flex-row bg-slate-100 text-slate-900 dark:bg-[#0a0a0a] dark:text-white transition-colors overflow-hidden">
+    <div className="min-h-screen flex flex-col bg-slate-100 text-slate-900 transition-colors overflow-hidden dark:bg-[#0a0a0a] dark:text-white md:h-screen md:flex-row">
       <Sidebar
         activeTab={activeTab}
         onTabChange={setActiveTab}
