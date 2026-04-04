@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import GateEntry from '@/components/GateEntry';
@@ -20,7 +20,7 @@ interface EventOption {
   timestamp: string;
 }
 
-export default function DashboardPage() {
+function DashboardPageContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -193,5 +193,19 @@ export default function DashboardPage() {
         )}
       </main>
     </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-slate-100 text-slate-500 dark:bg-[#111111] dark:text-slate-400">
+          Loading dashboard...
+        </div>
+      }
+    >
+      <DashboardPageContent />
+    </Suspense>
   );
 }
