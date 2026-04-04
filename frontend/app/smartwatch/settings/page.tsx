@@ -103,7 +103,7 @@ export default function SmartWatchSettingsPage() {
       const z = cfg.RESTRICTED_ZONE;
       if (Array.isArray(z)) {
         setZone(
-          z.map((p) => (Array.isArray(p) && p.length >= 2 ? [Number(p[0]), Number(p[1])] : [0, 0])) as Point)
+          z.map((p) => (Array.isArray(p) && p.length >= 2 ? [Number(p[0]), Number(p[1])] : [0, 0])) as Point[]
         );
       }
     }
