@@ -4,6 +4,7 @@ import { useState } from "react";
 import { AlertTriangle, Flame, Zap } from "lucide-react";
 import type { LogEvent } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 function iconFor(type: LogEvent["type"]) {
   switch (type) {
     case "violence":
