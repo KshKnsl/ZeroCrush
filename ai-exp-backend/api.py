@@ -15,7 +15,7 @@ from collections import deque
 from typing import Any, Optional
 
 import cv2
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 import numpy as np
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
@@ -26,6 +26,7 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 import config
 from config import API_HOST, API_PORT, DATA_RECORD_RATE, FRAME_WIDTH, LOG_DIR, START_TIME, TRACK_MAX_AGE
 import queue
+
 
 class VirtualVideoCapture:
 	def __init__(self):
@@ -46,17 +47,25 @@ class VirtualVideoCapture:
 			return True, frame
 		except queue.Empty:
 			return False, None
-			
+
 	def release(self):
 		self.opened = False
-	
+
 	def isOpened(self):
 		return self.opened
+
 
 virtual_caps = {}
 
 latest_frame: Optional[bytes] = None
 latest_frame_lock = threading.Lock()
+latest_metrics: dict[str, Any] = {
+	"human_count": 0,
+	"violations": 0,
+	"restricted": False,
+	"abnormal": False,
+}
+latest_metrics_lock = threading.Lock()
 pipeline_thread: Optional[threading.Thread] = None
 stop_event = threading.Event()
 status_state = "idle"
@@ -88,6 +97,25 @@ def _frame_callback(frame) -> None:
 		return
 	with latest_frame_lock:
 		latest_frame = buf.tobytes()
+
+
+def _set_metrics(human_count: int, violations: int, restricted: bool, abnormal: bool) -> None:
+	with latest_metrics_lock:
+		latest_metrics["human_count"] = int(human_count)
+		latest_metrics["violations"] = int(violations)
+		latest_metrics["restricted"] = bool(restricted)
+		latest_metrics["abnormal"] = bool(abnormal)
+
+
+def _snapshot_status() -> dict[str, Any]:
+	with status_lock:
+		s = status_state
+		err = error_message
+	with latest_frame_lock:
+		stream_ready = latest_frame is not None
+	with latest_metrics_lock:
+		metrics = dict(latest_metrics)
+	return {"status": s, "error": err, "stream_ready": stream_ready, **metrics}
 
 
 def _find_latest_crowd_csv() -> Optional[str]:
@@ -133,6 +161,7 @@ def _process_single_video(
 	stop_event=None,
 	headless: bool = False,
 	graph_headless: bool = True,
+	status_callback=None,
 ) -> None:
 	from graph_grid_present import load_movement_tracks, render_movement_images
 	from video_process import video_process
@@ -189,6 +218,7 @@ def _process_single_video(
 			frame_callback,
 			stop_event,
 			headless,
+			status_callback,
 		)
 		end_wall_time = time.time()
 
@@ -241,18 +271,47 @@ def _process_single_video(
 	cv2.imwrite(os.path.join(video_log_dir, "heatmap.png"), cv2.cvtColor(heatmap_img, cv2.COLOR_RGB2BGR))
 
 
+def _start_pipeline(source: Any, is_realtime: bool) -> None:
+	global pipeline_thread, session_start_time, latest_frame
+	with status_lock:
+		if status_state == "running":
+			raise RuntimeError("Pipeline already running")
+
+	stop_event.clear()
+	with latest_frame_lock:
+		latest_frame = None
+	_set_metrics(0, 0, False, False)
+	_set_status("running", None)
+
+	def run() -> None:
+		global session_start_time
+		try:
+			session_start_time = time.time()
+			_process_single_video(
+				source,
+				is_realtime=is_realtime,
+				frame_callback=_frame_callback,
+				stop_event=stop_event,
+				headless=True,
+				graph_headless=True,
+				status_callback=_set_metrics,
+			)
+		except Exception as e:
+			_set_status("error", str(e))
+		else:
+			_set_status("idle", None)
+
+	pipeline_thread = threading.Thread(target=run, daemon=True)
+	pipeline_thread.start()
+
+
 class StartBody(BaseModel):
 	source: str
 
 
 @app.get("/api/status")
 async def api_status() -> dict[str, Any]:
-	with status_lock:
-		s = status_state
-		err = error_message
-	with latest_frame_lock:
-		stream_ready = latest_frame is not None
-	return {"status": s, "error": err, "stream_ready": stream_ready}
+	return _snapshot_status()
 
 @app.post("/api/start")
 async def api_start(body: StartBody) -> dict[str, str]:
@@ -317,6 +376,21 @@ async def api_start(body: StartBody) -> dict[str, str]:
 	pipeline_thread = threading.Thread(target=run, daemon=True)
 	pipeline_thread.start()
 	return {"message": "started"}
+
+
+@app.post("/api/upload")
+async def api_upload(file: UploadFile = File(...)) -> dict[str, str]:
+	if not file.filename.endswith('.mp4'):
+		raise HTTPException(status_code=400, detail="Only .mp4 files are supported")
+	
+	upload_dir = os.path.join(LOG_DIR, "uploads")
+	os.makedirs(upload_dir, exist_ok=True)
+	file_path = os.path.join(upload_dir, f"{int(time.time())}_{file.filename}")
+	
+	with open(file_path, "wb") as f:
+		f.write(await file.read())
+	
+	return {"file_path": file_path}
 
 
 @app.post("/api/stop")
@@ -406,36 +480,102 @@ async def api_stream() -> StreamingResponse:
 @app.websocket("/api/ws/stream")
 async def websocket_stream(websocket: WebSocket):
 	await websocket.accept()
+	session_source: Optional[str] = None
+	last_sent_frame: Optional[bytes] = None
+	last_status_payload: Optional[str] = None
+	stop_sender = asyncio.Event()
+
+	async def sender() -> None:
+		nonlocal last_sent_frame, last_status_payload
+		while not stop_sender.is_set():
+			status_payload = json.dumps({"type": "status", **_snapshot_status()})
+			if status_payload != last_status_payload:
+				try:
+					await websocket.send_text(status_payload)
+				except Exception:
+					break
+				last_status_payload = status_payload
+
+			with latest_frame_lock:
+				frame = latest_frame
+			if frame and frame != last_sent_frame:
+				try:
+					await websocket.send_bytes(frame)
+				except Exception:
+					break
+				last_sent_frame = frame
+			await asyncio.sleep(0.08)
+
+	sender_task = asyncio.create_task(sender())
 	try:
 		while True:
-			data = await websocket.receive_bytes()
-			if status_state == "running" and "browser" in virtual_caps:
-				np_arr = np.frombuffer(data, np.uint8)
-				frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-				if frame is not None:
+			message = await websocket.receive()
+			if message.get("type") == "websocket.disconnect":
+				break
+
+			if message.get("text") is not None:
+				try:
+					payload = json.loads(message["text"])
+				except Exception:
+					await websocket.send_text(json.dumps({"type": "error", "message": "Invalid control message"}))
+					continue
+
+				action = payload.get("type")
+				if action == "start":
 					try:
-						# Try putting it in queue
-						if not virtual_caps["browser"].frame_queue.full():
-							virtual_caps["browser"].frame_queue.put_nowait(frame)
+						source = str(payload.get("source", "")).strip().lower()
+						if source == "browser":
+							if "browser" in virtual_caps:
+								virtual_caps["browser"].opened = False
+								virtual_caps.pop("browser", None)
+							virtual_caps["browser"] = VirtualVideoCapture()
+							_start_pipeline("browser", True)
+							session_source = "browser"
+						elif source == "webcam":
+							_start_pipeline(0, True)
+							session_source = "webcam"
+						elif source in {"file", "video", "mp4"}:
+							value = payload.get("path") or payload.get("value")
+							if not value:
+								raise ValueError("Missing uploaded video path")
+							_start_pipeline(str(value), False)
+							session_source = "file"
+						elif source in {"rtsp", "url"}:
+							value = payload.get("url") or payload.get("value")
+							if not value:
+								raise ValueError("Missing RTSP url")
+							_start_pipeline(str(value), False)
+							session_source = "rtsp"
 						else:
-							# Drop frame if we can't keep up
+							raise ValueError(f"Unsupported source type: {source}")
+						await websocket.send_text(json.dumps({"type": "status", **_snapshot_status()}))
+					except Exception as exc:
+						await websocket.send_text(json.dumps({"type": "error", "message": str(exc)}))
+				elif action == "stop":
+					stop_event.set()
+					session_source = None
+					await websocket.send_text(json.dumps({"type": "status", **_snapshot_status()}))
+				elif action == "status":
+					await websocket.send_text(json.dumps({"type": "status", **_snapshot_status()}))
+
+			elif message.get("bytes") is not None:
+				data = message["bytes"]
+				if session_source == "browser" and status_state == "running" and "browser" in virtual_caps:
+					np_arr = np.frombuffer(data, np.uint8)
+					frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+					if frame is not None:
+						try:
+							if not virtual_caps["browser"].frame_queue.full():
+								virtual_caps["browser"].frame_queue.put_nowait(frame)
+						except queue.Empty:
 							pass
-					except queue.Empty:
-						pass
-				
-			# Send latest processed frame if available
-			with latest_frame_lock:
-				out_data = latest_frame
-				
-			if out_data:
-				await websocket.send_bytes(out_data)
-			else:
-				# Just send an empty byte if nothing is ready, to keep ping-pong alive
-				await websocket.send_bytes(b"")
 	except WebSocketDisconnect:
 		pass
 	except Exception as e:
 		print("WS Error:", str(e))
+	finally:
+		stop_sender.set()
+		sender_task.cancel()
 
 
 @app.get("/api/sessions")

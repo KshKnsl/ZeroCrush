@@ -70,7 +70,7 @@ def _end_video(track_histories, frame_count, movement_data_writer):
 			)
 		
 
-def video_process(cap, frame_size, movement_data_writer, crowd_data_writer, frame_callback=None, stop_event=None, headless=False):
+def video_process(cap, frame_size, movement_data_writer, crowd_data_writer, frame_callback=None, stop_event=None, headless=False, status_callback=None):
 	IS_CAM = config.IS_REALTIME
 	def _calculate_FPS():
 		nonlocal VID_FPS
@@ -272,6 +272,8 @@ def video_process(cap, frame_size, movement_data_writer, crowd_data_writer, fram
 
 		# Record crowd data to file
 		_record_crowd_data(record_time, len(humans_detected), len(violate_set), RE, ABNORMAL, crowd_data_writer)
+		if status_callback is not None:
+			status_callback(record_time, len(humans_detected), len(violate_set), RE, ABNORMAL)
 		if show_window:
 			cv2.imshow("Processed Output", frame)
 		else:

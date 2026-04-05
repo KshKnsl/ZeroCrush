@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Activity, Flame, Route } from 'lucide-react';
+import { backendUrl } from '@/lib/api';
 
 export default function AnalyticsDashboard() {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  const apiUrl = backendUrl();
 
   const [sessions, setSessions] = useState<string[]>([]);
   const [selectedSession, setSelectedSession] = useState<string>('');

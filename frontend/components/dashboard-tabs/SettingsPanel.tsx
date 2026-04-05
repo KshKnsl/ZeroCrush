@@ -4,9 +4,10 @@ import { useEffect, useState } from 'react';
 import { Settings, Save } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { backendUrl } from '@/lib/api';
 
 export default function SettingsPanel() {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  const apiUrl = backendUrl();
   const [config, setConfig] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
