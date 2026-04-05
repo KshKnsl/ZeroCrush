@@ -19,39 +19,6 @@ async function parseJson<T>(res: Response): Promise<T> {
 
 export type PipelineStatus = "idle" | "running" | "error";
 
-export type StatusPayload = {
-  status: PipelineStatus;
-  error: string | null;
-  stream_ready?: boolean;
-  human_count?: number;
-  violations?: number;
-  restricted?: boolean;
-  abnormal?: boolean;
-};
-
-export async function getStatus(): Promise<StatusPayload> {
-  const res = await fetch(`${backendUrl()}/api/status`, { cache: "no-store" });
-  if (!res.ok) throw new Error("Status unavailable");
-  return parseJson(res);
-}
-
-export async function startPipeline(source: string): Promise<void> {
-  const res = await fetch(`${backendUrl()}/api/start`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ source: source === "webcam" ? "webcam" : source }),
-  });
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(err || "Start failed");
-  }
-}
-
-export async function stopPipeline(): Promise<void> {
-  const res = await fetch(`${backendUrl()}/api/stop`, { method: "POST" });
-  if (!res.ok) throw new Error("Stop failed");
-}
-
 export type CrowdRow = {
   time: string | number;
   human_count: number;
@@ -133,8 +100,4 @@ export async function saveConfig(patch: ConfigMap): Promise<void> {
     const t = await res.text();
     throw new Error(t || "Save failed");
   }
-}
-
-export function streamUrl(): string {
-  return process.env.NEXT_PUBLIC_STREAM_URL ?? `${backendUrl()}/api/stream`;
 }

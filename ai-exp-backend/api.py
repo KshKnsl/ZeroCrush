@@ -26,8 +26,6 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 import config
 from config import API_HOST, API_PORT, DATA_RECORD_RATE, FRAME_WIDTH, LOG_DIR, START_TIME, TRACK_MAX_AGE
 import queue
-
-
 class VirtualVideoCapture:
 	def __init__(self):
 		self.frame_queue = queue.Queue(maxsize=1)
