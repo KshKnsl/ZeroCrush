@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { Play, Square, Activity, ShieldAlert, MonitorPlay } from 'lucide-react';
-import RiskMeter from './RiskMeter';
-import { Input } from './ui/input';
+import RiskMeter from '../RiskMeter';
+import { Input } from '../ui/input';
 
 export default function LiveMonitoring() {
   const streamUrl = process.env.NEXT_PUBLIC_STREAM_URL || 'http://localhost:8000/api/stream';
@@ -17,6 +17,8 @@ export default function LiveMonitoring() {
   const [humanCount, setHumanCount] = useState(0);
   const [alertsCount, setAlertsCount] = useState(0);
   const [riskLevel, setRiskLevel] = useState<'LOW' | 'MED' | 'HIGH'>('LOW');
+  const [streamReady, setStreamReady] = useState(false);
+  const [streamError, setStreamError] = useState<string | null>(null);
 
   const pollStatus = async () => {
     try {
@@ -24,6 +26,10 @@ export default function LiveMonitoring() {
       const data = await res.json();
       setPipelineStatus(data.status);
       setPipelineError(data.error);
+      setStreamReady(Boolean(data.stream_ready));
+      if (data.status !== 'running') {
+        setStreamReady(false);
+      }
     } catch {
       // ignore
     }
@@ -66,7 +72,16 @@ export default function LiveMonitoring() {
     };
   }, [pipelineStatus]);
 
+  useEffect(() => {
+    if (pipelineStatus !== 'running') {
+      setStreamReady(false);
+      setStreamError(null);
+    }
+  }, [pipelineStatus]);
+
   const handleStart = async () => {
+    setStreamReady(false);
+    setStreamError(null);
     try {
       await fetch(`${apiUrl}/api/start`, {
         method: 'POST',
@@ -125,11 +140,25 @@ export default function LiveMonitoring() {
         <div className="lg:col-span-3 space-y-4">
           <div className="relative rounded-2xl border border-slate-200 bg-black dark:border-slate-800 overflow-hidden aspect-video shadow-xl flex items-center justify-center">
             {pipelineStatus === 'running' ? (
-              <img
-                src={streamUrl}
-                alt="Live AI Feed"
-                className="w-full h-full object-contain"
-              />
+              <>
+                <img
+                  src={streamUrl}
+                  alt="Live AI Feed"
+                  className="w-full h-full object-contain"
+                  onLoad={() => setStreamReady(true)}
+                  onError={() => setStreamError('Unable to load live stream')}
+                />
+                {(!streamReady || streamError) && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/70 text-white text-center p-4">
+                    <div>
+                      <p className="font-semibold">Waiting for camera feed…</p>
+                      <p className="text-xs opacity-80 mt-2">
+                        {streamError ?? 'The stream is starting. Please wait a few seconds.'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </>
             ) : (
               <div className="flex flex-col items-center justify-center text-slate-600 dark:text-slate-500">
                 <MonitorPlay className="w-16 h-16 mb-4 opacity-30" />

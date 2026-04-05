@@ -86,9 +86,9 @@ def video_process(cap, frame_size, movement_data_writer, crowd_data_writer, fram
 		TIME_STEP = 1
 		t0 = time.time()
 	else:
-		VID_FPS = cap.get(cv2.CAP_PROP_FPS)
-		DATA_RECORD_FRAME = int(VID_FPS / DATA_RECORD_RATE)
-		TIME_STEP = DATA_RECORD_FRAME/VID_FPS
+		VID_FPS = cap.get(cv2.CAP_PROP_FPS) or 0.0
+		DATA_RECORD_FRAME = max(1, int(VID_FPS / DATA_RECORD_RATE)) if VID_FPS > 0 else 1
+		TIME_STEP = DATA_RECORD_FRAME / (VID_FPS if VID_FPS > 0 else float(DATA_RECORD_RATE))
 
 	frame_count = 0
 	display_frame_count = 0

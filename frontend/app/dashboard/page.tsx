@@ -3,11 +3,11 @@
 import { Suspense, useEffect, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import Sidebar, { DashboardTab } from '@/components/Sidebar';
-import LiveMonitoring from '@/components/LiveMonitoring';
-import UsersManagement from '@/components/UsersManagement';
-import AnalyticsDashboard from '@/components/AnalyticsDashboard';
-import SettingsPanel from '@/components/SettingsPanel';
-import IncidentsManagement from '@/components/IncidentsManagement';
+import LiveMonitoring from '@/components/dashboard-tabs/LiveMonitoring';
+import UsersManagement from '@/components/dashboard-tabs/UsersManagement';
+import AnalyticsDashboard from '@/components/dashboard-tabs/AnalyticsDashboard';
+import SettingsPanel from '@/components/dashboard-tabs/SettingsPanel';
+import IncidentsManagement from '@/components/dashboard-tabs/IncidentsManagement';
 import { clearStoredSession, getStoredSession, type AppSession } from '@/lib/auth';
 
 type Theme = 'light' | 'dark';

@@ -118,9 +118,13 @@ def _process_single_video(
 
 	is_cam = is_realtime
 	cap = cv2.VideoCapture(video_source)
+	if not cap.isOpened() and is_cam:
+		# Try common Windows camera backends if the default fails
+		cap = cv2.VideoCapture(video_source, cv2.CAP_DSHOW)
+	if not cap.isOpened() and is_cam:
+		cap = cv2.VideoCapture(video_source, cv2.CAP_MSMF)
 	if not cap.isOpened():
-		print(f"Skipping unreadable video: {video_source}")
-		return
+		raise RuntimeError(f"Unable to open video source: {video_source}")
 
 	video_stem = _safe_stem(video_source)
 	video_log_dir = os.path.join(LOG_DIR, video_stem)
@@ -209,18 +213,21 @@ async def api_status() -> dict[str, Any]:
 	with status_lock:
 		s = status_state
 		err = error_message
-	return {"status": s, "error": err}
-
+	with latest_frame_lock:
+		stream_ready = latest_frame is not None
+	return {"status": s, "error": err, "stream_ready": stream_ready}
 
 @app.post("/api/start")
 async def api_start(body: StartBody) -> dict[str, str]:
-	global pipeline_thread, session_start_time
+	global pipeline_thread, session_start_time, latest_frame
 
 	with status_lock:
 		if status_state == "running":
 			raise HTTPException(status_code=409, detail="Pipeline already running")
 
 	stop_event.clear()
+	with latest_frame_lock:
+		latest_frame = None
 	_set_status("running", None)
 	source = body.source.strip()
 
