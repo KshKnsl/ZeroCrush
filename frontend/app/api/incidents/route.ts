@@ -19,7 +19,6 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' },
       include: {
         createdBy: { select: { id: true, name: true, email: true, role: true } },
-        event: { select: { id: true, name: true } },
       },
     });
 
@@ -41,7 +40,6 @@ export async function POST(request: NextRequest) {
     const description = typeof body.description === 'string' ? body.description : '';
     const source = typeof body.source === 'string' ? body.source : 'manual';
     const status = body.status === 'RESOLVED' ? 'RESOLVED' : 'OPEN';
-    const eventId = body.eventId ? Number(body.eventId) : null;
     const createdById = request.headers.get('x-user-id') ? Number(request.headers.get('x-user-id')) : null;
 
     const incident = await prisma.incident.create({
@@ -50,7 +48,6 @@ export async function POST(request: NextRequest) {
         description,
         source,
         status,
-        eventId: Number.isFinite(eventId ?? NaN) ? eventId : null,
         createdById: Number.isFinite(createdById ?? NaN) ? createdById : null,
       },
     });

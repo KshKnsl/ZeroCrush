@@ -2,34 +2,19 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { Play, Square, Activity, AlertTriangle, ShieldAlert, MonitorPlay } from 'lucide-react';
+import { Play, Square, Activity, ShieldAlert, MonitorPlay } from 'lucide-react';
 import RiskMeter from './RiskMeter';
 import { Input } from './ui/input';
 
-interface LiveMonitoringEvent {
-  id: number;
-  name: string;
-  location: string | null;
-  description: string | null;
-  date: string;
-}
-
-interface LiveMonitoringProps {
-  event: LiveMonitoringEvent;
-}
-
-export default function LiveMonitoring({ event }: LiveMonitoringProps) {
+export default function LiveMonitoring() {
   const streamUrl = process.env.NEXT_PUBLIC_STREAM_URL || 'http://localhost:8000/api/stream';
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
   const [pipelineStatus, setPipelineStatus] = useState<'idle' | 'running' | 'error'>('idle');
   const [pipelineError, setPipelineError] = useState<string | null>(null);
-  
   const [sourceInput, setSourceInput] = useState<string>('webcam');
-  
-  // Stats
+
   const [humanCount, setHumanCount] = useState(0);
-  const [violations, setViolations] = useState(0);
   const [alertsCount, setAlertsCount] = useState(0);
   const [riskLevel, setRiskLevel] = useState<'LOW' | 'MED' | 'HIGH'>('LOW');
 
@@ -52,7 +37,6 @@ export default function LiveMonitoring({ event }: LiveMonitoringProps) {
       if (data.rows && data.rows.length > 0) {
         const row = data.rows[0];
         setHumanCount(row.human_count || 0);
-        setViolations(row.violations || 0);
         let activeAlerts = 0;
         if (row.restricted) activeAlerts++;
         if (row.abnormal) activeAlerts++;
@@ -87,10 +71,11 @@ export default function LiveMonitoring({ event }: LiveMonitoringProps) {
       await fetch(`${apiUrl}/api/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source: sourceInput })
+        body: JSON.stringify({ source: sourceInput }),
       });
       pollStatus();
     } catch {
+      // ignore
     }
   };
 
@@ -99,12 +84,12 @@ export default function LiveMonitoring({ event }: LiveMonitoringProps) {
       await fetch(`${apiUrl}/api/stop`, { method: 'POST' });
       pollStatus();
     } catch {
+      // ignore
     }
   };
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -115,13 +100,11 @@ export default function LiveMonitoring({ event }: LiveMonitoringProps) {
             <p className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-slate-500 mb-1">Active Monitoring</p>
             <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <Activity className="w-5 h-5 text-lime-500" />
-              {event.name}
+              Live Monitoring
             </h2>
-            <p className="text-sm text-slate-500 mt-1">
-              Event #{event.id} {event.location ? ` · ${event.location}` : ''}
-            </p>
+            <p className="text-sm text-slate-500 mt-1">Real-time video analysis for crowd safety and incident detection.</p>
           </div>
-          
+
           <div className="flex items-center gap-6">
             <div className="bg-slate-50 dark:bg-[#151515] p-3 rounded-xl border border-slate-100 dark:border-slate-800/50 flex flex-col items-center min-w-24">
               <span className="text-2xl font-mono font-bold text-slate-900 dark:text-white">{humanCount}</span>
@@ -138,18 +121,14 @@ export default function LiveMonitoring({ event }: LiveMonitoringProps) {
         </div>
       </motion.div>
 
-      {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        
-        {/* Left column: Feed */}
         <div className="lg:col-span-3 space-y-4">
           <div className="relative rounded-2xl border border-slate-200 bg-black dark:border-slate-800 overflow-hidden aspect-video shadow-xl flex items-center justify-center">
             {pipelineStatus === 'running' ? (
-              <img 
-                src={streamUrl} 
-                alt="Live AI Feed" 
+              <img
+                src={streamUrl}
+                alt="Live AI Feed"
                 className="w-full h-full object-contain"
-                // Cache buster not strictly needed for multipart endpoints but nice to have if broken
               />
             ) : (
               <div className="flex flex-col items-center justify-center text-slate-600 dark:text-slate-500">
@@ -158,7 +137,7 @@ export default function LiveMonitoring({ event }: LiveMonitoringProps) {
                 <p className="text-xs opacity-70 mt-2 text-center max-w-xs">Start the pipeline using the controls to begin processing and monitoring the video feed.</p>
               </div>
             )}
-            
+
             <div className="absolute top-4 left-4">
               {pipelineStatus === 'running' ? (
                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/60 border border-white/10 backdrop-blur-md">
@@ -175,15 +154,14 @@ export default function LiveMonitoring({ event }: LiveMonitoringProps) {
           </div>
         </div>
 
-        {/* Right column: Controls */}
         <div className="lg:col-span-1 space-y-6">
           <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-[#111111]">
             <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-4">Pipeline Control</h3>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="text-xs font-medium text-slate-500 uppercase tracking-wider block mb-2">Video Source</label>
-                <Input 
+                <Input
                   value={sourceInput}
                   onChange={(e) => setSourceInput(e.target.value)}
                   placeholder="webcam or file path"
@@ -239,7 +217,6 @@ export default function LiveMonitoring({ event }: LiveMonitoringProps) {
               )}
             </div>
           </div>
-
         </div>
       </div>
     </div>

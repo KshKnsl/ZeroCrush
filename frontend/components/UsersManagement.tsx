@@ -121,7 +121,7 @@ export default function UsersManagement() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="VIEWER">Viewer (Read-only alerts)</SelectItem>
-                  <SelectItem value="OPERATOR">Operator (Manage Incidents, Events)</SelectItem>
+                  <SelectItem value="OPERATOR">Operator (Manage incidents)</SelectItem>
                   <SelectItem value="ADMIN">Admin (Full Control)</SelectItem>
                 </SelectContent>
               </Select>
