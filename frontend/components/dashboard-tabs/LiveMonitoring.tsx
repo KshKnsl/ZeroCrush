@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { motion } from 'motion/react';
 import { Play, Square, Activity, ShieldAlert, MonitorPlay } from 'lucide-react';
 import RiskMeter from '../RiskMeter';
@@ -15,10 +15,85 @@ export default function LiveMonitoring() {
   const [sourceInput, setSourceInput] = useState<string>('webcam');
 
   const [humanCount, setHumanCount] = useState(0);
-  const [alertsCount, setAlertsCount] = useState(0);
+  const [incidentCount, setIncidentCount] = useState(0);
   const [riskLevel, setRiskLevel] = useState<'LOW' | 'MED' | 'HIGH'>('LOW');
   const [streamReady, setStreamReady] = useState(false);
   const [streamError, setStreamError] = useState<string | null>(null);
+
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const [wsFrame, setWsFrame] = useState<string | null>(null);
+
+  const startBrowserCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+      }
+
+      const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${wsProtocol}//${apiUrl.replace(/^https?:\/\//, '')}/api/ws/stream`;
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        const sendFrame = () => {
+          if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+          if (videoRef.current && canvasRef.current) {
+            const context = canvasRef.current.getContext('2d');
+            if (context) {
+              canvasRef.current.width = videoRef.current.videoWidth;
+              canvasRef.current.height = videoRef.current.videoHeight;
+              context.drawImage(videoRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
+              canvasRef.current.toBlob(blob => {
+                if (blob) wsRef.current?.send(blob);
+              }, 'image/jpeg', 0.7);
+            }
+          }
+          requestAnimationFrame(sendFrame);
+        };
+        requestAnimationFrame(sendFrame);
+      };
+
+      ws.onmessage = async (event) => {
+        if (event.data instanceof Blob) {
+          if (event.data.size > 0) {
+            const url = URL.createObjectURL(event.data);
+            setWsFrame(old => {
+              if (old) URL.revokeObjectURL(old);
+              return url;
+            });
+            setStreamReady(true);
+          }
+        }
+      };
+
+      ws.onerror = () => {
+        setStreamError('WebSocket error occurred');
+      };
+    } catch (err) {
+      setStreamError('Could not access browser camera');
+      console.error(err);
+    }
+  };
+
+  const stopBrowserCamera = () => {
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+    }
+    if (wsFrame) {
+      URL.revokeObjectURL(wsFrame);
+      setWsFrame(null);
+    }
+  };
 
   const pollStatus = async () => {
     try {
@@ -43,15 +118,14 @@ export default function LiveMonitoring() {
       if (data.rows && data.rows.length > 0) {
         const row = data.rows[0];
         setHumanCount(row.human_count || 0);
-        let activeAlerts = 0;
-        if (row.restricted) activeAlerts++;
-        if (row.abnormal) activeAlerts++;
-        if (row.violence) activeAlerts++;
-        setAlertsCount(activeAlerts);
+        let activeIncidents = 0;
+        if (row.restricted) activeIncidents++;
+        if (row.abnormal) activeIncidents++;
+        setIncidentCount(activeIncidents);
 
-        if (row.violence || activeAlerts > 1) {
+        if (activeIncidents > 1) {
           setRiskLevel('HIGH');
-        } else if (activeAlerts === 1 || (row.human_count > 50)) {
+        } else if (activeIncidents === 1 || row.human_count > 50) {
           setRiskLevel('MED');
         } else {
           setRiskLevel('LOW');
@@ -88,6 +162,9 @@ export default function LiveMonitoring() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ source: sourceInput }),
       });
+      if (sourceInput === 'browser') {
+        startBrowserCamera();
+      }
       pollStatus();
     } catch {
       // ignore
@@ -97,11 +174,18 @@ export default function LiveMonitoring() {
   const handleStop = async () => {
     try {
       await fetch(`${apiUrl}/api/stop`, { method: 'POST' });
+      stopBrowserCamera();
       pollStatus();
     } catch {
       // ignore
     }
   };
+
+  useEffect(() => {
+    return () => {
+      stopBrowserCamera();
+    };
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -126,8 +210,8 @@ export default function LiveMonitoring() {
               <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">Crowd Size</span>
             </div>
             <div className="bg-slate-50 dark:bg-[#151515] p-3 rounded-xl border border-slate-100 dark:border-slate-800/50 flex flex-col items-center min-w-24">
-              <span className="text-2xl font-mono font-bold text-slate-900 dark:text-white">{alertsCount}</span>
-              <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">Active Alerts</span>
+              <span className="text-2xl font-mono font-bold text-slate-900 dark:text-white">{incidentCount}</span>
+              <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">Active Incidents</span>
             </div>
             <div className="hidden sm:block">
               <RiskMeter level={riskLevel} />
@@ -139,10 +223,14 @@ export default function LiveMonitoring() {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-3 space-y-4">
           <div className="relative rounded-2xl border border-slate-200 bg-black dark:border-slate-800 overflow-hidden aspect-video shadow-xl flex items-center justify-center">
+            
+            <video ref={videoRef} playsInline muted autoPlay className="hidden" />
+            <canvas ref={canvasRef} className="hidden" />
+
             {pipelineStatus === 'running' ? (
               <>
                 <img
-                  src={streamUrl}
+                  src={sourceInput === 'browser' ? (wsFrame || '') : streamUrl}
                   alt="Live AI Feed"
                   className="w-full h-full object-contain"
                   onLoad={() => setStreamReady(true)}
@@ -193,7 +281,8 @@ export default function LiveMonitoring() {
                 <Input
                   value={sourceInput}
                   onChange={(e) => setSourceInput(e.target.value)}
-                  placeholder="webcam or file path"
+                  placeholder="browser, webcam, file path, or RTSP URL"
+                  title="Source can be 'browser' to stream your local camera, 'webcam' for backend attached camera, a local file path, or an RTSP stream."
                   disabled={pipelineStatus === 'running'}
                   className="bg-slate-50 border-slate-200 dark:bg-[#151515] dark:border-slate-800 text-sm"
                 />
@@ -231,17 +320,17 @@ export default function LiveMonitoring() {
               Latest Incidents
             </h3>
             <div className="space-y-3">
-              {alertsCount > 0 ? (
+              {incidentCount > 0 ? (
                 <div className="bg-orange-50 dark:bg-orange-500/10 border border-orange-200 dark:border-orange-500/20 p-3 rounded-xl">
-                  <p className="text-sm text-orange-800 dark:text-orange-400 font-medium">Critical violations detected.</p>
-                  <p className="text-xs text-orange-600 dark:text-orange-500/80 mt-1">Review the incidents tab for specific alerts and to resolve pending flags.</p>
+                  <p className="text-sm text-orange-800 dark:text-orange-400 font-medium">Incident detected.</p>
+                  <p className="text-xs text-orange-600 dark:text-orange-500/80 mt-1">Review the incidents tab for details and resolution.</p>
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-6 text-slate-400 dark:text-slate-600">
                   <div className="w-10 h-10 rounded-full bg-slate-50 dark:bg-[#151515] flex items-center justify-center mb-2">
                     <ShieldAlert className="w-5 h-5 opacity-50" />
                   </div>
-                  <p className="text-xs">No active alerts</p>
+                  <p className="text-xs">No active incidents</p>
                 </div>
               )}
             </div>

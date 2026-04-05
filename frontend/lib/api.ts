@@ -40,7 +40,6 @@ export type CrowdRow = {
   violations: number;
   restricted: boolean;
   abnormal: boolean;
-  violence?: boolean;
 };
 
 export async function getCrowdLogs(opts?: {
@@ -56,7 +55,7 @@ export async function getCrowdLogs(opts?: {
 }
 
 export type LogEvent = {
-  type: "violence" | "restricted_zone" | "abnormal_activity";
+  type: "restricted_zone" | "abnormal_activity";
   time: string;
   severity: string;
   label: string;
@@ -104,21 +103,6 @@ export async function getConfig(): Promise<ConfigMap> {
   const res = await fetch(`${base()}/api/config`, { cache: "no-store" });
   if (!res.ok) throw new Error("Could not load config");
   return parseJson(res);
-}
-
-export type AlertHistoryRow = {
-  session: string;
-  time: string;
-  type: string;
-  severity: string;
-  snapshot: string | null;
-};
-
-export async function getAlertsHistory(): Promise<AlertHistoryRow[]> {
-  const res = await fetch(`${base()}/api/alerts/history`, { cache: "no-store" });
-  if (!res.ok) return [];
-  const data = await parseJson<{ alerts: AlertHistoryRow[] }>(res);
-  return data.alerts ?? [];
 }
 
 export async function saveConfig(patch: ConfigMap): Promise<void> {

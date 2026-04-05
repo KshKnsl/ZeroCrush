@@ -37,10 +37,7 @@ from config import (
 	RESTRICTED_ZONE,
 	YOLO_MODEL_PATH,
 	YOLO_CONFIDENCE,
-	VIOLENCE_CHECK_STRIDE,
 )
-from violence_detector import detect_violence
-from alert_system import send_alert
 
 RED = (0, 0, 255)
 GREEN = (0, 255, 0)
@@ -57,8 +54,8 @@ def _record_movement_data(movement_data_writer, track_id, entry_time, exit_time,
 	data = [track_id] + [entry_time] + [exit_time] + positions
 	movement_data_writer.writerow(data)
 
-def _record_crowd_data(time, human_count, violate_count, restricted_entry, abnormal_activity, violence, crowd_data_writer):
-	data = [time, human_count, violate_count, int(restricted_entry), int(abnormal_activity), int(violence)]
+def _record_crowd_data(time, human_count, violate_count, restricted_entry, abnormal_activity, crowd_data_writer):
+	data = [time, human_count, violate_count, int(restricted_entry), int(abnormal_activity)]
 	crowd_data_writer.writerow(data)
 
 def _end_video(track_histories, frame_count, movement_data_writer):
@@ -95,7 +92,6 @@ def video_process(cap, frame_size, movement_data_writer, crowd_data_writer, fram
 	re_warning_timeout = 0
 	sd_warning_timeout = 0
 	ab_warning_timeout = 0
-	violence_warning_timeout = 0
 	track_histories = {}
 
 	while True:
@@ -168,14 +164,6 @@ def video_process(cap, frame_size, movement_data_writer, crowd_data_writer, fram
 		else:
 			RE = False
 
-		if VIOLENCE_CHECK_STRIDE > 0 and display_frame_count % VIOLENCE_CHECK_STRIDE == 0:
-			if detect_violence(frame):
-				violence_warning_timeout = 15
-
-		VIOLENCE = violence_warning_timeout > 0
-		if violence_warning_timeout > 0:
-			violence_warning_timeout -= 1
-
 		if CHECK_RESTRICTED_ZONE and len(RESTRICTED_ZONE) >= 3:
 			cv2.polylines(frame, [np.array(RESTRICTED_ZONE, dtype=np.int32)], True, RED, 2)
 
@@ -233,23 +221,12 @@ def video_process(cap, frame_size, movement_data_writer, crowd_data_writer, fram
 				if len(abnormal_individual) / len(humans_detected) > ABNORMAL_RATIO_THRESHOLD:
 					ABNORMAL = True
 
-		if RE:
-			send_alert("restricted_zone", "Restricted zone breach detected.", frame=frame)
-		if ABNORMAL:
-			send_alert("abnormal_activity", "Abnormal activity detected.", frame=frame)
-		if VIOLENCE:
-			send_alert("violence", "Violence detected.", frame=frame)
-
-		if VIOLENCE:
-			cv2.putText(frame, "VIOLENCE DETECTED", (80, frame.shape[0] // 2),
-				cv2.FONT_HERSHEY_SIMPLEX, 1.2, RED, 3)
-
 		# Place violation count on frames
 		if CHECK_SOCIAL_DISTANCE:
 			# Warning stays on screen for 10 frames
 			if (len(violate_set) > 0):
 				sd_warning_timeout = 10
-			else: 
+			else:
 				sd_warning_timeout -= 1
 			# Display violation warning and count on screen
 			if sd_warning_timeout > 0:
@@ -262,11 +239,11 @@ def video_process(cap, frame_size, movement_data_writer, crowd_data_writer, fram
 			# Warning stays on screen for 10 frames
 			if RE:
 				re_warning_timeout = 10
-			else: 
+			else:
 				re_warning_timeout -= 1
 			# Display restricted entry warning and count on screen
 			if re_warning_timeout > 0:
-				if display_frame_count % 3 != 0 :
+				if display_frame_count % 3 != 0:
 					cv2.putText(frame, "RESTRICTED ENTRY", (200, 100),
 						cv2.FONT_HERSHEY_SIMPLEX, 1, RED, 3)
 
@@ -294,13 +271,7 @@ def video_process(cap, frame_size, movement_data_writer, crowd_data_writer, fram
 				cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 3)
 
 		# Record crowd data to file
-		_record_crowd_data(record_time, len(humans_detected), len(violate_set), RE, ABNORMAL, VIOLENCE, crowd_data_writer)
-
-		if frame_callback is not None:
-			frame_callback(frame)
-
-		# Display video output or processing indicator
-		show_window = not headless
+		_record_crowd_data(record_time, len(humans_detected), len(violate_set), RE, ABNORMAL, crowd_data_writer)
 		if show_window:
 			cv2.imshow("Processed Output", frame)
 		else:

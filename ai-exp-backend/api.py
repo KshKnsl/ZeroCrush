@@ -15,8 +15,9 @@ from collections import deque
 from typing import Any, Optional
 
 import cv2
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+import numpy as np
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
@@ -24,6 +25,35 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 import config
 from config import API_HOST, API_PORT, DATA_RECORD_RATE, FRAME_WIDTH, LOG_DIR, START_TIME, TRACK_MAX_AGE
+import queue
+
+class VirtualVideoCapture:
+	def __init__(self):
+		self.frame_queue = queue.Queue(maxsize=1)
+		self.fps = 30.0
+		self.opened = True
+
+	def get(self, propId):
+		if propId == cv2.CAP_PROP_FPS:
+			return self.fps
+		if propId == cv2.CAP_PROP_FRAME_COUNT:
+			return -1
+		return 0
+
+	def read(self):
+		try:
+			frame = self.frame_queue.get(timeout=2.0)
+			return True, frame
+		except queue.Empty:
+			return False, None
+			
+	def release(self):
+		self.opened = False
+	
+	def isOpened(self):
+		return self.opened
+
+virtual_caps = {}
 
 latest_frame: Optional[bytes] = None
 latest_frame_lock = threading.Lock()
@@ -117,14 +147,21 @@ def _process_single_video(
 		raise ValueError("Frame width is too small! You won't see anything")
 
 	is_cam = is_realtime
-	cap = cv2.VideoCapture(video_source)
-	if not cap.isOpened() and is_cam:
-		# Try common Windows camera backends if the default fails
-		cap = cv2.VideoCapture(video_source, cv2.CAP_DSHOW)
-	if not cap.isOpened() and is_cam:
-		cap = cv2.VideoCapture(video_source, cv2.CAP_MSMF)
-	if not cap.isOpened():
-		raise RuntimeError(f"Unable to open video source: {video_source}")
+	
+	if video_source == "browser":
+		cap = virtual_caps.get("browser")
+		if cap is None:
+			cap = VirtualVideoCapture()
+			virtual_caps["browser"] = cap
+	else:
+		cap = cv2.VideoCapture(video_source)
+		if not cap.isOpened() and is_cam:
+			# Try common Windows camera backends if the default fails
+			cap = cv2.VideoCapture(video_source, cv2.CAP_DSHOW)
+		if not cap.isOpened() and is_cam:
+			cap = cv2.VideoCapture(video_source, cv2.CAP_MSMF)
+		if not cap.isOpened():
+			raise RuntimeError(f"Unable to open video source: {video_source}")
 
 	video_stem = _safe_stem(video_source)
 	video_log_dir = os.path.join(LOG_DIR, video_stem)
@@ -140,7 +177,7 @@ def _process_single_video(
 		crowd_data_writer = csv.writer(crowd_data_file)
 		movement_data_writer.writerow(["Track ID", "Entry time", "Exit Time", "Movement Tracks"])
 		crowd_data_writer.writerow(
-			["Time", "Human Count", "Social Distance violate", "Restricted Entry", "Abnormal Activity", "Violence"]
+			["Time", "Human Count", "Social Distance violate", "Restricted Entry", "Abnormal Activity"]
 		)
 
 		start_wall_time = time.time()
@@ -230,13 +267,17 @@ async def api_start(body: StartBody) -> dict[str, str]:
 		latest_frame = None
 	_set_status("running", None)
 	source = body.source.strip()
+	
+	if "browser" in virtual_caps:
+		virtual_caps["browser"].opened = False
+		virtual_caps.pop("browser", None)
+	
+	if source == "browser":
+		virtual_caps["browser"] = VirtualVideoCapture()
 
 	def run() -> None:
 		global session_start_time
 		try:
-			from violence_detector import reset_violence_state
-
-			reset_violence_state()
 			session_start_time = time.time()
 			if source.lower() == "webcam":
 				_process_single_video(
@@ -247,9 +288,19 @@ async def api_start(body: StartBody) -> dict[str, str]:
 					headless=True,
 					graph_headless=True,
 				)
+			elif source.lower() == "browser":
+				_process_single_video(
+					"browser",
+					is_realtime=True,
+					frame_callback=_frame_callback,
+					stop_event=stop_event,
+					headless=True,
+					graph_headless=True,
+				)
 			else:
 				if not os.path.isfile(source):
-					raise FileNotFoundError(f"Video file not found: {source}")
+					# Maybe an RTSP url
+					pass
 				_process_single_video(
 					source,
 					is_realtime=False,
@@ -283,7 +334,7 @@ async def api_logs_crowd(session: Optional[str] = None, limit: int = 100) -> JSO
 	if not path or not os.path.isfile(path):
 		return JSONResponse(content={"rows": []})
 	rows = _read_crowd_tail(path, limit)
-	header = ["Time", "Human Count", "Social Distance violate", "Restricted Entry", "Abnormal Activity", "Violence"]
+	header = ["Time", "Human Count", "Social Distance violate", "Restricted Entry", "Abnormal Activity"]
 	out: list[dict[str, Any]] = []
 	for r in rows:
 		if len(r) < 5:
@@ -303,8 +354,6 @@ async def api_logs_crowd(session: Optional[str] = None, limit: int = 100) -> JSO
 			"restricted": bool(int(r[3])) if len(r) > 3 and str(r[3]).strip().lstrip("-").isdigit() else False,
 			"abnormal": bool(int(r[4])) if len(r) > 4 and str(r[4]).strip().lstrip("-").isdigit() else False,
 		}
-		if len(r) > 5 and str(r[5]).isdigit():
-			row_obj["violence"] = bool(int(r[5]))
 		out.append(row_obj)
 	return JSONResponse(content={"rows": out, "header": header, "path": path})
 
@@ -325,14 +374,6 @@ async def api_logs_events() -> JSONResponse:
 			abnormal = bool(int(r[4]))
 		except (ValueError, IndexError):
 			continue
-		violence = False
-		if len(r) > 5:
-			try:
-				violence = bool(int(r[5]))
-			except ValueError:
-				pass
-		if violence:
-			events.append({"type": "violence", "time": t, "severity": "high", "label": "Violence"})
 		if restricted:
 			events.append({"type": "restricted_zone", "time": t, "severity": "medium", "label": "Restricted zone"})
 		if abnormal:
@@ -341,67 +382,7 @@ async def api_logs_events() -> JSONResponse:
 	return JSONResponse(content={"events": events, "session_start": session_start_time})
 
 
-@app.get("/api/alerts/history")
-async def api_alerts_history() -> dict[str, Any]:
-	out: list[dict[str, Any]] = []
-	if not os.path.isdir(LOG_DIR):
-		return {"alerts": []}
-	for name in sorted(os.listdir(LOG_DIR), reverse=True):
-		d = os.path.join(LOG_DIR, name)
-		if not os.path.isdir(d):
-			continue
-		p = os.path.join(d, "crowd_data.csv")
-		if not os.path.isfile(p):
-			continue
-		with open(p, newline="", encoding="utf-8") as f:
-			reader = csv.reader(f)
-			next(reader, None)
-			for row in reader:
-				if len(row) < 5:
-					continue
-				t = row[0]
-				try:
-					restricted = bool(int(row[3]))
-					abnormal = bool(int(row[4]))
-				except (ValueError, IndexError):
-					continue
-				violence = False
-				if len(row) > 5:
-					try:
-						violence = bool(int(row[5]))
-					except ValueError:
-						pass
-				if violence:
-					out.append(
-						{
-							"session": name,
-							"time": t,
-							"type": "violence",
-							"severity": "high",
-							"snapshot": None,
-						}
-					)
-				if restricted:
-					out.append(
-						{
-							"session": name,
-							"time": t,
-							"type": "restricted_zone",
-							"severity": "medium",
-							"snapshot": None,
-						}
-					)
-				if abnormal:
-					out.append(
-						{
-							"session": name,
-							"time": t,
-							"type": "abnormal_activity",
-							"severity": "medium",
-							"snapshot": None,
-						}
-					)
-	return {"alerts": out[:2000]}
+
 
 
 @app.get("/api/stream")
@@ -420,6 +401,41 @@ async def api_stream() -> StreamingResponse:
 		gen(),
 		media_type="multipart/x-mixed-replace; boundary=frame",
 	)
+
+
+@app.websocket("/api/ws/stream")
+async def websocket_stream(websocket: WebSocket):
+	await websocket.accept()
+	try:
+		while True:
+			data = await websocket.receive_bytes()
+			if status_state == "running" and "browser" in virtual_caps:
+				np_arr = np.frombuffer(data, np.uint8)
+				frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+				if frame is not None:
+					try:
+						# Try putting it in queue
+						if not virtual_caps["browser"].frame_queue.full():
+							virtual_caps["browser"].frame_queue.put_nowait(frame)
+						else:
+							# Drop frame if we can't keep up
+							pass
+					except queue.Empty:
+						pass
+				
+			# Send latest processed frame if available
+			with latest_frame_lock:
+				out_data = latest_frame
+				
+			if out_data:
+				await websocket.send_bytes(out_data)
+			else:
+				# Just send an empty byte if nothing is ready, to keep ping-pong alive
+				await websocket.send_bytes(b"")
+	except WebSocketDisconnect:
+		pass
+	except Exception as e:
+		print("WS Error:", str(e))
 
 
 @app.get("/api/sessions")
