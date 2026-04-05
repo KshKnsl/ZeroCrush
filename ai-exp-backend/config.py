@@ -35,10 +35,10 @@ DATA_RECORD_RATE = 10
 LOG_DIR = 'processed_data'
 START_TIME = '2025:1:1:0:0:0:0'
 
-# Alert and Telegram notification settings.
+# Alert notification settings.
 ALERT_ENABLED = False
-TELEGRAM_BOT_TOKEN = ''
-TELEGRAM_CHAT_ID = ''
+FRONTEND_URL = 'http://localhost:3000'
+ALERT_EMAIL = 'admin@example.com'
 ALERT_COOLDOWN_SECONDS = 30
 API_HOST = '0.0.0.0'
 API_PORT = 8000

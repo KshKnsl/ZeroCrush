@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process'
 const pm = process.env.npm_execpath
-const envArgs = ['--env-file=.env', '--env-file-if-exists=.env.local']
+const envArgs = ['--env-file=.env']
 
 for (const cmd of [
   ['exec', 'prisma', 'migrate', 'deploy'],

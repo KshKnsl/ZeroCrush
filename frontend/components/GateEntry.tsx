@@ -8,20 +8,20 @@ import { Input } from "@/components/ui/input";
 interface VerifySuccess {
   success: true;
   message: string;
-  user: { id: number; name: string | null; email: string };
+  registration: { id: number; attendeeName: string; attendeeEmail: string; token: string; checkedInAt: string | null };
   event: {
     id: number;
-    type: string;
+    name: string;
     description: string | null;
-    plate: string | null;
-    verifiedAt: string;
+    location: string | null;
+    checkedInAt: string;
     gateNumber?: number | null;
   };
 }
 
 interface VerifyError {
   error: string;
-  verifiedAt?: string;
+  checkedInAt?: string;
 }
 
 type VerifyResult = VerifySuccess | VerifyError;
@@ -31,17 +31,17 @@ interface CheckInEntry {
   email: string;
   gate: number;
   time: string;
-  eventType: string;
+  eventName: string;
 }
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString("en-US", { hour12: false });
 }
 
-function parseQRData(raw: string): { email: string; code: string } | null {
-  const parts = raw.trim().split("|");
-  if (parts.length !== 2 || !parts[0] || !parts[1]) return null;
-  return { email: parts[0].trim(), code: parts[1].trim().toUpperCase() };
+function parseQRData(raw: string): { token: string } | null {
+  const token = raw.trim().toUpperCase();
+  if (!token) return null;
+  return { token };
 }
 
 interface GateEntryProps {
@@ -70,7 +70,7 @@ export default function GateEntry({ assignedGateNumber = null, guardIdentifier =
   const gateSelectionLocked = assignedGateNumber !== null;
 
   const verify = useCallback(
-    async (email: string, code: string, mode: "scan" | "manual") => {
+    async (token: string, mode: "scan" | "manual") => {
       if (mode === "scan") {
         setScanStatus("loading");
         setResultData(null);
@@ -83,7 +83,7 @@ export default function GateEntry({ assignedGateNumber = null, guardIdentifier =
         const res = await fetch("/api/events/verify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, code, gateNumber: activeGate }),
+          body: JSON.stringify({ token, gateNumber: activeGate }),
         });
         const data: VerifyResult = await res.json();
 
@@ -95,14 +95,14 @@ export default function GateEntry({ assignedGateNumber = null, guardIdentifier =
           setManualStatus(res.ok ? "success" : "error");
         }
 
-        if (res.ok && "user" in data) {
+        if (res.ok && "registration" in data) {
           setRecentCheckIns((prev) => [
             {
-              name: data.user.name || data.user.email,
-              email: data.user.email,
+              name: data.registration.attendeeName || data.registration.attendeeEmail,
+              email: data.registration.attendeeEmail,
               gate: data.event.gateNumber ?? activeGate,
-              time: data.event.verifiedAt,
-              eventType: data.event.type,
+              time: data.event.checkedInAt,
+              eventName: data.event.name,
             },
             ...prev.slice(0, 19),
           ]);
@@ -176,7 +176,7 @@ export default function GateEntry({ assignedGateNumber = null, guardIdentifier =
           const parsed = parseQRData(raw);
           if (parsed) {
             scanningRef.current = true;
-            await verify(parsed.email, parsed.code, "scan");
+            await verify(parsed.token, "scan");
             setTimeout(() => {
               scanningRef.current = false;
             }, 4000);
@@ -203,10 +203,9 @@ export default function GateEntry({ assignedGateNumber = null, guardIdentifier =
   }, [assignedGateNumber]);
 
   const handleManualSubmit = () => {
-    const email = manualEmail.trim().toLowerCase();
-    const code = manualCode.trim().toUpperCase();
-    if (!email || !code) return;
-    verify(email, code, "manual");
+    const token = manualCode.trim().toUpperCase();
+    if (!token) return;
+    verify(token, "manual");
   };
 
   const resetManual = () => {
@@ -297,12 +296,12 @@ export default function GateEntry({ assignedGateNumber = null, guardIdentifier =
                     exit={{ opacity: 0 }}
                     className={`absolute inset-0 flex flex-col items-center justify-center px-4 ${scanStatus === "success" ? "bg-lime-500/20" : "bg-rose-500/25"}`}
                   >
-                    {scanStatus === "success" && "user" in resultData ? (
+                    {scanStatus === "success" && "registration" in resultData ? (
                       <>
                         <CheckCircle className="w-14 h-14 text-lime-600 dark:text-[#c8f04a] mb-2" />
                         <p className="text-lime-700 dark:text-[#c8f04a] text-xl font-bold">ACCESS GRANTED</p>
-                        <p className="text-lime-700/80 dark:text-[#d8ff5a] text-sm mt-1 font-medium">{resultData.user.name || resultData.user.email}</p>
-                        <p className="text-lime-700/60 dark:text-[#a4bd44] text-xs mt-0.5">{resultData.event.type}</p>
+                        <p className="text-lime-700/80 dark:text-[#d8ff5a] text-sm mt-1 font-medium">{(resultData as VerifySuccess).registration.attendeeName || (resultData as VerifySuccess).registration.attendeeEmail}</p>
+                        <p className="text-lime-700/60 dark:text-[#a4bd44] text-xs mt-0.5">{(resultData as VerifySuccess).event.name}</p>
                         <div className="mt-3 flex items-center gap-2 text-lime-700 dark:text-[#c8f04a] text-sm">
                           <ArrowRight className="w-4 h-4" />
                           <span className="font-mono">GATE {activeGate}</span>
@@ -360,13 +359,13 @@ export default function GateEntry({ assignedGateNumber = null, guardIdentifier =
                   exit={{ opacity: 0 }}
                   className={`rounded-lg p-4 border ${manualStatus === "success" ? "bg-lime-500/10 border-lime-500/30" : "bg-rose-500/10 border-rose-500/30"}`}
                 >
-                  {manualStatus === "success" && "user" in manualResult ? (
+                  {manualStatus === "success" && "registration" in manualResult ? (
                     <div className="flex items-start gap-3">
                       <CheckCircle className="w-5 h-5 text-lime-600 dark:text-[#c8f04a] mt-0.5 shrink-0" />
                       <div>
-                        <p className="text-lime-700 dark:text-[#c8f04a] font-semibold text-sm">{manualResult.message}</p>
-                        <p className="text-lime-700/70 dark:text-[#9db341] text-xs mt-0.5">{manualResult.event.type}</p>
-                        <p className="app-muted text-xs">{manualResult.user.email}</p>
+                        <p className="text-lime-700 dark:text-[#c8f04a] font-semibold text-sm">{(manualResult as VerifySuccess).message}</p>
+                        <p className="text-lime-700/70 dark:text-[#9db341] text-xs mt-0.5">{(manualResult as VerifySuccess).event.name}</p>
+                        <p className="app-muted text-xs">{(manualResult as VerifySuccess).registration.attendeeEmail}</p>
                       </div>
                     </div>
                   ) : (
@@ -380,7 +379,7 @@ export default function GateEntry({ assignedGateNumber = null, guardIdentifier =
             </AnimatePresence>
 
             <div>
-              <label className="app-muted text-xs uppercase tracking-wider">Email Address</label>
+              <label className="app-muted text-xs uppercase tracking-wider">Attendee Email</label>
               <Input
                 type="email"
                 value={manualEmail}
@@ -391,14 +390,13 @@ export default function GateEntry({ assignedGateNumber = null, guardIdentifier =
             </div>
 
             <div>
-              <label className="app-muted text-xs uppercase tracking-wider">Entry Code</label>
+              <label className="app-muted text-xs uppercase tracking-wider">Registration Token</label>
               <Input
                 type="text"
                 value={manualCode}
                 onChange={(e) => setManualCode(e.target.value.toUpperCase())}
                 onKeyDown={(e) => e.key === "Enter" && handleManualSubmit()}
                 placeholder="A3F9K2"
-                maxLength={6}
                 className="app-field mt-1 py-3 font-mono tracking-widest"
               />
             </div>
@@ -406,7 +404,7 @@ export default function GateEntry({ assignedGateNumber = null, guardIdentifier =
             <div className="flex flex-col gap-2 pt-1 sm:flex-row">
               <button
                 onClick={handleManualSubmit}
-                disabled={!manualEmail || !manualCode || manualStatus === "loading"}
+                disabled={!manualCode || manualStatus === "loading"}
                 className="flex-1 py-3 bg-lime-500/20 border border-lime-500/30 rounded-lg text-lime-700 dark:text-[#c8f04a] text-sm font-medium hover:bg-lime-500/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {manualStatus === "loading" ? (
@@ -415,7 +413,7 @@ export default function GateEntry({ assignedGateNumber = null, guardIdentifier =
                   </>
                 ) : (
                   <>
-                    <QrCode className="w-4 h-4" /> Verify Code
+                    <QrCode className="w-4 h-4" /> Verify Token
                   </>
                 )}
               </button>
@@ -436,7 +434,7 @@ export default function GateEntry({ assignedGateNumber = null, guardIdentifier =
         </div>
 
         {recentCheckIns.length === 0 ? (
-          <div className="p-8 text-center app-muted text-sm">No check-ins yet. Verified attendees will appear here.</div>
+          <div className="p-8 text-center app-muted text-sm">No check-ins yet. Checked-in attendees will appear here.</div>
         ) : (
           <div className="divide-y divide-slate-200 dark:divide-[#1e1e1e] max-h-72 overflow-y-auto">
             <AnimatePresence initial={false}>
@@ -454,7 +452,7 @@ export default function GateEntry({ assignedGateNumber = null, guardIdentifier =
                     </div>
                     <div>
                       <p className="app-heading text-sm font-medium">{entry.name}</p>
-                      <p className="app-muted text-xs">{entry.email} · {entry.eventType}</p>
+                      <p className="app-muted text-xs">{entry.email} · {entry.eventName}</p>
                     </div>
                   </div>
                   <div className="text-right shrink-0 ml-4">

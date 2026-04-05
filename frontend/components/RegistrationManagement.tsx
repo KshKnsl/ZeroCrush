@@ -6,10 +6,11 @@ import { Input } from '@/components/ui/input';
 
 interface RegistrationEvent {
   id: number;
-  type: string;
-  plate: string | null;
+  name: string;
+  location: string | null;
   description: string | null;
-  timestamp: string;
+  date: string;
+  capacity: number;
 }
 
 interface RegistrationManagementProps {
@@ -30,10 +31,9 @@ function toDateInputValue(timestamp: string) {
 }
 
 export default function RegistrationManagement({ event }: RegistrationManagementProps) {
-  const eventName = event.type;
-  const eventDate = toDateInputValue(event.timestamp);
-  const eventPlate = event.plate ?? '';
-  const eventLocation = event.description ?? '';
+  const eventName = event.name;
+  const eventDate = toDateInputValue(event.date);
+  const eventLocation = event.location ?? '';
 
   const configuredCapacity = useMemo(() => {
     const byType: Record<string, number> = {
@@ -45,8 +45,9 @@ export default function RegistrationManagement({ event }: RegistrationManagement
       marathon: 8000,
     };
 
-    return byType[event.type.toLowerCase()] ?? 1500;
-  }, [event.type]);
+    const fallbackCapacity = byType[event.name.toLowerCase()] ?? 1500;
+    return event.capacity > 0 ? event.capacity : fallbackCapacity;
+  }, [event.capacity, event.name]);
 
   const [attendees, setAttendees] = useState<RegisteredAttendee[]>([]);
   const [attendeesLoading, setAttendeesLoading] = useState(false);
@@ -167,12 +168,12 @@ export default function RegistrationManagement({ event }: RegistrationManagement
                 />
               </div>
               <div>
-                <label className="app-muted text-xs uppercase tracking-wider">Plate / Code</label>
+                <label className="app-muted text-xs uppercase tracking-wider">Capacity</label>
                 <Input
-                  type="text"
-                  value={eventPlate}
+                  type="number"
+                  value={event.capacity}
                   readOnly
-                  placeholder="Event plate or internal code"
+                  placeholder="Event capacity"
                   className="app-field mt-1"
                 />
               </div>

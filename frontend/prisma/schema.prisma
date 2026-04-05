@@ -6,45 +6,73 @@ datasource db {
   provider = "postgresql"
 }
 
+enum Role {
+  ADMIN
+  OPERATOR
+  VIEWER
+}
+
 model User {
-  id    Int     @id @default(autoincrement())
-  email String  @unique
-  name  String?
-  events Event[] 
-  eventAttendees EventAttendee[]
+  id        Int        @id @default(autoincrement())
+  name      String?
+  email     String     @unique
+  password  String
+  role      Role       @default(VIEWER)
+  createdAt DateTime   @default(now())
+  events    Event[]
+  incidents Incident[] @relation("IncidentCreator")
 }
 
 model Event {
-  id        Int      @id @default(autoincrement())
-  type      String
-  timestamp DateTime @default(now())
-  plate     String?
+  id            Int             @id @default(autoincrement())
+  name          String
+  description   String?
+  location      String?
+  date          DateTime
+  capacity      Int             @default(0)
+  createdAt     DateTime        @default(now())
+  createdById   Int?
+  createdBy     User?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  registrations Registration[]
+  incidents     Incident[]
+}
+
+model Registration {
+  id             Int       @id @default(autoincrement())
+  eventId        Int
+  attendeeName   String
+  attendeeEmail  String
+  token          String    @unique
+  checkedIn      Boolean   @default(false)
+  checkedInAt    DateTime?
+  createdAt      DateTime  @default(now())
+
+  event          Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+}
+
+enum IncidentType {
+  VIOLENCE
+  RESTRICTED_ZONE
+  ABNORMAL
+  MANUAL
+}
+
+enum IncidentStatus {
+  OPEN
+  RESOLVED
+}
+
+model Incident {
+  id          Int            @id @default(autoincrement())
+  type        IncidentType
+  status      IncidentStatus @default(OPEN)
   description String?
-  verificationCode String?           
-  verified         Boolean   @default(false)
-  verifiedAt       DateTime?
-  userId    Int?
-  user      User?    @relation(fields: [userId], references: [id])
-  eventAttendees EventAttendee[]
-  managementAccounts ManagementAccount[]
-}
+  source      String         @default("manual")
+  createdAt   DateTime       @default(now())
+  resolvedAt  DateTime?
+  eventId     Int?
+  createdById Int?
 
-model ManagementAccount {
-  id          Int      @id @default(autoincrement())
-  loginId     String
-  password    String
-  role        String   @default("crowd_operations_lead")
-  allowedTabs String[]
-  createdAt   DateTime @default(now())
-  eventId     Int
-  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-
-  @@unique([eventId, loginId])
-}
-model EventAttendee {
-  eventId Int
-  userId  Int
-  event   Event @relation(fields: [eventId], references: [id])
-  user    User  @relation(fields: [userId], references: [id])
-  @@id([eventId, userId])
+  event       Event?         @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  createdBy   User?          @relation("IncidentCreator", fields: [createdById], references: [id], onDelete: SetNull)
 }

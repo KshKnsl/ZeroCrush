@@ -2,22 +2,24 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import Sidebar from '@/components/Sidebar';
-import GateEntry from '@/components/GateEntry';
+import Sidebar, { DashboardTab } from '@/components/Sidebar';
 import LiveMonitoring from '@/components/LiveMonitoring';
-import ManagementAccess from '@/components/ManagementAccess';
 import RegistrationManagement from '@/components/RegistrationManagement';
-import EventRegistration from '@/components/EventRegistration';
-import { clearStoredSession, getStoredSession, getTabsForSession, type AppSession, type DashboardTab, type ManagementTab } from '@/lib/auth';
+import UsersManagement from '@/components/UsersManagement';
+import AnalyticsDashboard from '@/components/AnalyticsDashboard';
+import SettingsPanel from '@/components/SettingsPanel';
+import IncidentsManagement from '@/components/IncidentsManagement';
+import { clearStoredSession, getStoredSession, type AppSession } from '@/lib/auth';
 
 type Theme = 'light' | 'dark';
 
 interface EventOption {
   id: number;
-  type: string;
-  plate: string | null;
+  name: string;
   description: string | null;
-  timestamp: string;
+  location: string | null;
+  date: string;
+  capacity: number;
 }
 
 function DashboardPageContent() {
@@ -32,12 +34,6 @@ function DashboardPageContent() {
   const [createEventLoading, setCreateEventLoading] = useState(false);
   const [isReady, setIsReady] = useState(false);
 
-  const managementTabs: ManagementTab[] = getTabsForSession(session);
-
-  const isDashboardTab = (value: string | null): value is DashboardTab => {
-    return value === 'live' || value === 'registration' || value === 'gate' || value === 'upload' || value === 'access';
-  };
-
   useEffect(() => {
     const currentSession = getStoredSession();
     if (!currentSession) {
@@ -48,8 +44,8 @@ function DashboardPageContent() {
     const storedTheme = window.localStorage.getItem('theme') as Theme | null;
 
     setSession(currentSession);
-    const tabFromUrl = searchParams.get('activeTab');
-    if (isDashboardTab(tabFromUrl)) {
+    const tabFromUrl = searchParams.get('activeTab') as DashboardTab;
+    if (tabFromUrl) {
       setActiveTab(tabFromUrl);
     }
     setTheme(storedTheme ?? 'light');
@@ -64,7 +60,6 @@ function DashboardPageContent() {
 
   useEffect(() => {
     if (!session) return;
-
     const loadEvents = async () => {
       try {
         const response = await fetch('/api/events', { cache: 'no-store' });
@@ -74,50 +69,15 @@ function DashboardPageContent() {
         const loadedEvents = (data.events ?? []) as EventOption[];
         setEvents(loadedEvents);
 
-        if (session.role === 'management') {
-          if (session.eventId) {
-            setSelectedEventId(session.eventId);
-          }
-          return;
-        }
-
         if (loadedEvents.length > 0) {
           setSelectedEventId((prev) => prev ?? loadedEvents[0].id);
         }
       } catch {
-        // ignore fetch failure and keep current UI state
       }
     };
 
     loadEvents();
   }, [session]);
-
-  useEffect(() => {
-    if (!session) return;
-
-    if (session.role === 'admin') {
-      return;
-    }
-
-    if (activeTab === 'access' || !managementTabs.includes(activeTab as ManagementTab)) {
-      setActiveTab(managementTabs[0] ?? 'live');
-    }
-  }, [activeTab, managementTabs, session]);
-
-  useEffect(() => {
-    if (!isReady) return;
-
-    const next = new URLSearchParams(searchParams.toString());
-    if (next.get('activeTab') !== activeTab) {
-      next.set('activeTab', activeTab);
-    }
-
-    const nextString = next.toString();
-    const currentString = searchParams.toString();
-    if (nextString === currentString) return;
-
-    router.replace(`${pathname}?${nextString}`, { scroll: false });
-  }, [activeTab, isReady, pathname, router, searchParams]);
 
   if (!isReady || !session) {
     return (
@@ -132,7 +92,7 @@ function DashboardPageContent() {
     router.push('/login');
   };
 
-  const handleCreateEvent = async (payload: { type: string; plate: string; description: string }) => {
+  const handleCreateEvent = async (payload: { name: string; location: string; description: string; capacity: number; date: string }) => {
     setCreateEventLoading(true);
     try {
       const response = await fetch('/api/events', {
@@ -141,9 +101,7 @@ function DashboardPageContent() {
         body: JSON.stringify(payload),
       });
       const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Could not create event.');
-      }
+      if (!response.ok) throw new Error(data.error || 'Could not create event.');
 
       const event = data.event as EventOption;
       setEvents((prev) => [event, ...prev]);
@@ -157,19 +115,16 @@ function DashboardPageContent() {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-100 text-slate-900 transition-colors overflow-hidden dark:bg-[#0a0a0a] dark:text-white md:h-screen md:flex-row">
-      <Sidebar
+        <Sidebar
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={(t: DashboardTab) => { setActiveTab(t); router.replace(`${pathname}?activeTab=${t}`, { scroll: false }); }}
         theme={theme}
         role={session.role}
-        identifier={session.identifier}
-        managementRole={session.managementRole}
-        availableTabs={managementTabs}
+        identifier={session.email || session.name || 'Unknown'}
         selectedEventId={selectedEventId}
-        events={events.map(({ id, type, plate }) => ({ id, type, plate }))}
+        events={events.map(({ id, name, location }) => ({ id, name, location }))}
         createEventLoading={createEventLoading}
-        onEventChange={(eventId) => {
-          if (session.role === 'management') return;
+        onEventChange={(eventId: number) => {
           setSelectedEventId(eventId);
         }}
         onCreateEvent={handleCreateEvent}
@@ -181,14 +136,10 @@ function DashboardPageContent() {
           <>
             {activeTab === 'live' && <LiveMonitoring event={selectedEvent} />}
             {activeTab === 'registration' && <RegistrationManagement event={selectedEvent} />}
-            {activeTab === 'gate' && (
-              <GateEntry
-                assignedGateNumber={session.role === 'management' ? (session.gateNumber ?? null) : null}
-                guardIdentifier={session.role === 'management' ? session.identifier : null}
-              />
-            )}
-            {activeTab === 'upload' && <EventRegistration eventId={selectedEvent.id} eventName={selectedEvent.type} />}
-            {activeTab === 'access' && session.role === 'admin' && <ManagementAccess eventId={selectedEvent.id} eventName={selectedEvent.type} />}
+            {activeTab === 'incidents' && <IncidentsManagement />}
+            {activeTab === 'analytics' && <AnalyticsDashboard eventId={selectedEvent.id} />}
+            {activeTab === 'settings' && <SettingsPanel />}
+            {activeTab === 'users' && <UsersManagement />}
           </>
         ) : (
           <div className="rounded-2xl border border-slate-200 bg-white p-8 text-sm text-slate-500 dark:border-slate-800 dark:bg-[#111111] dark:text-slate-400">

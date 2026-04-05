@@ -2,13 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { generateVerificationCode, sendVerificationEmail } from "@/lib/mailer";
 
-// ── Types ────────────────────────────────────────────────────────────────────
 interface ParsedUser {
   name: string;
   email: string;
 }
 
-// ── CSV helpers ──────────────────────────────────────────────────────────────
 const NAME_ALIASES = ["name", "full name", "fullname", "first name", "firstname"];
 const EMAIL_ALIASES = ["email", "email address", "emailaddress", "e-mail", "mail"];
 
@@ -70,7 +68,6 @@ function extractUsers(text: string): { users: ParsedUser[]; errors: string[] } {
   return { users, errors };
 }
 
-// ── Route handler ────────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
@@ -85,16 +82,9 @@ export async function POST(req: NextRequest) {
 
     const selectedEvent = await prisma.event.findUnique({
       where: { id: eventId },
-      select: {
-        id: true,
-        type: true,
-        plate: true,
-        description: true,
-        userId: true,
-      },
     });
 
-    if (!selectedEvent || selectedEvent.userId !== null) {
+    if (!selectedEvent) {
       return NextResponse.json({ error: "Selected event not found." }, { status: 404 });
     }
 
@@ -156,22 +146,20 @@ export async function POST(req: NextRequest) {
 
     for (const { name, email } of dedupedUsers) {
       try {
-        const user = await prisma.user.upsert({
-          where: { email },
-          update: { ...(name ? { name } : {}) },
-          create: { email, name: name || null },
-        });
+        let token = generateVerificationCode();
+        while (await prisma.registration.findUnique({ where: { token } })) {
+          token = generateVerificationCode();
+        }
 
-        const verificationCode = generateVerificationCode();
-
-        await prisma.event.create({
-          data: {
-            type: selectedEvent.type,
-            plate: selectedEvent.plate ?? undefined,
-            description: selectedEvent.description ?? undefined,
-            userId: user.id,
-            verificationCode,
-          },
+        await prisma.registration.upsert({
+          where: { token },
+          update: {},
+          create: {
+            eventId: selectedEvent.id,
+            attendeeName: name || 'Guest',
+            attendeeEmail: email.toLowerCase(),
+            token,
+          }
         });
 
         usersAdded++;
@@ -180,9 +168,9 @@ export async function POST(req: NextRequest) {
           await sendVerificationEmail({
             to: email,
             name: name || email,
-            eventType: selectedEvent.type,
+            eventType: selectedEvent.name,
             eventDescription: selectedEvent.description,
-            code: verificationCode,
+            code: token,
           });
           emailsSent++;
         } catch (mailErr) {
