@@ -4,6 +4,7 @@ Run from project root: uvicorn api:app --reload --host 0.0.0.0 --port 8000
 """
 import asyncio
 import csv
+import datetime
 import io
 import json
 import os
@@ -22,9 +23,7 @@ from pydantic import BaseModel
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 import config
-from config import API_HOST, API_PORT, LOG_DIR
-
-from main import _process_single_video
+from config import API_HOST, API_PORT, DATA_RECORD_RATE, FRAME_WIDTH, LOG_DIR, START_TIME, TRACK_MAX_AGE
 
 latest_frame: Optional[bytes] = None
 latest_frame_lock = threading.Lock()
@@ -34,7 +33,6 @@ status_state = "idle"
 status_lock = threading.Lock()
 error_message: Optional[str] = None
 session_start_time: Optional[float] = None
-current_log_dir: Optional[str] = None
 
 app = FastAPI(title="SmartWatch API")
 app.add_middleware(
@@ -93,18 +91,113 @@ def _read_crowd_tail(path: str, n: int = 100) -> list[list[str]]:
 	return list(rows)
 
 
-def _read_crowd_rows(path: str, max_rows: int) -> list[list[str]]:
-	if not os.path.isfile(path):
-		return []
-	out: list[list[str]] = []
-	with open(path, newline="", encoding="utf-8") as f:
-		reader = csv.reader(f)
-		next(reader, None)
-		for i, row in enumerate(reader):
-			if i >= max_rows:
-				break
-			out.append(row)
-	return out
+def _safe_stem(path: Any) -> str:
+	stem = os.path.splitext(os.path.basename(str(path)))[0]
+	return "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in stem)
+
+
+def _process_single_video(
+	video_source: Any,
+	is_realtime: Optional[bool] = None,
+	frame_callback=None,
+	stop_event=None,
+	headless: bool = False,
+	graph_headless: bool = True,
+) -> None:
+	from graph_grid_present import load_movement_tracks, render_movement_images
+	from video_process import video_process
+
+	if is_realtime is None:
+		is_realtime = config.IS_REALTIME
+	config.IS_REALTIME = is_realtime
+
+	if FRAME_WIDTH > 1920:
+		raise ValueError("Frame width is too large!")
+	if FRAME_WIDTH < 480:
+		raise ValueError("Frame width is too small! You won't see anything")
+
+	is_cam = is_realtime
+	cap = cv2.VideoCapture(video_source)
+	if not cap.isOpened():
+		print(f"Skipping unreadable video: {video_source}")
+		return
+
+	video_stem = _safe_stem(video_source)
+	video_log_dir = os.path.join(LOG_DIR, video_stem)
+	os.makedirs(video_log_dir, exist_ok=True)
+
+	movement_data_path = os.path.join(video_log_dir, "movement_data.csv")
+	crowd_data_path = os.path.join(video_log_dir, "crowd_data.csv")
+
+	with open(movement_data_path, "w", newline="", encoding="utf-8") as movement_data_file, open(
+		crowd_data_path, "w", newline="", encoding="utf-8"
+	) as crowd_data_file:
+		movement_data_writer = csv.writer(movement_data_file)
+		crowd_data_writer = csv.writer(crowd_data_file)
+		movement_data_writer.writerow(["Track ID", "Entry time", "Exit Time", "Movement Tracks"])
+		crowd_data_writer.writerow(
+			["Time", "Human Count", "Social Distance violate", "Restricted Entry", "Abnormal Activity", "Violence"]
+		)
+
+		start_wall_time = time.time()
+		processing_fps = video_process(
+			cap,
+			FRAME_WIDTH,
+			movement_data_writer,
+			crowd_data_writer,
+			frame_callback,
+			stop_event,
+			headless,
+		)
+		end_wall_time = time.time()
+
+	process_time = max(end_wall_time - start_wall_time, 1e-6)
+	print(f"\nFinished {video_source}")
+	print("Time elapsed:", round(process_time, 2), "seconds")
+
+	if is_cam:
+		vid_fps = processing_fps
+		data_record_frame = 1
+		start_dt = datetime.datetime.now()
+		end_dt = start_dt
+		print("Processed FPS:", round(processing_fps, 2) if processing_fps else 0)
+	else:
+		frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+		vid_fps = cap.get(cv2.CAP_PROP_FPS) or 1.0
+		data_record_frame = max(1, int(vid_fps / DATA_RECORD_RATE))
+		processed_fps = frame_count / process_time
+		print("Processed FPS:", round(processed_fps, 2))
+
+		parts = [int(p) for p in START_TIME.split(":")]
+		start_dt = datetime.datetime(parts[0], parts[1], parts[2], parts[3], parts[4], parts[5], parts[6] * 1000)
+		time_elapsed = round(frame_count / vid_fps)
+		end_dt = start_dt + datetime.timedelta(seconds=time_elapsed)
+
+	cap.release()
+
+	video_data = {
+		"IS_CAM": is_cam,
+		"DATA_RECORD_FRAME": data_record_frame,
+		"VID_FPS": vid_fps,
+		"PROCESSED_FRAME_SIZE": FRAME_WIDTH,
+		"TRACK_MAX_AGE": TRACK_MAX_AGE,
+		"START_TIME": start_dt.strftime("%d/%m/%Y, %H:%M:%S"),
+		"END_TIME": end_dt.strftime("%d/%m/%Y, %H:%M:%S"),
+	}
+
+	with open(os.path.join(video_log_dir, "video_data.json"), "w", encoding="utf-8") as video_data_file:
+		json.dump(video_data, video_data_file)
+
+	tracks = load_movement_tracks(video_log_dir)
+	tracks_img, heatmap_img = render_movement_images(
+		video_source=video_source,
+		tracks=tracks,
+		frame_size=FRAME_WIDTH,
+		vid_fps=float(vid_fps or 1.0),
+		data_record_frame=max(1, int(data_record_frame)),
+	)
+	cv2.imwrite(os.path.join(video_log_dir, "tracks.png"), cv2.cvtColor(tracks_img, cv2.COLOR_RGB2BGR))
+	cv2.imwrite(os.path.join(video_log_dir, "heatmap.png"), cv2.cvtColor(heatmap_img, cv2.COLOR_RGB2BGR))
 
 
 class StartBody(BaseModel):
@@ -121,7 +214,7 @@ async def api_status() -> dict[str, Any]:
 
 @app.post("/api/start")
 async def api_start(body: StartBody) -> dict[str, str]:
-	global pipeline_thread, session_start_time, current_log_dir
+	global pipeline_thread, session_start_time
 
 	with status_lock:
 		if status_state == "running":
@@ -132,7 +225,7 @@ async def api_start(body: StartBody) -> dict[str, str]:
 	source = body.source.strip()
 
 	def run() -> None:
-		global session_start_time, current_log_dir
+		global session_start_time
 		try:
 			from violence_detector import reset_violence_state
 
@@ -150,9 +243,6 @@ async def api_start(body: StartBody) -> dict[str, str]:
 			else:
 				if not os.path.isfile(source):
 					raise FileNotFoundError(f"Video file not found: {source}")
-				stem = os.path.splitext(os.path.basename(source))[0]
-				safe = "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in stem)
-				current_log_dir = os.path.join(LOG_DIR, safe)
 				_process_single_video(
 					source,
 					is_realtime=False,
@@ -185,10 +275,7 @@ async def api_logs_crowd(session: Optional[str] = None, limit: int = 100) -> JSO
 		path = _find_latest_crowd_csv()
 	if not path or not os.path.isfile(path):
 		return JSONResponse(content={"rows": []})
-	if limit >= 100000:
-		rows = _read_crowd_rows(path, max_rows=min(limit, 200000))
-	else:
-		rows = _read_crowd_tail(path, limit)
+	rows = _read_crowd_tail(path, limit)
 	header = ["Time", "Human Count", "Social Distance violate", "Restricted Entry", "Abnormal Activity", "Violence"]
 	out: list[dict[str, Any]] = []
 	for r in rows:
