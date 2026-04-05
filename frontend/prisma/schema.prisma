@@ -43,33 +43,5 @@ model Incident {
   createdAt   DateTime       @default(now())
   resolvedAt  DateTime?
   createdById Int?
-
-  createdBy   User?          @relation("IncidentCreator", fields: [createdById], references: [id], onDelete: SetNull)
-}
-
-enum IncidentType {
-  VIOLENCE
-  RESTRICTED_ZONE
-  ABNORMAL
-  MANUAL
-}
-
-enum IncidentStatus {
-  OPEN
-  RESOLVED
-}
-
-model Incident {
-  id          Int            @id @default(autoincrement())
-  type        IncidentType
-  status      IncidentStatus @default(OPEN)
-  description String?
-  source      String         @default("manual")
-  createdAt   DateTime       @default(now())
-  resolvedAt  DateTime?
-  eventId     Int?
-  createdById Int?
-
-  event       Event?         @relation(fields: [eventId], references: [id], onDelete: SetNull)
   createdBy   User?          @relation("IncidentCreator", fields: [createdById], references: [id], onDelete: SetNull)
 }
