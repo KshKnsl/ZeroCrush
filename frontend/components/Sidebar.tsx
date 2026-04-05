@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { Activity, Users, ScanLine, LayoutDashboard, Moon, Sun, KeyRound, LogOut, CalendarPlus2 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { getRoleDefinition, type DashboardTab, type ManagementTab, type UserRole, type VenueRole } from '@/lib/auth';

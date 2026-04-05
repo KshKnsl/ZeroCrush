@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { AlertTriangle, LayoutDashboard, BarChart3, Bell, Settings } from 'lucide-react';
 import { SmartWatchAlertsPanel, SmartWatchAnalyticsPanel, SmartWatchDashboardPanel, SmartWatchSettingsPanel } from '@/components/smartwatch-panels';
 import RiskMeter from './RiskMeter';

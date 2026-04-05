@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion';
 import { clsx } from 'clsx';
 import { ShieldCheck, ShieldAlert, ShieldX } from 'lucide-react';
 

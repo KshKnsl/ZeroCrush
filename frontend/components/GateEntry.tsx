@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import { QrCode, CheckCircle, XCircle, ArrowRight, Camera, Keyboard, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 

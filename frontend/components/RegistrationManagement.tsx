@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { BarChart3, Send, Calendar, MapPin } from 'lucide-react';
 import CapacityGauge from './CapacityGauge';
 import { Input } from '@/components/ui/input';
