@@ -19,7 +19,17 @@ async function parseJson<T>(res: Response): Promise<T> {
 
 export type PipelineStatus = "idle" | "running" | "error";
 
-export async function getStatus(): Promise<{ status: PipelineStatus; error: string | null }> {
+export type StatusPayload = {
+  status: PipelineStatus;
+  error: string | null;
+  stream_ready?: boolean;
+  human_count?: number;
+  violations?: number;
+  restricted?: boolean;
+  abnormal?: boolean;
+};
+
+export async function getStatus(): Promise<StatusPayload> {
   const res = await fetch(`${backendUrl()}/api/status`, { cache: "no-store" });
   if (!res.ok) throw new Error("Status unavailable");
   return parseJson(res);

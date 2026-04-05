@@ -7,7 +7,7 @@ import RiskMeter from '../RiskMeter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { backendUrl, websocketUrl } from '@/lib/api';
+import { backendUrl, getStatus, startPipeline, stopPipeline, streamUrl, websocketUrl } from '@/lib/api';
 
 type SourceMode = 'webcam' | 'mp4' | 'rtsp';
 type PipelineStatus = 'idle' | 'running' | 'error';
@@ -37,7 +37,7 @@ export default function LiveMonitoring() {
   const [riskLevel, setRiskLevel] = useState<'LOW' | 'MED' | 'HIGH'>(initialRisk);
   const [rtspUrl, setRtspUrl] = useState('');
   const [selectedFileName, setSelectedFileName] = useState('');
-  const [connectionState, setConnectionState] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
+  const [connectionState, setConnectionState] = useState<'disconnected' | 'connecting' | 'connected' | 'http'>('disconnected');
   const [wsFrame, setWsFrame] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
 
@@ -98,6 +98,28 @@ export default function LiveMonitoring() {
       setRiskLevel('MED');
     } else {
       setRiskLevel('LOW');
+    }
+  };
+
+  const refreshStatus = async () => {
+    try {
+      const status = await getStatus();
+      setPipelineStatus(status.status);
+      setPipelineError(status.error);
+      if (status.error) {
+        setStreamError(status.error);
+      }
+      if (typeof status.human_count === 'number') {
+        setHumanCount(status.human_count);
+      }
+      if (typeof status.violations === 'number') {
+        deriveRisk(status.human_count ?? 0, status.violations, Boolean(status.restricted), Boolean(status.abnormal));
+      }
+      if (typeof status.stream_ready === 'boolean') {
+        setStreamReady(status.stream_ready);
+      }
+    } catch {
+      // Keep current UI state when polling fails intermittently.
     }
   };
 
@@ -165,7 +187,7 @@ export default function LiveMonitoring() {
 
     socket.onerror = () => {
       setConnectionState('disconnected');
-      setStreamError('WebSocket connection failed');
+      setStreamError(`WebSocket connection failed (${websocketUrl('/api/ws/stream')})`);
     };
 
     socket.onclose = () => {
@@ -193,7 +215,7 @@ export default function LiveMonitoring() {
 
       const onError = () => {
         cleanup();
-        reject(new Error('WebSocket connection failed'));
+        reject(new Error(`WebSocket connection failed (${websocketUrl('/api/ws/stream')})`));
       };
 
       socket.addEventListener('open', onOpen);
@@ -243,9 +265,7 @@ export default function LiveMonitoring() {
   };
 
   const startRemoteSource = async () => {
-    const socket = websocketRef.current ?? attachWebSocket();
-    await waitForSocketOpen(socket);
-
+    setConnectionState('http');
     if (sourceMode === 'mp4') {
       const file = fileInputRef.current?.files?.[0];
       if (!file) {
@@ -270,7 +290,8 @@ export default function LiveMonitoring() {
       }
 
       setSelectedFileName(file.name);
-      socket.send(JSON.stringify({ type: 'start', source: 'file', path: uploadData.file_path }));
+      await startPipeline(uploadData.file_path);
+      await refreshStatus();
       return;
     }
 
@@ -278,7 +299,8 @@ export default function LiveMonitoring() {
       throw new Error('Enter an RTSP URL first');
     }
 
-    socket.send(JSON.stringify({ type: 'start', source: 'rtsp', url: rtspUrl.trim() }));
+    await startPipeline(rtspUrl.trim());
+    await refreshStatus();
   };
 
   const handleStart = async () => {
@@ -307,10 +329,15 @@ export default function LiveMonitoring() {
     }
   };
 
-  const handleStop = () => {
+  const handleStop = async () => {
     const socket = websocketRef.current;
     if (socket && socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({ type: 'stop' }));
+    }
+    try {
+      await stopPipeline();
+    } catch {
+      // Ignore backend stop failures when local state is already reset.
     }
     resetSession();
     setPipelineStatus('idle');
@@ -324,8 +351,22 @@ export default function LiveMonitoring() {
     };
   }, []);
 
+  useEffect(() => {
+    if (connectionState !== 'http' || pipelineStatus !== 'running') {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      void refreshStatus();
+    }, 1500);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [connectionState, pipelineStatus]);
+
   const liveLabel = sourceMode === 'webcam' ? 'Laptop webcam' : sourceMode === 'mp4' ? 'MP4 upload' : 'RTSP source';
-  const frameSource = sourceMode === 'webcam' ? wsFrame : wsFrame;
+  const frameSource = connectionState === 'http' ? streamUrl() : wsFrame;
 
   return (
     <div className="space-y-6">
@@ -378,7 +419,7 @@ export default function LiveMonitoring() {
               </div>
               <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                 <Camera className="h-4 w-4" />
-                Frames are encoded in the browser and streamed directly to the backend.
+                Webcam uses websocket. MP4/RTSP uses HTTP control + MJPEG stream fallback.
               </div>
             </div>
 
@@ -402,6 +443,7 @@ export default function LiveMonitoring() {
                   <div className="rounded-3xl border border-dashed border-lime-500/30 bg-lime-500/5 p-4 text-sm text-slate-600 dark:text-slate-300">
                     <p className="font-medium text-slate-900 dark:text-white">Browser webcam capture</p>
                     <p className="mt-1 leading-6">Your laptop camera is captured in the browser, encoded as JPEG frames, and pushed to the backend through the websocket session.</p>
+                    <p className="mt-1 leading-6 text-xs text-slate-500 dark:text-slate-400">If websocket is unavailable on your deployment, use MP4 or RTSP mode.</p>
                   </div>
                 )}
 
@@ -554,7 +596,7 @@ export default function LiveMonitoring() {
                 2. Upload the MP4 or enter the RTSP URL, or allow webcam capture permissions in the browser.
               </p>
               <p>
-                3. The backend streams processed frames and live detection status back through the websocket.
+                    3. Webcam mode streams through websocket. MP4/RTSP mode uses HTTP start/stop and the MJPEG stream endpoint.
               </p>
             </div>
           </div>
