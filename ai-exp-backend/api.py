@@ -98,7 +98,20 @@ def _frame_callback(frame) -> None:
 		latest_frame = buf.tobytes()
 
 
-def _set_metrics(human_count: int, violations: int, restricted: bool, abnormal: bool) -> None:
+def _set_metrics(*args) -> None:
+	"""Accept metrics callbacks with or without record_time.
+
+	Expected forms:
+	- (human_count, violations, restricted, abnormal)
+	- (record_time, human_count, violations, restricted, abnormal)
+	"""
+	if len(args) == 4:
+		human_count, violations, restricted, abnormal = args
+	elif len(args) == 5:
+		_, human_count, violations, restricted, abnormal = args
+	else:
+		return
+
 	with latest_metrics_lock:
 		latest_metrics["human_count"] = int(human_count)
 		latest_metrics["violations"] = int(violations)
