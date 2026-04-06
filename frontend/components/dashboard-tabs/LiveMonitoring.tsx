@@ -7,7 +7,7 @@ import RiskMeter from '../RiskMeter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { backendUrl, websocketUrl } from '@/lib/api';
+import { backendUrl, getConfig, websocketUrl } from '@/lib/api';
 
 type SourceMode = 'webcam' | 'mp4' | 'rtsp';
 type PipelineStatus = 'idle' | 'running' | 'error';
@@ -22,6 +22,17 @@ type WsStatusPayload = {
   restricted?: boolean;
   abnormal?: boolean;
   message?: string;
+  restricted_zone?: number[][];
+};
+
+type Point = { x: number; y: number };
+
+type OverlayGeometry = {
+  width: number;
+  height: number;
+  scale: number;
+  offsetX: number;
+  offsetY: number;
 };
 
 const initialRisk = 'LOW' as const;
@@ -40,9 +51,15 @@ export default function LiveMonitoring() {
   const [connectionState, setConnectionState] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
   const [wsFrame, setWsFrame] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
+  const [drawingZone, setDrawingZone] = useState(false);
+  const [zonePoints, setZonePoints] = useState<Point[]>([]);
+  const [zoneSaving, setZoneSaving] = useState(false);
+  const [overlayGeometry, setOverlayGeometry] = useState<OverlayGeometry | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
+  const imageWrapRef = useRef<HTMLDivElement>(null);
   const websocketRef = useRef<WebSocket | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const frameLoopRef = useRef<number | null>(null);
@@ -101,7 +118,63 @@ export default function LiveMonitoring() {
     }
   };
 
+  const refreshOverlayGeometry = () => {
+    const image = imageRef.current;
+    if (!image) {
+      setOverlayGeometry(null);
+      return;
+    }
+
+    const width = image.clientWidth;
+    const height = image.clientHeight;
+    const naturalWidth = image.naturalWidth || width || 1;
+    const naturalHeight = image.naturalHeight || height || 1;
+    const scale = Math.min(width / naturalWidth, height / naturalHeight);
+    const drawWidth = naturalWidth * scale;
+    const drawHeight = naturalHeight * scale;
+    const offsetX = (width - drawWidth) / 2;
+    const offsetY = (height - drawHeight) / 2;
+    setOverlayGeometry({ width, height, scale, offsetX, offsetY });
+  };
+
+  const mapClientToFramePoint = (clientX: number, clientY: number): Point | null => {
+    const image = imageRef.current;
+    const wrap = imageWrapRef.current;
+    if (!image || !wrap) return null;
+
+    const geom = overlayGeometry;
+    if (!geom) return null;
+
+    const rect = image.getBoundingClientRect();
+    const xInImage = clientX - rect.left;
+    const yInImage = clientY - rect.top;
+
+    if (xInImage < geom.offsetX || yInImage < geom.offsetY) return null;
+    if (xInImage > geom.offsetX + (geom.width - 2 * geom.offsetX)) return null;
+    if (yInImage > geom.offsetY + (geom.height - 2 * geom.offsetY)) return null;
+
+    const frameX = Math.round((xInImage - geom.offsetX) / geom.scale);
+    const frameY = Math.round((yInImage - geom.offsetY) / geom.scale);
+    return { x: Math.max(0, frameX), y: Math.max(0, frameY) };
+  };
+
+  const framePointToOverlay = (p: Point): Point | null => {
+    if (!overlayGeometry) return null;
+    return {
+      x: overlayGeometry.offsetX + p.x * overlayGeometry.scale,
+      y: overlayGeometry.offsetY + p.y * overlayGeometry.scale,
+    };
+  };
+
   const handleStatusMessage = (payload: WsStatusPayload) => {
+    if (payload.type === 'zone_updated' && Array.isArray(payload.restricted_zone)) {
+      const points = payload.restricted_zone
+        .filter((pt) => Array.isArray(pt) && pt.length === 2)
+        .map((pt) => ({ x: Number(pt[0]) || 0, y: Number(pt[1]) || 0 }));
+      setZonePoints(points);
+      return;
+    }
+
     if (payload.type === 'error') {
       const message = payload.message || payload.error || 'WebSocket error occurred';
       setStreamError(message);
@@ -129,6 +202,56 @@ export default function LiveMonitoring() {
       setHumanCount(payload.human_count);
       deriveRisk(payload.human_count, payload.violations ?? 0, Boolean(payload.restricted), Boolean(payload.abnormal));
     }
+  };
+
+  const sendZoneMessage = async (payload: Record<string, unknown>) => {
+    const socket = websocketRef.current ?? attachWebSocket();
+    await waitForSocketOpen(socket);
+    socket.send(JSON.stringify(payload));
+  };
+
+  const handleZoneSave = async () => {
+    if (zonePoints.length < 3) {
+      setStreamError('Add at least 3 points to save a restricted zone');
+      return;
+    }
+
+    setZoneSaving(true);
+    setStreamError(null);
+    try {
+      await sendZoneMessage({
+        type: 'set_restricted_zone',
+        points: zonePoints.map((p) => [p.x, p.y]),
+      });
+      setDrawingZone(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to save restricted zone';
+      setStreamError(message);
+    } finally {
+      setZoneSaving(false);
+    }
+  };
+
+  const handleZoneClear = async () => {
+    setZoneSaving(true);
+    setStreamError(null);
+    try {
+      await sendZoneMessage({ type: 'clear_restricted_zone' });
+      setZonePoints([]);
+      setDrawingZone(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to clear restricted zone';
+      setStreamError(message);
+    } finally {
+      setZoneSaving(false);
+    }
+  };
+
+  const handleZoneClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!drawingZone) return;
+    const next = mapClientToFramePoint(event.clientX, event.clientY);
+    if (!next) return;
+    setZonePoints((current) => [...current, next]);
   };
 
   const attachWebSocket = () => {
@@ -324,6 +447,41 @@ export default function LiveMonitoring() {
     };
   }, []);
 
+  useEffect(() => {
+    const onResize = () => refreshOverlayGeometry();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadZoneFromConfig = async () => {
+      try {
+        const cfg = await getConfig();
+        const zone = Array.isArray(cfg.RESTRICTED_ZONE) ? cfg.RESTRICTED_ZONE : [];
+        const points = zone
+          .filter((pt) => Array.isArray(pt) && pt.length === 2)
+          .map((pt) => ({ x: Number(pt[0]) || 0, y: Number(pt[1]) || 0 }));
+        if (!cancelled) {
+          setZonePoints(points);
+        }
+      } catch {
+        // Keep zone editing optional if config endpoint is unavailable.
+      }
+    };
+
+    loadZoneFromConfig();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const overlayPoints = zonePoints
+    .map((point) => framePointToOverlay(point))
+    .filter((point): point is Point => point !== null);
+  const overlayPolygon = overlayPoints.map((p) => `${p.x},${p.y}`).join(' ');
+
   const liveLabel = sourceMode === 'webcam' ? 'Laptop webcam' : sourceMode === 'mp4' ? 'MP4 upload' : 'RTSP source';
   const frameSource = wsFrame;
 
@@ -461,6 +619,46 @@ export default function LiveMonitoring() {
               </div>
             </div>
 
+            <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 px-5 py-4 dark:border-slate-800">
+              <Button
+                type="button"
+                variant={drawingZone ? 'default' : 'outline'}
+                onClick={() => setDrawingZone((v) => !v)}
+                className="h-10 rounded-xl px-4"
+              >
+                {drawingZone ? 'Drawing enabled' : 'Draw restricted zone'}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setZonePoints((pts) => pts.slice(0, -1))}
+                disabled={zonePoints.length === 0 || zoneSaving}
+                className="h-10 rounded-xl px-4"
+              >
+                Undo point
+              </Button>
+              <Button
+                type="button"
+                onClick={handleZoneSave}
+                disabled={zoneSaving || zonePoints.length < 3}
+                className="h-10 rounded-xl bg-amber-500 px-4 font-semibold text-amber-950 hover:bg-amber-400"
+              >
+                {zoneSaving ? 'Saving...' : 'Save zone'}
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={handleZoneClear}
+                disabled={zoneSaving}
+                className="h-10 rounded-xl px-4"
+              >
+                Clear zone
+              </Button>
+              <p className="ml-auto text-xs text-slate-500 dark:text-slate-400">
+                Points: {zonePoints.length} {drawingZone ? '• click on the video to place points' : ''}
+              </p>
+            </div>
+
             {(pipelineError || streamError) && (
               <div className="border-t border-rose-200 bg-rose-50 px-5 py-4 text-sm text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300">
                 <div className="flex items-start gap-2">
@@ -480,19 +678,60 @@ export default function LiveMonitoring() {
             transition={{ delay: 0.08 }}
             className="overflow-hidden rounded-[28px] border border-slate-200 bg-black shadow-[0_20px_50px_rgba(15,23,42,0.12)] dark:border-slate-800"
           >
-            <div className="relative aspect-video overflow-hidden bg-black">
+            <div
+              ref={imageWrapRef}
+              className="relative aspect-video overflow-hidden bg-black"
+              onClick={handleZoneClick}
+            >
               <video ref={videoRef} playsInline muted autoPlay className="hidden" />
               <canvas ref={canvasRef} className="hidden" />
 
               {pipelineStatus === 'running' ? (
                 <>
                   <img
+                    ref={imageRef}
                     src={frameSource || ''}
                     alt="Live AI feed"
                     className="h-full w-full object-contain"
-                    onLoad={() => setStreamReady(true)}
+                    onLoad={() => {
+                      setStreamReady(true);
+                      refreshOverlayGeometry();
+                    }}
                     onError={() => setStreamError('Unable to load live stream')}
                   />
+                  {overlayGeometry && overlayPoints.length > 0 && (
+                    <svg
+                      className="pointer-events-none absolute inset-0 h-full w-full"
+                      viewBox={`0 0 ${overlayGeometry.width} ${overlayGeometry.height}`}
+                      preserveAspectRatio="none"
+                    >
+                      {overlayPoints.length >= 2 && (
+                        <polyline
+                          points={overlayPoints.map((p) => `${p.x},${p.y}`).join(' ')}
+                          fill="none"
+                          stroke="#f59e0b"
+                          strokeWidth={2}
+                          strokeDasharray="6 4"
+                        />
+                      )}
+                      {overlayPoints.length >= 3 && (
+                        <polygon
+                          points={overlayPolygon}
+                          fill="rgba(245, 158, 11, 0.15)"
+                          stroke="#f59e0b"
+                          strokeWidth={2}
+                        />
+                      )}
+                      {overlayPoints.map((p, idx) => (
+                        <g key={`${p.x}-${p.y}-${idx}`}>
+                          <circle cx={p.x} cy={p.y} r={5} fill="#f59e0b" />
+                          <text x={p.x + 8} y={p.y - 8} fill="#fef3c7" fontSize="12">
+                            {idx + 1}
+                          </text>
+                        </g>
+                      ))}
+                    </svg>
+                  )}
                   {(!streamReady || streamError) && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/70 p-6 text-center text-white">
                       <div>

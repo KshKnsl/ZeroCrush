@@ -24,7 +24,7 @@ from pydantic import BaseModel
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 import config
-from config import API_HOST, API_PORT, DATA_RECORD_RATE, FRAME_WIDTH, LOG_DIR, START_TIME, TRACK_MAX_AGE
+from config import API_HOST, API_PORT, DATA_RECORD_RATE, FRAME_WIDTH, LOG_DIR, START_TIME, TRACK_MAX_AGE, STREAM_JPEG_QUALITY
 import queue
 class VirtualVideoCapture:
 	def __init__(self):
@@ -90,7 +90,8 @@ def _set_status(s: str, err: Optional[str] = None) -> None:
 
 def _frame_callback(frame) -> None:
 	global latest_frame
-	ok, buf = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
+	quality = int(max(1, min(100, STREAM_JPEG_QUALITY)))
+	ok, buf = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
 	if not ok:
 		return
 	with latest_frame_lock:
@@ -553,6 +554,28 @@ async def websocket_stream(websocket: WebSocket):
 					stop_event.set()
 					session_source = None
 					await websocket.send_text(json.dumps({"type": "status", **_snapshot_status()}))
+				elif action == "set_restricted_zone":
+					points = payload.get("points")
+					if not isinstance(points, list):
+						raise ValueError("'points' must be a list")
+					normalized: list[list[int]] = []
+					for item in points:
+						if not isinstance(item, (list, tuple)) or len(item) != 2:
+							raise ValueError("Each point must be [x, y]")
+						x = int(item[0])
+						y = int(item[1])
+						normalized.append([x, y])
+					if len(normalized) not in (0, 1, 2) and len(normalized) < 3:
+						raise ValueError("Restricted zone needs at least 3 points, or 0 to clear")
+					config.RESTRICTED_ZONE = normalized
+					_persist_config_patch({"RESTRICTED_ZONE": normalized})
+					await websocket.send_text(json.dumps({"type": "zone_updated", "restricted_zone": normalized}))
+					await websocket.send_text(json.dumps({"type": "status", **_snapshot_status()}))
+				elif action == "clear_restricted_zone":
+					config.RESTRICTED_ZONE = []
+					_persist_config_patch({"RESTRICTED_ZONE": []})
+					await websocket.send_text(json.dumps({"type": "zone_updated", "restricted_zone": []}))
+					await websocket.send_text(json.dumps({"type": "status", **_snapshot_status()}))
 				elif action == "status":
 					await websocket.send_text(json.dumps({"type": "status", **_snapshot_status()}))
 
@@ -660,6 +683,24 @@ def _load_config_module():
 	return config
 
 
+def _persist_config_patch(body: dict[str, Any]) -> None:
+	path = os.path.join(os.path.dirname(__file__), "config.py")
+	with open(path, encoding="utf-8") as f:
+		lines = f.readlines()
+	pattern = re.compile(r"^([A-Z][A-Z0-9_]*)\s*=")
+	new_lines: list[str] = []
+	for line in lines:
+		m = pattern.match(line.strip())
+		if m and m.group(1) in body:
+			key = m.group(1)
+			val = body[key]
+			new_lines.append(f"{key} = {repr(val)}\\n")
+		else:
+			new_lines.append(line)
+	with open(path, "w", encoding="utf-8") as f:
+		f.writelines(new_lines)
+
+
 @app.get("/api/config")
 async def api_get_config() -> dict[str, Any]:
 	mod = _load_config_module()
@@ -687,23 +728,10 @@ async def api_get_config() -> dict[str, Any]:
 
 @app.post("/api/config")
 async def api_post_config(body: dict[str, Any]) -> dict[str, str]:
-	path = os.path.join(os.path.dirname(__file__), "config.py")
-	with open(path, encoding="utf-8") as f:
-		lines = f.readlines()
-	pattern = re.compile(r"^([A-Z][A-Z0-9_]*)\s*=")
-	new_lines: list[str] = []
-	seen: set[str] = set()
-	for line in lines:
-		m = pattern.match(line.strip())
-		if m and m.group(1) in body:
-			key = m.group(1)
-			val = body[key]
-			seen.add(key)
-			new_lines.append(f"{key} = {repr(val)}\n")
-		else:
-			new_lines.append(line)
-	with open(path, "w", encoding="utf-8") as f:
-		f.writelines(new_lines)
+	_persist_config_patch(body)
+	for key, value in body.items():
+		if hasattr(config, key):
+			setattr(config, key, value)
 	return {"message": "saved"}
 
 

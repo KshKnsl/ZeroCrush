@@ -33,10 +33,10 @@ from config import (
 	ENERGY_THRESHOLD,
 	ABNORMAL_RATIO_THRESHOLD,
 	MIN_PERSONS_ABNORMAL,
-	CAMERA_ELEVATED,
-	RESTRICTED_ZONE,
 	YOLO_MODEL_PATH,
 	YOLO_CONFIDENCE,
+	TRACK_SMOOTHING_ALPHA,
+	FRAME_SMOOTHING_ALPHA,
 )
 
 RED = (0, 0, 255)
@@ -44,8 +44,6 @@ GREEN = (0, 255, 0)
 YELLOW = (0, 255, 255)
 BLUE = (255, 0, 0)
 CHECK_SOCIAL_DISTANCE = DISTANCE_THRESHOLD > 0
-CHECK_RESTRICTED_ZONE = len(RESTRICTED_ZONE) > 0
-HIGH_CAM = CAMERA_ELEVATED
 model = YOLO(YOLO_MODEL_PATH)
 
 def _record_movement_data(movement_data_writer, track_id, entry_time, exit_time, positions):
@@ -70,8 +68,45 @@ def _end_video(track_histories, frame_count, movement_data_writer):
 			)
 		
 
+
+def _smooth_tracks(humans_detected, visual_state, alpha):
+	"""Smooth bounding boxes/centroids across frames to reduce visual jitter."""
+	if alpha <= 0 or alpha > 1:
+		return
+
+	active_ids = set()
+	for track in humans_detected:
+		track_id = track["track_id"]
+		active_ids.add(track_id)
+
+		bbox = np.array(track["bbox"], dtype=np.float32)
+		centroid = np.array(track["centroid"], dtype=np.float32)
+		prev = visual_state.get(track_id)
+		if prev is None:
+			smoothed_bbox = bbox
+			smoothed_centroid = centroid
+		else:
+			smoothed_bbox = ((1.0 - alpha) * prev["bbox"]) + (alpha * bbox)
+			smoothed_centroid = ((1.0 - alpha) * prev["centroid"]) + (alpha * centroid)
+
+		visual_state[track_id] = {
+			"bbox": smoothed_bbox,
+			"centroid": smoothed_centroid,
+		}
+
+		track["bbox"] = [int(round(v)) for v in smoothed_bbox.tolist()]
+		track["centroid"] = (int(round(smoothed_centroid[0])), int(round(smoothed_centroid[1])))
+
+	for stale_id in list(visual_state.keys()):
+		if stale_id not in active_ids:
+			del visual_state[stale_id]
+
+
 def video_process(cap, frame_size, movement_data_writer, crowd_data_writer, frame_callback=None, stop_event=None, headless=False, status_callback=None):
 	IS_CAM = config.IS_REALTIME
+	show_window = not headless
+	# Some sources (especially RTSP) need a short warm-up before first frame.
+	startup_deadline = time.time() + 15
 	def _calculate_FPS():
 		nonlocal VID_FPS
 		t1 = time.time() - t0
@@ -93,6 +128,8 @@ def video_process(cap, frame_size, movement_data_writer, crowd_data_writer, fram
 	sd_warning_timeout = 0
 	ab_warning_timeout = 0
 	track_histories = {}
+	track_visual_state = {}
+	prev_output_frame = None
 
 	while True:
 		if stop_event is not None and stop_event.is_set():
@@ -102,6 +139,14 @@ def video_process(cap, frame_size, movement_data_writer, crowd_data_writer, fram
 			break
 
 		(ret, frame) = cap.read()
+
+		# Allow source warm-up before declaring startup timeout.
+		if not ret and frame_count == 0 and time.time() < startup_deadline:
+			time.sleep(0.05)
+			continue
+
+		if not ret and frame_count == 0:
+			raise RuntimeError("Timeout starting video source")
 
 		# Stop the loop when video ends
 		if not ret:
@@ -142,6 +187,7 @@ def video_process(cap, frame_size, movement_data_writer, crowd_data_writer, fram
 		scores = results.boxes.conf.cpu().numpy()
 		detections = [(boxes[i].tolist(), float(scores[i])) for i in range(len(boxes))]
 		humans_detected = update_tracks(detections, frame)
+		_smooth_tracks(humans_detected, track_visual_state, TRACK_SMOOTHING_ALPHA)
 
 		for track in humans_detected:
 			track_id = track["track_id"]
@@ -153,9 +199,13 @@ def video_process(cap, frame_size, movement_data_writer, crowd_data_writer, fram
 		violate_count = np.zeros(len(humans_detected))
 
 		# Check for restricted entry (centroid inside polygon)
-		if CHECK_RESTRICTED_ZONE and len(RESTRICTED_ZONE) >= 3:
+		zone_points = list(config.RESTRICTED_ZONE) if isinstance(config.RESTRICTED_ZONE, list) else []
+		check_restricted_zone = len(zone_points) >= 3
+		high_cam = bool(config.CAMERA_ELEVATED)
+
+		if check_restricted_zone:
 			RE = False
-			zone_pts = np.array(RESTRICTED_ZONE, dtype=np.int32)
+			zone_pts = np.array(zone_points, dtype=np.int32)
 			for track in humans_detected:
 				cx, cy = track["centroid"]
 				if cv2.pointPolygonTest(zone_pts, (float(cx), float(cy)), False) >= 0:
@@ -164,8 +214,8 @@ def video_process(cap, frame_size, movement_data_writer, crowd_data_writer, fram
 		else:
 			RE = False
 
-		if CHECK_RESTRICTED_ZONE and len(RESTRICTED_ZONE) >= 3:
-			cv2.polylines(frame, [np.array(RESTRICTED_ZONE, dtype=np.int32)], True, RED, 2)
+		if check_restricted_zone:
+			cv2.polylines(frame, [np.array(zone_points, dtype=np.int32)], True, RED, 2)
 
 		abnormal_individual = []
 		ABNORMAL = False
@@ -184,7 +234,7 @@ def video_process(cap, frame_size, movement_data_writer, crowd_data_writer, fram
 					if len(humans_detected) >= 2:
 						# Check the distance between current loop object with the rest of the object in the list
 						for j, track_2 in enumerate(humans_detected[i+1:], start=i+1):
-							if HIGH_CAM:
+							if high_cam:
 								[cx_2, cy_2] = list(map(int, track_2["centroid"]))
 								distance = euclidean((cx, cy), (cx_2, cy_2))
 							else:
@@ -235,7 +285,7 @@ def video_process(cap, frame_size, movement_data_writer, crowd_data_writer, fram
 					cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3)
 
 		# Place restricted entry warning
-		if CHECK_RESTRICTED_ZONE:
+		if check_restricted_zone:
 			# Warning stays on screen for 10 frames
 			if RE:
 				re_warning_timeout = 10
@@ -271,6 +321,13 @@ def video_process(cap, frame_size, movement_data_writer, crowd_data_writer, fram
 				cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 3)
 
 		# Record crowd data to file
+		if FRAME_SMOOTHING_ALPHA > 0 and prev_output_frame is not None and prev_output_frame.shape == frame.shape:
+			alpha = float(FRAME_SMOOTHING_ALPHA)
+			frame = cv2.addWeighted(prev_output_frame, 1.0 - alpha, frame, alpha, 0)
+		prev_output_frame = frame.copy()
+
+		if frame_callback is not None:
+			frame_callback(frame)
 		_record_crowd_data(record_time, len(humans_detected), len(violate_set), RE, ABNORMAL, crowd_data_writer)
 		if status_callback is not None:
 			status_callback(record_time, len(humans_detected), len(violate_set), RE, ABNORMAL)
