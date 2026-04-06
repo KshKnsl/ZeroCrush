@@ -57,7 +57,7 @@ export default function AnalyticsDashboard() {
 
   if (sessions.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center p-10 bg-white border border-slate-200 rounded-3xl dark:bg-[#111111] dark:border-slate-800">
+      <div className="flex flex-col items-center justify-center p-10 bg-slate-50 border border-slate-300 dark:bg-[#141b25] dark:border-slate-700">
         <Activity className="w-12 h-12 text-slate-300 dark:text-slate-700 mb-4" />
         <h3 className="text-lg font-medium text-slate-900 dark:text-white">No analytical data available</h3>
         <p className="text-slate-500 dark:text-slate-400 mt-1 max-w-sm text-center">Run the AI pipeline processing engine first to generate tracking sessions.</p>
@@ -94,9 +94,9 @@ export default function AnalyticsDashboard() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden dark:bg-[#111111] dark:border-slate-800 relative group">
-          <div className="absolute top-4 left-4 z-10 bg-white/90 backdrop-blur px-3 py-1.5 rounded-full border border-slate-200 dark:bg-black/60 dark:border-slate-800 text-xs font-semibold flex items-center gap-1.5">
-            <Flame className="w-3.5 h-3.5 text-orange-500" />
+        <div className="bg-slate-50 border border-slate-300 overflow-hidden dark:bg-[#141b25] dark:border-slate-700 relative group">
+          <div className="absolute top-4 left-4 z-10 bg-slate-100/95 px-3 py-1.5 border border-slate-300 dark:bg-[#0e131b]/90 dark:border-slate-700 text-xs font-semibold flex items-center gap-1.5">
+            <Flame className="w-3.5 h-3.5 text-slate-700 dark:text-slate-300" />
             Density Heatmap
           </div>
           <div className="aspect-video w-full bg-slate-100 dark:bg-black flex items-center justify-center">
@@ -108,9 +108,9 @@ export default function AnalyticsDashboard() {
           </div>
         </div>
 
-        <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden dark:bg-[#111111] dark:border-slate-800 relative group">
-          <div className="absolute top-4 left-4 z-10 bg-white/90 backdrop-blur px-3 py-1.5 rounded-full border border-slate-200 dark:bg-black/60 dark:border-slate-800 text-xs font-semibold flex items-center gap-1.5">
-            <Route className="w-3.5 h-3.5 text-blue-500" />
+        <div className="bg-slate-50 border border-slate-300 overflow-hidden dark:bg-[#141b25] dark:border-slate-700 relative group">
+          <div className="absolute top-4 left-4 z-10 bg-slate-100/95 px-3 py-1.5 border border-slate-300 dark:bg-[#0e131b]/90 dark:border-slate-700 text-xs font-semibold flex items-center gap-1.5">
+            <Route className="w-3.5 h-3.5 text-slate-700 dark:text-slate-300" />
             Movement Trajectories
           </div>
           <div className="aspect-video w-full bg-slate-100 dark:bg-black flex items-center justify-center">
@@ -124,14 +124,14 @@ export default function AnalyticsDashboard() {
       </div>
 
       {energyBuckets.length > 0 && (
-        <div className="bg-white rounded-3xl border border-slate-200 p-6 dark:bg-[#111111] dark:border-slate-800">
+        <div className="bg-slate-50 border border-slate-300 p-6 dark:bg-[#141b25] dark:border-slate-700">
           <h3 className="text-sm font-semibold mb-6 flex items-center gap-2">
-            <Activity className="w-4 h-4 text-lime-500" />
+            <Activity className="w-4 h-4 text-slate-700 dark:text-slate-300" />
             Kinetic Energy Distribution
           </h3>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {energyBuckets.map((bucket, i) => (
-              <div key={i} className="rounded-3xl border border-slate-200 bg-slate-50 p-6 dark:border-slate-800 dark:bg-slate-900">
+              <div key={i} className="border border-slate-300 bg-white p-6 dark:border-slate-700 dark:bg-[#0f141c]">
                 <p className="text-sm text-slate-500 dark:text-slate-400">{bucket.bucket}</p>
                 <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-900 dark:text-white">{bucket.count}</p>
               </div>

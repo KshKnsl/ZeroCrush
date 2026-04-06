@@ -98,7 +98,7 @@ export default function UsersManagement() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1 border border-slate-200 bg-white p-5 rounded-2xl dark:border-slate-800 dark:bg-[#111111]">
+        <div className="lg:col-span-1 border border-slate-300 bg-slate-50 p-5 dark:border-slate-700 dark:bg-[#141b25]">
           <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-4">Add User Account</h3>
           <form className="space-y-4" onSubmit={handleCreate}>
             <div>
@@ -127,13 +127,13 @@ export default function UsersManagement() {
               </Select>
             </div>
             {error && <p className="text-rose-500 text-xs">{error}</p>}
-            <Button disabled={createLoading} className="w-full bg-lime-500 text-lime-950 hover:bg-lime-600 dark:bg-lime-500/20 dark:text-lime-300 dark:hover:bg-lime-500/30">
+                <Button disabled={createLoading} className="w-full bg-emerald-900 text-white hover:bg-emerald-800 dark:bg-emerald-950 dark:text-emerald-100 dark:hover:bg-emerald-900">
               Create Account
             </Button>
           </form>
         </div>
 
-        <div className="lg:col-span-2 border border-slate-200 bg-white p-5 rounded-2xl dark:border-slate-800 dark:bg-[#111111]">
+        <div className="lg:col-span-2 border border-slate-300 bg-slate-50 p-5 dark:border-slate-700 dark:bg-[#141b25]">
           <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-4">Active Accounts</h3>
           {loading ? (
             <p className="text-sm text-slate-500">Loading accounts...</p>
@@ -154,10 +154,10 @@ export default function UsersManagement() {
                       <td className="px-4 py-4 font-medium text-slate-900 dark:text-slate-200">{u.name || '-'}</td>
                       <td className="px-4 py-4">{u.email}</td>
                       <td className="px-4 py-4">
-                        <span className={`px-2 py-1 text-xs rounded-full ${
-                          u.role === 'ADMIN' ? 'bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400' :
-                          u.role === 'OPERATOR' ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400' :
-                          'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400'
+                        <span className={`px-2 py-1 text-xs border ${
+                          u.role === 'ADMIN' ? 'bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-900/20 dark:text-rose-300 dark:border-rose-700' :
+                          u.role === 'OPERATOR' ? 'bg-slate-200 text-slate-700 border-slate-300 dark:bg-slate-700/40 dark:text-slate-200 dark:border-slate-600' :
+                          'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
                         }`}>
                           {u.role}
                         </span>

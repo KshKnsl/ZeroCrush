@@ -58,6 +58,51 @@ const PRIORITY_ORDER = [
   'API_PORT',
 ];
 
+const CATEGORY_ORDER = [
+  'Video Source',
+  'Detection & Model',
+  'Tracking & Smoothing',
+  'Rules & Alerts',
+  'Storage & Timeline',
+  'API Runtime',
+  'Other',
+] as const;
+
+const SETTING_CATEGORY: Record<string, (typeof CATEGORY_ORDER)[number]> = {
+  VIDEO_SOURCE: 'Video Source',
+  IS_REALTIME: 'Video Source',
+  CAMERA_ELEVATED: 'Video Source',
+  FRAME_WIDTH: 'Video Source',
+  YOLO_MODEL_PATH: 'Detection & Model',
+  YOLO_CONFIDENCE: 'Detection & Model',
+  TRACK_MAX_AGE: 'Tracking & Smoothing',
+  TRACK_SMOOTHING_ALPHA: 'Tracking & Smoothing',
+  FRAME_SMOOTHING_ALPHA: 'Tracking & Smoothing',
+  STREAM_JPEG_QUALITY: 'Tracking & Smoothing',
+  DISTANCE_THRESHOLD: 'Rules & Alerts',
+  MIN_CROWD_FOR_ANALYSIS: 'Rules & Alerts',
+  RESTRICTED_ZONE: 'Rules & Alerts',
+  CHECK_ABNORMAL: 'Rules & Alerts',
+  MIN_PERSONS_ABNORMAL: 'Rules & Alerts',
+  ENERGY_THRESHOLD: 'Rules & Alerts',
+  ABNORMAL_RATIO_THRESHOLD: 'Rules & Alerts',
+  DATA_RECORD_RATE: 'Storage & Timeline',
+  LOG_DIR: 'Storage & Timeline',
+  START_TIME: 'Storage & Timeline',
+  API_HOST: 'API Runtime',
+  API_PORT: 'API Runtime',
+};
+
+const CATEGORY_DESCRIPTION: Record<(typeof CATEGORY_ORDER)[number], string> = {
+  'Video Source': 'Input stream behavior and frame processing basics.',
+  'Detection & Model': 'Model path and confidence filtering for person detection.',
+  'Tracking & Smoothing': 'Tracker persistence and output smoothness tuning.',
+  'Rules & Alerts': 'Crowd safety checks, restricted-zone and anomaly triggers.',
+  'Storage & Timeline': 'Logging frequency, output folder and offline timeline values.',
+  'API Runtime': 'Backend API host/port runtime settings.',
+  Other: 'Uncategorized settings exposed by backend config.',
+};
+
 const prettifyKey = (key: string) => key.toLowerCase().replace(/_/g, ' ');
 
 const stringifyValue = (value: ConfigValue) => {
@@ -186,13 +231,33 @@ export default function SettingsPanel() {
       return a.localeCompare(b);
     });
 
+  const groupedSettings = CATEGORY_ORDER.map((category) => {
+    const keys = settingsKeys.filter((key) => (SETTING_CATEGORY[key] ?? 'Other') === category);
+    return { category, keys };
+  }).filter((group) => group.keys.length > 0);
+
+  const leftColumn: typeof groupedSettings = [];
+  const rightColumn: typeof groupedSettings = [];
+  let leftWeight = 0;
+  let rightWeight = 0;
+  for (const group of groupedSettings) {
+    const weight = group.keys.length;
+    if (leftWeight <= rightWeight) {
+      leftColumn.push(group);
+      leftWeight += weight;
+    } else {
+      rightColumn.push(group);
+      rightWeight += weight;
+    }
+  }
+
   return (
-    <section className="relative overflow-hidden rounded-[32px] border border-slate-200 bg-[radial-gradient(circle_at_top_right,_rgba(16,185,129,0.1),_transparent_34%),radial-gradient(circle_at_bottom_left,_rgba(56,189,248,0.09),_transparent_42%),linear-gradient(140deg,#ffffff,#f5f9ff)] p-6 shadow-[0_35px_80px_rgba(15,23,42,0.09)] dark:border-slate-800 dark:bg-[radial-gradient(circle_at_top_right,_rgba(16,185,129,0.2),_transparent_34%),radial-gradient(circle_at_bottom_left,_rgba(56,189,248,0.15),_transparent_42%),linear-gradient(140deg,#0b1118,#101827)] sm:p-8">
-      <div className="pointer-events-none absolute inset-0 opacity-40 [background-image:linear-gradient(rgba(15,23,42,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.04)_1px,transparent_1px)] [background-size:26px_26px] dark:[background-image:linear-gradient(rgba(148,163,184,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.08)_1px,transparent_1px)]" />
+    <section className="relative overflow-hidden border border-slate-300 bg-[linear-gradient(140deg,#f7f9fc,#eef2f7)] p-6 dark:border-slate-700 dark:bg-[linear-gradient(140deg,#0f141b,#17202b)] sm:p-8">
+      <div className="pointer-events-none absolute inset-0 opacity-40 bg-[linear-gradient(rgba(15,23,42,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.04)_1px,transparent_1px)] bg-size-[26px_26px] dark:bg-[linear-gradient(rgba(148,163,184,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.08)_1px,transparent_1px)]" />
 
       <div className="relative mb-8 flex flex-col gap-4 border-b border-slate-200/80 pb-6 dark:border-slate-700/60 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-4">
-          <div className="rounded-2xl bg-emerald-500/20 p-3 text-emerald-600 shadow-inner dark:text-emerald-300">
+          <div className="border border-emerald-500/45 bg-emerald-200/70 p-3 text-emerald-950 dark:border-emerald-700/55 dark:bg-emerald-950/35 dark:text-emerald-200">
             <Settings className="h-6 w-6" />
           </div>
           <div>
@@ -204,77 +269,92 @@ export default function SettingsPanel() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-3 text-xs text-slate-600 backdrop-blur dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-300">
+        <div className="border border-emerald-500/40 bg-emerald-100/60 px-4 py-3 text-xs text-emerald-950 dark:border-emerald-700/50 dark:bg-emerald-950/30 dark:text-emerald-200">
           <div className="flex items-center gap-2">
-            <SlidersHorizontal className="h-3.5 w-3.5 text-emerald-500" />
+            <SlidersHorizontal className="h-3.5 w-3.5 text-emerald-900 dark:text-emerald-200" />
             <span>{settingsKeys.length} settings detected</span>
           </div>
         </div>
       </div>
 
       <form onSubmit={handleSave} className="relative space-y-6">
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          {settingsKeys.map((key) => {
-            const currentValue = config[key];
-            const isBool = typeof currentValue === 'boolean';
-            const isComplex = Array.isArray(currentValue) || (typeof currentValue === 'object' && currentValue !== null);
-            const value = draft[key] ?? '';
-            const description = SETTING_DESCRIPTIONS[key] ?? 'Backend configuration value exposed from config.py.';
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+          {[leftColumn, rightColumn].map((column, columnIndex) => (
+            <div key={`settings-col-${columnIndex}`} className="space-y-6">
+              {column.map(({ category, keys }) => (
+                <section key={category} className="h-fit border border-slate-300 bg-white/90 dark:border-slate-700 dark:bg-slate-900/40">
+                  <div className="border-b border-slate-300 px-4 py-3 dark:border-slate-700">
+                    <h3 className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-700 dark:text-slate-300">{category}</h3>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{CATEGORY_DESCRIPTION[category]}</p>
+                  </div>
 
-            return (
-              <div
-                key={key}
-                className="rounded-2xl border border-slate-200/70 bg-white/80 p-4 shadow-[0_12px_30px_rgba(15,23,42,0.04)] backdrop-blur dark:border-slate-700/70 dark:bg-slate-900/40"
-              >
-                <label className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">
-                  {prettifyKey(key)}
-                </label>
-                <p className="mb-3 text-xs leading-5 text-slate-600 dark:text-slate-300">{description}</p>
+                  <div className="divide-y divide-slate-200 dark:divide-slate-700">
+                    {keys.map((key) => {
+                      const currentValue = config[key];
+                      const isBool = typeof currentValue === 'boolean';
+                      const isComplex = Array.isArray(currentValue) || (typeof currentValue === 'object' && currentValue !== null);
+                      const value = draft[key] ?? '';
+                      const description = SETTING_DESCRIPTIONS[key] ?? 'Backend configuration value exposed from config.py.';
 
-                {isBool ? (
-                  <select
-                    className="h-11 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 text-sm text-slate-900 focus:border-emerald-500 focus:outline-none dark:border-slate-700 dark:bg-[#0f1724] dark:text-slate-100"
-                    value={value}
-                    onChange={(e) => setDraft((prev) => ({ ...prev, [key]: e.target.value }))}
-                  >
-                    <option value="">Current: {currentValue ? 'Enabled' : 'Disabled'}</option>
-                    <option value="true">Enabled</option>
-                    <option value="false">Disabled</option>
-                  </select>
-                ) : isComplex ? (
-                  <textarea
-                    rows={3}
-                    value={value}
-                    onChange={(e) => setDraft((prev) => ({ ...prev, [key]: e.target.value }))}
-                    placeholder={stringifyValue(currentValue)}
-                    className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-emerald-500 focus:outline-none dark:border-slate-700 dark:bg-[#0f1724] dark:text-slate-100"
-                  />
-                ) : (
-                  <Input
-                    type={typeof currentValue === 'number' ? 'number' : 'text'}
-                    value={value}
-                    onChange={(e) => setDraft((prev) => ({ ...prev, [key]: e.target.value }))}
-                    placeholder={stringifyValue(currentValue)}
-                    className="h-11 bg-slate-50 font-mono text-sm border-slate-300 dark:bg-[#0f1724] dark:border-slate-700"
-                  />
-                )}
+                      return (
+                        <div key={key} className="px-4 py-4">
+                          <div className="space-y-1">
+                            <label className="block text-[10px] font-semibold uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">
+                              {prettifyKey(key)}
+                            </label>
+                            <p className="mt-1 text-xs leading-5 text-slate-600 dark:text-slate-300">{description}</p>
+                            <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                              Current value: <span className="font-mono">{stringifyValue(currentValue)}</span>
+                            </p>
+                          </div>
 
-                <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
-                  Current value: <span className="font-mono">{stringifyValue(currentValue)}</span>
-                </p>
-              </div>
-            );
-          })}
+                          <div className="mt-3">
+                            {isBool ? (
+                              <select
+                                className="h-11 w-full border border-slate-300 bg-slate-50 px-3 text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-slate-700 dark:bg-[#0f1724] dark:text-slate-100"
+                                value={value}
+                                onChange={(e) => setDraft((prev) => ({ ...prev, [key]: e.target.value }))}
+                              >
+                                <option value="">Current: {currentValue ? 'Enabled' : 'Disabled'}</option>
+                                <option value="true">Enabled</option>
+                                <option value="false">Disabled</option>
+                              </select>
+                            ) : isComplex ? (
+                              <textarea
+                                rows={3}
+                                value={value}
+                                onChange={(e) => setDraft((prev) => ({ ...prev, [key]: e.target.value }))}
+                                placeholder={stringifyValue(currentValue)}
+                                className="w-full border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-slate-700 dark:bg-[#0f1724] dark:text-slate-100"
+                              />
+                            ) : (
+                              <Input
+                                type={typeof currentValue === 'number' ? 'number' : 'text'}
+                                value={value}
+                                onChange={(e) => setDraft((prev) => ({ ...prev, [key]: e.target.value }))}
+                                placeholder={stringifyValue(currentValue)}
+                                className="h-11 bg-slate-50 font-mono text-sm border-slate-300 dark:bg-[#0f1724] dark:border-slate-700"
+                              />
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+              ))}
+            </div>
+          ))}
         </div>
 
         {message && (
           <div
             className={`rounded-2xl border p-4 text-sm font-medium ${
               messageKind === 'success'
-                ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300'
+                ? 'border-emerald-500/45 bg-emerald-200/70 text-emerald-950 dark:border-emerald-700/55 dark:bg-emerald-950/35 dark:text-emerald-200'
                 : messageKind === 'error'
                   ? 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300'
-                  : 'border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-300'
+                  : 'border-emerald-500/45 bg-emerald-200/70 text-emerald-950 dark:border-emerald-700/55 dark:bg-emerald-950/35 dark:text-emerald-200'
             }`}
           >
             {message}
@@ -287,7 +367,7 @@ export default function SettingsPanel() {
             variant="outline"
             onClick={handleReset}
             disabled={saving}
-            className="h-11 rounded-xl px-5"
+            className="h-11 px-5"
           >
             <RotateCcw className="mr-2 h-4 w-4" />
             Reset Changes
@@ -295,7 +375,7 @@ export default function SettingsPanel() {
           <Button
             disabled={saving}
             type="submit"
-            className="h-11 rounded-xl bg-emerald-500 px-6 font-semibold text-emerald-950 hover:bg-emerald-400 dark:bg-emerald-500/25 dark:text-emerald-300 dark:hover:bg-emerald-500/35"
+            className="h-11 bg-emerald-900 px-6 font-semibold text-white hover:bg-emerald-800 dark:bg-emerald-950 dark:text-emerald-100 dark:hover:bg-emerald-900"
           >
             {saving ? 'Saving...' : <><Save className="mr-2 h-4 w-4" />Save Settings</>}
           </Button>

@@ -67,13 +67,13 @@ export default function IncidentsManagement() {
   const getTypeStyle = (type: Incident['type']) => {
     switch (type) {
       case 'VIOLENCE':
-        return 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400 border-red-200 dark:border-red-500/30';
+        return 'bg-rose-100 text-rose-700 dark:bg-rose-900/25 dark:text-rose-300 border-rose-300 dark:border-rose-700';
       case 'RESTRICTED_ZONE':
-        return 'bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-400 border-orange-200 dark:border-orange-500/30';
+        return 'bg-slate-200 text-slate-700 dark:bg-slate-700/50 dark:text-slate-200 border-slate-300 dark:border-slate-600';
       case 'ABNORMAL':
-        return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400 border-yellow-200 dark:border-yellow-500/30';
+        return 'bg-slate-200 text-slate-700 dark:bg-slate-700/50 dark:text-slate-200 border-slate-300 dark:border-slate-600';
       default:
-        return 'bg-slate-100 text-slate-700 dark:bg-slate-500/20 dark:text-slate-400 border-slate-200 dark:border-slate-500/30';
+        return 'bg-slate-100 text-slate-700 dark:bg-slate-800/40 dark:text-slate-300 border-slate-300 dark:border-slate-700';
     }
   };
 
@@ -86,14 +86,14 @@ export default function IncidentsManagement() {
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-8">
         <div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <ShieldAlert className="w-5 h-5 text-rose-500" />
+            <ShieldAlert className="w-5 h-5 text-slate-700 dark:text-slate-300" />
             Security Incidents Console
           </h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 mt-1">Review, resolve, and audit automated threat detections.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Review, resolve, and audit automated threat detections.</p>
         </div>
         
         <div className="flex gap-4">
-            <div className="bg-white dark:bg-[#111111] px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-center">
+            <div className="bg-slate-50 dark:bg-[#141b25] px-4 py-2 border border-slate-300 dark:border-slate-700 text-center">
               <span className="block text-xl font-bold text-slate-900 dark:text-white">{incidents.filter(i => i.status === 'OPEN').length}</span>
               <span className="block text-[10px] uppercase tracking-wider text-slate-400">Open Alerts</span>
             </div>
@@ -102,9 +102,9 @@ export default function IncidentsManagement() {
 
       <div className="grid grid-cols-1 gap-4">
         {incidents.length === 0 ? (
-          <div className="bg-white dark:bg-[#111111] border border-slate-200 dark:border-slate-800 rounded-2xl p-10 flex flex-col items-center justify-center text-center">
-            <div className="w-16 h-16 bg-lime-50 dark:bg-lime-500/10 rounded-full flex items-center justify-center mb-4">
-              <CheckCircle2 className="w-8 h-8 text-lime-500" />
+          <div className="bg-slate-50 dark:bg-[#141b25] border border-slate-300 dark:border-slate-700 p-10 flex flex-col items-center justify-center text-center">
+            <div className="w-16 h-16 bg-slate-200 dark:bg-slate-700/40 flex items-center justify-center mb-4">
+              <CheckCircle2 className="w-8 h-8 text-slate-700 dark:text-slate-300" />
             </div>
             <h3 className="text-lg font-bold text-slate-900 dark:text-white">All clear</h3>
             <p className="text-sm text-slate-500 mt-1 max-w-sm">No incidents have been logged by the automated AI analysis pipeline.</p>
@@ -113,7 +113,7 @@ export default function IncidentsManagement() {
           incidents.map(incident => (
             <div 
               key={incident.id} 
-              className={`bg-white dark:bg-[#111111] border ${incident.status === 'OPEN' ? 'border-l-4 border-l-rose-500 border-y-slate-200 border-r-slate-200 dark:border-y-slate-800 dark:border-r-slate-800 shadow-sm' : 'border-slate-200 dark:border-slate-800 opacity-70'} rounded-xl p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-6 transition-all`}
+              className={`bg-slate-50 dark:bg-[#141b25] border ${incident.status === 'OPEN' ? 'border-l-4 border-l-rose-600 border-y-slate-300 border-r-slate-300 dark:border-y-slate-700 dark:border-r-slate-700' : 'border-slate-300 dark:border-slate-700 opacity-80'} p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-6 transition-all`}
             >
               <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-3">
@@ -124,7 +124,7 @@ export default function IncidentsManagement() {
                     {new Date(incident.createdAt).toLocaleString()}
                   </span>
                   {incident.status === 'RESOLVED' && (
-                    <span className="text-xs text-lime-600 dark:text-lime-400 flex items-center gap-1 font-medium bg-lime-50 dark:bg-lime-500/10 px-2 py-0.5 rounded">
+                    <span className="text-xs text-slate-700 dark:text-slate-200 flex items-center gap-1 font-medium bg-slate-200 dark:bg-slate-700/40 px-2 py-0.5 border border-slate-300 dark:border-slate-600">
                       <CheckCircle2 className="w-3 h-3" />
                       Resolved
                     </span>
@@ -141,7 +141,7 @@ export default function IncidentsManagement() {
                 {incident.status === 'OPEN' && (
                   <button 
                     onClick={() => handleResolve(incident.id)}
-                    className="px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-800 transition-colors whitespace-nowrap dark:bg-white dark:text-black dark:hover:bg-slate-200 shadow-sm"
+                    className="px-4 py-2 bg-emerald-900 text-white text-xs font-semibold hover:bg-emerald-800 transition-colors whitespace-nowrap dark:bg-emerald-950 dark:text-emerald-100 dark:hover:bg-emerald-900"
                   >
                     Mark Resolved
                   </button>
@@ -149,7 +149,7 @@ export default function IncidentsManagement() {
                 {isAdmin && (
                   <button 
                     onClick={() => handleDelete(incident.id)}
-                    className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-colors border border-transparent hover:border-rose-200 dark:hover:border-rose-500/30"
+                    className="p-2 text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-900/25 transition-colors border border-transparent hover:border-rose-300 dark:hover:border-rose-700"
                     title="Permanently remove"
                   >
                     <Trash2 className="w-4 h-4" />

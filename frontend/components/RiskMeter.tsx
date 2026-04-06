@@ -7,15 +7,15 @@ interface RiskMeterProps {
 
 export default function RiskMeter({ level }: RiskMeterProps) {
   const config = {
-    LOW: { color: 'text-emerald-400', bg: 'bg-emerald-500/20', border: 'border-emerald-500/30', Icon: ShieldCheck },
-    MED: { color: 'text-amber-400', bg: 'bg-amber-500/20', border: 'border-amber-500/30', Icon: ShieldAlert },
-    HIGH: { color: 'text-rose-400', bg: 'bg-rose-500/20', border: 'border-rose-500/30', Icon: ShieldX },
+    LOW: { color: 'text-slate-600 dark:text-slate-300', bg: 'bg-slate-100 dark:bg-slate-800/30', border: 'border-slate-300 dark:border-slate-700', Icon: ShieldCheck },
+    MED: { color: 'text-slate-800 dark:text-slate-100', bg: 'bg-slate-200 dark:bg-slate-700/40', border: 'border-slate-400 dark:border-slate-600', Icon: ShieldAlert },
+    HIGH: { color: 'text-rose-700 dark:text-rose-300', bg: 'bg-rose-100 dark:bg-rose-900/20', border: 'border-rose-300 dark:border-rose-700', Icon: ShieldX },
   };
 
   const { color, bg, border, Icon } = config[level];
 
   return (
-    <div className={clsx('flex items-center gap-2 px-3 py-2 rounded-lg border', bg, border)}>
+    <div className={clsx('flex items-center gap-2 px-3 py-2 border', bg, border)}>
       <Icon className={clsx('w-4 h-4', color)} />
       <span className={clsx('text-xs font-medium', color)}>RISK: {level}</span>
     </div>

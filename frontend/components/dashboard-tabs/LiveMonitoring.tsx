@@ -490,12 +490,12 @@ export default function LiveMonitoring() {
       <motion.section
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_top_left,_rgba(132,204,22,0.16),_transparent_36%),linear-gradient(160deg,rgba(8,9,11,0.96),rgba(16,17,21,0.98))] p-5 shadow-[0_30px_80px_rgba(0,0,0,0.35)]"
+        className="relative overflow-hidden border border-slate-700 bg-[linear-gradient(160deg,rgba(13,18,27,0.98),rgba(22,30,42,0.98))] p-5"
       >
-        <div className="absolute inset-0 opacity-40 [background-image:linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] [background-size:28px_28px]" />
+        <div className="absolute inset-0 opacity-40 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-size-[28px_28px]" />
         <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">
-            <p className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.35em] text-lime-300/70">
+            <p className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.35em] text-slate-300/80">
               <Waves className="h-3.5 w-3.5" />
               Live monitoring control room
             </p>
@@ -505,16 +505,16 @@ export default function LiveMonitoring() {
             </p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[22rem]">
-            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center backdrop-blur">
+          <div className="grid gap-3 sm:grid-cols-3 lg:min-w-88">
+            <div className="border border-white/15 bg-white/5 px-4 py-3 text-center">
               <p className="text-[10px] uppercase tracking-[0.28em] text-slate-400">Connection</p>
               <p className="mt-1 text-sm font-medium text-white">{connectionState}</p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center backdrop-blur">
+            <div className="border border-white/15 bg-white/5 px-4 py-3 text-center">
               <p className="text-[10px] uppercase tracking-[0.28em] text-slate-400">Source</p>
               <p className="mt-1 text-sm font-medium text-white">{liveLabel}</p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center backdrop-blur">
+            <div className="border border-white/15 bg-white/5 px-4 py-3 text-center">
               <p className="text-[10px] uppercase tracking-[0.28em] text-slate-400">Pipeline</p>
               <p className="mt-1 text-sm font-medium text-white">{pipelineStatus}</p>
             </div>
@@ -527,7 +527,7 @@ export default function LiveMonitoring() {
           <motion.section
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_20px_50px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-[#0f1115]"
+            className="overflow-hidden border border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-[#141b25]"
           >
             <div className="flex flex-col gap-4 border-b border-slate-100 px-5 py-5 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -544,7 +544,7 @@ export default function LiveMonitoring() {
               <div className="space-y-2">
                 <label className="text-[10px] font-semibold uppercase tracking-[0.28em] text-slate-400">Mode</label>
                 <Select value={sourceMode} onValueChange={(value) => setSourceMode(value as SourceMode)}>
-                  <SelectTrigger className="h-12 w-full rounded-2xl border-slate-200 bg-slate-50 text-slate-900 dark:border-slate-800 dark:bg-[#151821] dark:text-white">
+                  <SelectTrigger className="h-12 w-full border-slate-300 bg-white text-slate-900 dark:border-slate-700 dark:bg-[#101721] dark:text-white">
                     <SelectValue placeholder="Choose source" />
                   </SelectTrigger>
                   <SelectContent>
@@ -557,19 +557,19 @@ export default function LiveMonitoring() {
 
               <div className="space-y-4">
                 {sourceMode === 'webcam' && (
-                  <div className="rounded-3xl border border-dashed border-lime-500/30 bg-lime-500/5 p-4 text-sm text-slate-600 dark:text-slate-300">
+                  <div className="border border-dashed border-slate-400/70 bg-slate-100 p-4 text-sm text-slate-600 dark:border-slate-600 dark:bg-slate-800/30 dark:text-slate-300">
                     <p className="font-medium text-slate-900 dark:text-white">Browser webcam capture</p>
                     <p className="mt-1 leading-6">Your laptop camera is captured in the browser, encoded as JPEG frames, and pushed to the backend through the websocket session.</p>
                   </div>
                 )}
 
                 {sourceMode === 'mp4' && (
-                  <div className="space-y-3 rounded-3xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-[#151821]">
+                  <div className="space-y-3 border border-slate-300 bg-white p-4 dark:border-slate-700 dark:bg-[#101721]">
                     <div className="flex items-center gap-2 text-sm font-medium text-slate-900 dark:text-white">
-                      <Upload className="h-4 w-4 text-lime-500" />
+                      <Upload className="h-4 w-4 text-slate-700 dark:text-slate-300" />
                       Upload a video file
                     </div>
-                    <Input ref={fileInputRef} type="file" accept="video/mp4" className="h-12 rounded-2xl border-slate-200 bg-white dark:border-slate-700 dark:bg-[#101319]" />
+                    <Input ref={fileInputRef} type="file" accept="video/mp4" className="h-12 border-slate-300 bg-white dark:border-slate-700 dark:bg-[#0f141c]" />
                     <p className="text-xs text-slate-500 dark:text-slate-400">
                       Selected file: {selectedFileName || 'No MP4 selected yet'}
                     </p>
@@ -577,16 +577,16 @@ export default function LiveMonitoring() {
                 )}
 
                 {sourceMode === 'rtsp' && (
-                  <div className="space-y-3 rounded-3xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-[#151821]">
+                  <div className="space-y-3 border border-slate-300 bg-white p-4 dark:border-slate-700 dark:bg-[#101721]">
                     <div className="flex items-center gap-2 text-sm font-medium text-slate-900 dark:text-white">
-                      <Link2 className="h-4 w-4 text-cyan-500" />
+                      <Link2 className="h-4 w-4 text-slate-700 dark:text-slate-300" />
                       RTSP camera URL
                     </div>
                     <Input
                       value={rtspUrl}
                       onChange={(event) => setRtspUrl(event.target.value)}
                       placeholder="rtsp://user:password@camera-ip:554/stream"
-                      className="h-12 rounded-2xl border-slate-200 bg-white font-mono text-sm dark:border-slate-700 dark:bg-[#101319]"
+                      className="h-12 border-slate-300 bg-white font-mono text-sm dark:border-slate-700 dark:bg-[#0f141c]"
                     />
                     <p className="text-xs text-slate-500 dark:text-slate-400">
                       The URL is sent to the backend, which opens and processes the stream server-side.
@@ -600,7 +600,7 @@ export default function LiveMonitoring() {
               <Button
                 onClick={handleStart}
                 disabled={starting || connectionState === 'connecting'}
-                className="h-12 rounded-2xl bg-lime-500 px-5 font-semibold text-lime-950 hover:bg-lime-400"
+                        className="h-12 bg-emerald-900 px-5 font-semibold text-white hover:bg-emerald-800 dark:bg-emerald-950 dark:text-emerald-100 dark:hover:bg-emerald-900"
               >
                 <Play className="mr-2 h-4 w-4" />
                 {starting ? 'Starting...' : 'Start session'}
@@ -608,13 +608,13 @@ export default function LiveMonitoring() {
               <Button
                 variant="outline"
                 onClick={handleStop}
-                className="h-12 rounded-2xl border-slate-200 bg-white px-5 text-slate-900 hover:bg-slate-50 dark:border-slate-800 dark:bg-[#151821] dark:text-white dark:hover:bg-[#1a1f29]"
+                className="h-12 border-slate-300 bg-white px-5 text-slate-900 hover:bg-slate-100 dark:border-slate-700 dark:bg-[#101721] dark:text-white dark:hover:bg-[#182231]"
               >
                 <Square className="mr-2 h-4 w-4" />
                 Stop session
               </Button>
               <div className="ml-auto flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                <MonitorPlay className="h-4 w-4 text-lime-500" />
+                <MonitorPlay className="h-4 w-4 text-slate-600 dark:text-slate-300" />
                 Backend: {backendUrl()}
               </div>
             </div>
@@ -624,7 +624,7 @@ export default function LiveMonitoring() {
                 type="button"
                 variant={drawingZone ? 'default' : 'outline'}
                 onClick={() => setDrawingZone((v) => !v)}
-                className="h-10 rounded-xl px-4"
+                className="h-10 px-4"
               >
                 {drawingZone ? 'Drawing enabled' : 'Draw restricted zone'}
               </Button>
@@ -633,7 +633,7 @@ export default function LiveMonitoring() {
                 variant="outline"
                 onClick={() => setZonePoints((pts) => pts.slice(0, -1))}
                 disabled={zonePoints.length === 0 || zoneSaving}
-                className="h-10 rounded-xl px-4"
+                className="h-10 px-4"
               >
                 Undo point
               </Button>
@@ -641,7 +641,7 @@ export default function LiveMonitoring() {
                 type="button"
                 onClick={handleZoneSave}
                 disabled={zoneSaving || zonePoints.length < 3}
-                className="h-10 rounded-xl bg-amber-500 px-4 font-semibold text-amber-950 hover:bg-amber-400"
+                className="h-10 bg-slate-700 px-4 font-semibold text-white hover:bg-slate-600 dark:bg-slate-200 dark:text-slate-900 dark:hover:bg-white"
               >
                 {zoneSaving ? 'Saving...' : 'Save zone'}
               </Button>
@@ -650,7 +650,7 @@ export default function LiveMonitoring() {
                 variant="destructive"
                 onClick={handleZoneClear}
                 disabled={zoneSaving}
-                className="h-10 rounded-xl px-4"
+                className="h-10 px-4"
               >
                 Clear zone
               </Button>
@@ -676,7 +676,7 @@ export default function LiveMonitoring() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.08 }}
-            className="overflow-hidden rounded-[28px] border border-slate-200 bg-black shadow-[0_20px_50px_rgba(15,23,42,0.12)] dark:border-slate-800"
+            className="overflow-hidden border border-slate-300 bg-black dark:border-slate-700"
           >
             <div
               ref={imageWrapRef}
@@ -742,19 +742,19 @@ export default function LiveMonitoring() {
                   )}
                 </>
               ) : (
-                <div className="flex h-full flex-col items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(132,204,22,0.12),_transparent_40%),linear-gradient(180deg,rgba(3,7,18,0.95),rgba(15,23,42,0.98))] text-white">
+                <div className="flex h-full flex-col items-center justify-center bg-[linear-gradient(180deg,rgba(8,12,18,0.95),rgba(16,24,34,0.98))] text-white">
                   <MonitorPlay className="mb-4 h-16 w-16 opacity-30" />
                   <p className="text-lg font-medium tracking-wide">Stream offline</p>
                   <p className="mt-2 max-w-md px-6 text-center text-sm text-slate-400">Pick a source, start the session, and the backend will return live processed frames here.</p>
                 </div>
               )}
 
-              <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full border border-white/10 bg-black/55 px-3 py-1.5 text-xs text-white backdrop-blur">
-                <Activity className="h-3.5 w-3.5 text-lime-400" />
+              <div className="absolute left-4 top-4 flex items-center gap-2 border border-white/20 bg-black/55 px-3 py-1.5 text-xs text-white">
+                <Activity className="h-3.5 w-3.5 text-slate-200" />
                 {pipelineStatus.toUpperCase()}
               </div>
-              <div className="absolute right-4 top-4 flex items-center gap-2 rounded-full border border-white/10 bg-black/55 px-3 py-1.5 text-xs text-white backdrop-blur">
-                <Waves className="h-3.5 w-3.5 text-cyan-300" />
+              <div className="absolute right-4 top-4 flex items-center gap-2 border border-white/20 bg-black/55 px-3 py-1.5 text-xs text-white">
+                <Waves className="h-3.5 w-3.5 text-slate-200" />
                 {streamReady ? 'stream live' : 'buffering'}
               </div>
             </div>
@@ -766,14 +766,14 @@ export default function LiveMonitoring() {
           animate={{ opacity: 1, x: 0 }}
           className="space-y-4"
         >
-          <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_20px_50px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-[#0f1115]">
+          <div className="border border-slate-300 bg-slate-50 p-5 dark:border-slate-700 dark:bg-[#141b25]">
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-400">Live metrics</p>
             <div className="mt-4 grid grid-cols-2 gap-4">
-              <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-[#151821]">
+              <div className="border border-slate-300 bg-white p-4 dark:border-slate-700 dark:bg-[#101721]">
                 <p className="text-[10px] uppercase tracking-[0.28em] text-slate-400">Crowd size</p>
                 <p className="mt-3 text-3xl font-semibold text-slate-900 dark:text-white">{humanCount}</p>
               </div>
-              <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-[#151821]">
+              <div className="border border-slate-300 bg-white p-4 dark:border-slate-700 dark:bg-[#101721]">
                 <p className="text-[10px] uppercase tracking-[0.28em] text-slate-400">Incidents</p>
                 <p className="mt-3 text-3xl font-semibold text-slate-900 dark:text-white">{incidentCount}</p>
               </div>
@@ -783,7 +783,7 @@ export default function LiveMonitoring() {
             </div>
           </div>
 
-          <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_20px_50px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-[#0f1115]">
+          <div className="border border-slate-300 bg-slate-50 p-5 dark:border-slate-700 dark:bg-[#141b25]">
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-400">How it works</p>
             <div className="mt-4 space-y-4 text-sm leading-6 text-slate-600 dark:text-slate-300">
               <p>
