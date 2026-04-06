@@ -13,7 +13,7 @@ type SourceMode = 'webcam' | 'mp4' | 'rtsp';
 type PipelineStatus = 'idle' | 'running' | 'error';
 
 type WsStatusPayload = {
-  type?: 'status' | 'error';
+  type?: 'status' | 'error' | 'zone_updated';
   status?: PipelineStatus;
   error?: string | null;
   stream_ready?: boolean;
