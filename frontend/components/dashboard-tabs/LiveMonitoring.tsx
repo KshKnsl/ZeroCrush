@@ -2,12 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { Activity, AlertTriangle, Camera, Link2, MonitorPlay, Play, Square, Upload, Waves } from 'lucide-react';
-import RiskMeter from '../RiskMeter';
+import { clsx } from 'clsx';
+import { Activity, Camera, Link2, MonitorPlay, Play, ShieldAlert, ShieldCheck, ShieldX, Square, Upload, Waves } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { backendUrl, getConfig, websocketUrl } from '@/lib/api';
+import { toast } from 'sonner';
 
 type SourceMode = 'webcam' | 'mp4' | 'rtsp';
 type PipelineStatus = 'idle' | 'running' | 'error';
@@ -35,6 +36,12 @@ type OverlayGeometry = {
   offsetY: number;
 };
 
+const riskConfig = {
+  LOW: { color: 'text-slate-600 dark:text-slate-300', bg: 'bg-slate-100 dark:bg-slate-800/30', border: 'border-slate-300 dark:border-slate-700', Icon: ShieldCheck },
+  MED: { color: 'text-slate-800 dark:text-slate-100', bg: 'bg-slate-200 dark:bg-slate-700/40', border: 'border-slate-400 dark:border-slate-600', Icon: ShieldAlert },
+  HIGH: { color: 'text-rose-700 dark:text-rose-300', bg: 'bg-rose-100 dark:bg-rose-900/20', border: 'border-rose-300 dark:border-rose-700', Icon: ShieldX },
+} as const;
+
 const initialRisk = 'LOW' as const;
 
 export default function LiveMonitoring() {
@@ -55,6 +62,7 @@ export default function LiveMonitoring() {
   const [zonePoints, setZonePoints] = useState<Point[]>([]);
   const [zoneSaving, setZoneSaving] = useState(false);
   const [overlayGeometry, setOverlayGeometry] = useState<OverlayGeometry | null>(null);
+  const { color: riskColor, bg: riskBg, border: riskBorder, Icon: RiskIcon } = riskConfig[riskLevel];
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -65,6 +73,15 @@ export default function LiveMonitoring() {
   const frameLoopRef = useRef<number | null>(null);
   const wsFrameRef = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const lastErrorToastRef = useRef('');
+
+  const notifyError = (message: string) => {
+    if (lastErrorToastRef.current === message) {
+      return;
+    }
+    lastErrorToastRef.current = message;
+    toast.error(message);
+  };
 
   const clearFrame = () => {
     if (wsFrameRef.current) {
@@ -180,6 +197,7 @@ export default function LiveMonitoring() {
       setStreamError(message);
       setPipelineError(message);
       setPipelineStatus('error');
+      notifyError(message);
       return;
     }
 
@@ -212,21 +230,26 @@ export default function LiveMonitoring() {
 
   const handleZoneSave = async () => {
     if (zonePoints.length < 3) {
-      setStreamError('Add at least 3 points to save a restricted zone');
+      const message = 'Add at least 3 points to save a restricted zone';
+      setStreamError(message);
+      notifyError(message);
       return;
     }
 
     setZoneSaving(true);
     setStreamError(null);
+    const toastId = toast.loading('Saving restricted zone...');
     try {
       await sendZoneMessage({
         type: 'set_restricted_zone',
         points: zonePoints.map((p) => [p.x, p.y]),
       });
       setDrawingZone(false);
+      toast.success('Restricted zone saved.', { id: toastId });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to save restricted zone';
       setStreamError(message);
+      toast.error(message, { id: toastId });
     } finally {
       setZoneSaving(false);
     }
@@ -235,13 +258,16 @@ export default function LiveMonitoring() {
   const handleZoneClear = async () => {
     setZoneSaving(true);
     setStreamError(null);
+    const toastId = toast.loading('Clearing restricted zone...');
     try {
       await sendZoneMessage({ type: 'clear_restricted_zone' });
       setZonePoints([]);
       setDrawingZone(false);
+      toast.success('Restricted zone cleared.', { id: toastId });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to clear restricted zone';
       setStreamError(message);
+      toast.error(message, { id: toastId });
     } finally {
       setZoneSaving(false);
     }
@@ -288,7 +314,9 @@ export default function LiveMonitoring() {
 
     socket.onerror = () => {
       setConnectionState('disconnected');
-      setStreamError(`WebSocket connection failed (${websocketUrl('/api/ws/stream')})`);
+      const message = `WebSocket connection failed (${websocketUrl('/api/ws/stream')})`;
+      setStreamError(message);
+      notifyError(message);
     };
 
     socket.onclose = () => {
@@ -411,6 +439,7 @@ export default function LiveMonitoring() {
     setPipelineStatus('idle');
     setStreamReady(false);
     deriveRisk(0, 0, false, false);
+    const toastId = toast.loading('Starting monitoring session...');
 
     try {
       resetSession();
@@ -419,12 +448,14 @@ export default function LiveMonitoring() {
       } else {
         await startRemoteSource();
       }
+      toast.success('Monitoring session started.', { id: toastId });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to start stream';
       setStreamError(message);
       setPipelineError(message);
       setPipelineStatus('error');
       resetSession();
+      toast.error(message, { id: toastId });
     } finally {
       setStarting(false);
     }
@@ -439,6 +470,7 @@ export default function LiveMonitoring() {
     setPipelineStatus('idle');
     setPipelineError(null);
     setStreamError(null);
+    toast.success('Monitoring session stopped.');
   };
 
   useEffect(() => {
@@ -659,17 +691,6 @@ export default function LiveMonitoring() {
               </p>
             </div>
 
-            {(pipelineError || streamError) && (
-              <div className="border-t border-rose-200 bg-rose-50 px-5 py-4 text-sm text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300">
-                <div className="flex items-start gap-2">
-                  <AlertTriangle className="mt-0.5 h-4 w-4 flex-none" />
-                  <div>
-                    <p className="font-medium">Session error</p>
-                    <p className="mt-1 leading-6">{streamError || pipelineError}</p>
-                  </div>
-                </div>
-              </div>
-            )}
           </motion.section>
 
           <motion.section
@@ -779,7 +800,10 @@ export default function LiveMonitoring() {
               </div>
             </div>
             <div className="mt-5">
-              <RiskMeter level={riskLevel} />
+              <div className={clsx('flex items-center gap-2 px-3 py-2 border', riskBg, riskBorder)}>
+                <RiskIcon className={clsx('w-4 h-4', riskColor)} />
+                <span className={clsx('text-xs font-medium', riskColor)}>RISK: {riskLevel}</span>
+              </div>
             </div>
           </div>
 

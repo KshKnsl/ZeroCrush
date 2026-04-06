@@ -5,6 +5,7 @@ import { RotateCcw, Save, Settings, SlidersHorizontal } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { backendUrl } from '@/lib/api';
+import { toast } from 'sonner';
 
 type ConfigValue = string | number | boolean | null | ConfigValue[] | { [key: string]: ConfigValue };
 
@@ -153,8 +154,6 @@ export default function SettingsPanel() {
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState('');
-  const [messageKind, setMessageKind] = useState<'success' | 'error' | 'info'>('info');
 
   useEffect(() => {
     const fetchConfig = async () => {
@@ -165,8 +164,7 @@ export default function SettingsPanel() {
         setDraft({});
       } catch (err) {
         console.error("Failed to fetch settings", err);
-        setMessageKind('error');
-        setMessage('Could not load backend configuration.');
+        toast.error('Could not load backend configuration.');
       } finally {
         setLoading(false);
       }
@@ -177,7 +175,7 @@ export default function SettingsPanel() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    setMessage('');
+    const toastId = toast.loading('Saving backend configuration...');
 
     const settingsKeys = Object.keys(config).filter((k) => /^[A-Z_]+$/.test(k));
     const payload: Record<string, ConfigValue> = {};
@@ -196,15 +194,12 @@ export default function SettingsPanel() {
       if (res.ok) {
         setConfig(payload);
         setDraft({});
-        setMessageKind('success');
-        setMessage('Settings saved. New values will be used by the next pipeline cycle.');
+        toast.success('Settings saved. New values will be used by the next pipeline cycle.', { id: toastId });
       } else {
-        setMessageKind('error');
-        setMessage('Failed to save settings.');
+        toast.error('Failed to save settings.', { id: toastId });
       }
     } catch {
-      setMessageKind('error');
-      setMessage('Network error while saving settings.');
+      toast.error('Network error while saving settings.', { id: toastId });
     } finally {
       setSaving(false);
     }
@@ -212,12 +207,17 @@ export default function SettingsPanel() {
 
   const handleReset = () => {
     setDraft({});
-    setMessageKind('info');
-    setMessage('Unsaved changes have been reset to current backend values.');
+    toast.info('Unsaved changes have been reset to current backend values.');
   };
 
   if (loading) {
-    return <div className="p-6 text-slate-500 animate-pulse">Loading configuration...</div>;
+    return (
+      <div className="space-y-4 rounded-3xl border border-slate-300 bg-slate-50 p-5 dark:border-slate-700 dark:bg-[#141b25]">
+        <div className="h-4 w-44 animate-pulse rounded-full bg-slate-200 dark:bg-slate-700" />
+        <div className="h-20 animate-pulse rounded-2xl bg-slate-200/80 dark:bg-slate-800/70" />
+        <div className="h-20 animate-pulse rounded-2xl bg-slate-200/80 dark:bg-slate-800/70" />
+      </div>
+    );
   }
 
   const settingsKeys = Object.keys(config)
@@ -347,27 +347,14 @@ export default function SettingsPanel() {
           ))}
         </div>
 
-        {message && (
-          <div
-            className={`rounded-2xl border p-4 text-sm font-medium ${
-              messageKind === 'success'
-                ? 'border-emerald-500/45 bg-emerald-200/70 text-emerald-950 dark:border-emerald-700/55 dark:bg-emerald-950/35 dark:text-emerald-200'
-                : messageKind === 'error'
-                  ? 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300'
-                  : 'border-emerald-500/45 bg-emerald-200/70 text-emerald-950 dark:border-emerald-700/55 dark:bg-emerald-950/35 dark:text-emerald-200'
-            }`}
-          >
-            {message}
-          </div>
-        )}
-
-        <div className="flex flex-wrap items-center justify-end gap-3 border-t border-slate-200/80 pt-6 dark:border-slate-700/70">
+        <div className="sticky bottom-0 z-20 -mx-6 border-t border-slate-200/80 bg-white/90 px-6 py-4 backdrop-blur dark:border-slate-700/70 dark:bg-[#0f141b]/90 sm:-mx-8 sm:px-8">
+          <div className="flex flex-wrap items-center justify-end gap-3">
           <Button
             type="button"
             variant="outline"
             onClick={handleReset}
             disabled={saving}
-            className="h-11 px-5"
+            className="h-11 px-5 rounded-2xl"
           >
             <RotateCcw className="mr-2 h-4 w-4" />
             Reset Changes
@@ -375,10 +362,11 @@ export default function SettingsPanel() {
           <Button
             disabled={saving}
             type="submit"
-            className="h-11 bg-emerald-900 px-6 font-semibold text-white hover:bg-emerald-800 dark:bg-emerald-950 dark:text-emerald-100 dark:hover:bg-emerald-900"
+            className="h-11 rounded-2xl bg-emerald-900 px-6 font-semibold text-white hover:bg-emerald-800 dark:bg-emerald-950 dark:text-emerald-100 dark:hover:bg-emerald-900"
           >
             {saving ? 'Saving...' : <><Save className="mr-2 h-4 w-4" />Save Settings</>}
           </Button>
+          </div>
         </div>
       </form>
     </section>

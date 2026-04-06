@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getStoredSession } from '@/lib/auth';
 import { ShieldAlert, CheckCircle2, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Incident {
   id: number;
@@ -17,6 +18,7 @@ export default function IncidentsManagement() {
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [loading, setLoading] = useState(true);
   const session = getStoredSession();
+  const fetchErrorToastShown = useRef(false);
 
   const isAdmin = session?.role === 'ADMIN';
 
@@ -24,9 +26,16 @@ export default function IncidentsManagement() {
     try {
       const res = await fetch('/api/incidents');
       const data = await res.json();
-      if (data.incidents) setIncidents(data.incidents);
+      if (data.incidents) {
+        setIncidents(data.incidents);
+        fetchErrorToastShown.current = false;
+      }
     } catch {
       console.error("Failed to fetch incidents");
+      if (!fetchErrorToastShown.current) {
+        toast.error('Failed to fetch incidents. Retrying in background...');
+        fetchErrorToastShown.current = true;
+      }
     } finally {
       setLoading(false);
     }
@@ -40,27 +49,41 @@ export default function IncidentsManagement() {
   }, []);
 
   const handleResolve = async (id: number) => {
+    const toastId = toast.loading('Resolving incident...');
     try {
       setIncidents(prev => prev.map(i => i.id === id ? { ...i, status: 'RESOLVED' } : i));
-      await fetch(`/api/incidents/${id}`, {
+      const res = await fetch(`/api/incidents/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'RESOLVED' })
       });
+      if (!res.ok) {
+        throw new Error('Failed to resolve incident');
+      }
       fetchIncidents();
+      toast.success('Incident marked as resolved.', { id: toastId });
     } catch {
       console.error("Failed to resolve incident");
+      toast.error('Failed to resolve incident.', { id: toastId });
+      fetchIncidents();
     }
   };
 
   const handleDelete = async (id: number) => {
     if (!isAdmin) return;
     if (!confirm('Are you sure you want to permanently delete this incident record?')) return;
+    const toastId = toast.loading('Deleting incident...');
     try {
       setIncidents(prev => prev.filter(i => i.id !== id));
-      await fetch(`/api/incidents/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/incidents/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        throw new Error('Failed to delete incident');
+      }
+      toast.success('Incident deleted.', { id: toastId });
     } catch {
       console.error("Failed to delete incident");
+      toast.error('Failed to delete incident.', { id: toastId });
+      fetchIncidents();
     }
   };
 
@@ -78,7 +101,13 @@ export default function IncidentsManagement() {
   };
 
   if (loading) {
-    return <div className="p-6 text-slate-500 animate-pulse">Loading incidents...</div>;
+    return (
+      <div className="space-y-4">
+        <div className="h-4 w-44 animate-pulse rounded-full bg-slate-200 dark:bg-slate-700" />
+        <div className="h-28 animate-pulse rounded-3xl bg-slate-200/80 dark:bg-slate-800/70" />
+        <div className="h-28 animate-pulse rounded-3xl bg-slate-200/80 dark:bg-slate-800/70" />
+      </div>
+    );
   }
 
   return (
@@ -102,7 +131,7 @@ export default function IncidentsManagement() {
 
       <div className="grid grid-cols-1 gap-4">
         {incidents.length === 0 ? (
-          <div className="bg-slate-50 dark:bg-[#141b25] border border-slate-300 dark:border-slate-700 p-10 flex flex-col items-center justify-center text-center">
+          <div className="rounded-3xl bg-slate-50 dark:bg-[#141b25] border border-slate-300 dark:border-slate-700 p-10 flex flex-col items-center justify-center text-center">
             <div className="w-16 h-16 bg-slate-200 dark:bg-slate-700/40 flex items-center justify-center mb-4">
               <CheckCircle2 className="w-8 h-8 text-slate-700 dark:text-slate-300" />
             </div>
@@ -113,7 +142,7 @@ export default function IncidentsManagement() {
           incidents.map(incident => (
             <div 
               key={incident.id} 
-              className={`bg-slate-50 dark:bg-[#141b25] border ${incident.status === 'OPEN' ? 'border-l-4 border-l-rose-600 border-y-slate-300 border-r-slate-300 dark:border-y-slate-700 dark:border-r-slate-700' : 'border-slate-300 dark:border-slate-700 opacity-80'} p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-6 transition-all`}
+              className={`rounded-3xl bg-slate-50 dark:bg-[#141b25] border ${incident.status === 'OPEN' ? 'border-l-4 border-l-rose-600 border-y-slate-300 border-r-slate-300 dark:border-y-slate-700 dark:border-r-slate-700' : 'border-slate-300 dark:border-slate-700 opacity-80'} p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-6 transition-all`}
             >
               <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-3">

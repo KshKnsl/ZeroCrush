@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Inter } from "next/font/google";
 import PWARegister from "@/components/PWARegister";
+import { Toaster } from "sonner";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 
@@ -37,6 +38,9 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#f8fafc",
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({
@@ -47,9 +51,18 @@ export default function RootLayout({
   return (
     <html lang="en" className={cn("font-sans", inter.variable)}>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} bg-background text-foreground antialiased transition-colors`}
+        className={`${geistSans.variable} ${geistMono.variable} min-h-dvh bg-background text-foreground antialiased transition-colors`}
       >
         <PWARegister />
+        <Toaster
+          richColors
+          expand
+          closeButton
+          position="top-center"
+          toastOptions={{
+            className: 'rounded-2xl border border-slate-300/80 dark:border-slate-700/80',
+          }}
+        />
         {children}
       </body>
     </html>

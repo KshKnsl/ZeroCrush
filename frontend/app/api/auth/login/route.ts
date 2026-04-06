@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { verifyPassword, isPasswordHash, hashPassword } from '@/lib/password';
+import { sendLoginMail } from '@/lib/mailutil';
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,6 +26,14 @@ export async function POST(request: NextRequest) {
         data: { password: hashPassword(password) },
       });
     }
+
+    sendLoginMail({
+      to: user.email,
+      name: user.name,
+      role: user.role,
+    }).catch((mailError) => {
+      console.error('[api/auth/login] mail send failed', mailError);
+    });
 
     return NextResponse.json({
       user: {

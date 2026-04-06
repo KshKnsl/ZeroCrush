@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: 'ZeroCrush',
     short_name: 'ZeroCrush',
     description: 'ZeroCrush operations dashboard',
-    start_url: '/login',
+    start_url: '/',
     scope: '/',
     display: 'standalone',
     background_color: '#0a0a0a',
