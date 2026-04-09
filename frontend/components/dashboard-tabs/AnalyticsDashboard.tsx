@@ -8,6 +8,7 @@ import {
   getEnergyDistribution,
   getSessionSummaries,
   heatmapImageUrl,
+  processedImageUrl,
   tracksImageUrl,
   type CrowdRow,
   type EnergyBucket,
@@ -229,12 +230,17 @@ export default function AnalyticsDashboard() {
   const selectedMeta = streams.find((stream) => stream.id === selectedStream) ?? null;
   const tracksUrl = selectedStream ? tracksImageUrl(selectedStream) : '';
   const heatmapUrl = selectedStream ? heatmapImageUrl(selectedStream) : '';
+  const previewUrl = selectedStream ? processedImageUrl(selectedStream, 'preview') : '';
+  const crowdPeakUrl = selectedStream ? processedImageUrl(selectedStream, 'crowd') : '';
+  const violationPeakUrl = selectedStream ? processedImageUrl(selectedStream, 'violation') : '';
 
   const crowdSeries = crowdRows
     .map((row, index) => ({
       x: index,
       crowd: Number(row.human_count) || 0,
       violations: Number(row.violations) || 0,
+      restricted: Boolean(row.restricted),
+      abnormal: Boolean(row.abnormal),
     }))
     .slice(-36);
 
@@ -277,6 +283,20 @@ export default function AnalyticsDashboard() {
     </div>
   );
 
+  const SessionImage = ({ src, alt }: { src: string; alt: string }) => {
+    const [failed, setFailed] = useState(false);
+
+    useEffect(() => {
+      setFailed(false);
+    }, [src]);
+
+    if (!src || failed) {
+      return <div className="flex h-full w-full items-center justify-center text-sm text-slate-400">Image unavailable for this session</div>;
+    }
+
+    return <img src={src} alt={alt} className="h-full w-full object-cover" onError={() => setFailed(true)} />;
+  };
+
   if (loadingStreams) {
     return (
       <div className="space-y-4">
@@ -303,7 +323,7 @@ export default function AnalyticsDashboard() {
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-bold text-slate-900 dark:text-white">Analytics + Incidents</h2>
-        <p className="text-sm text-slate-500 dark:text-slate-400">Pick a stream in the sidebar to load all four analytics graphs, then review incidents below.</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">Pick a stream in the sidebar to load full analytics visuals: processed frames, trajectories, heatmap, crowd timeline, and energy distribution.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
@@ -340,15 +360,33 @@ export default function AnalyticsDashboard() {
           </div>
 
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <GraphFrame title="Processed Output Preview" icon={<Activity className="h-4 w-4" />}>
+              <div className="aspect-video overflow-hidden rounded-xl border border-slate-300 bg-slate-100 dark:border-slate-700 dark:bg-black">
+                <SessionImage src={previewUrl} alt="Processed preview" />
+              </div>
+            </GraphFrame>
+
+            <GraphFrame title="Peak Violation Frame" icon={<ShieldAlert className="h-4 w-4" />}>
+              <div className="aspect-video overflow-hidden rounded-xl border border-slate-300 bg-slate-100 dark:border-slate-700 dark:bg-black">
+                <SessionImage src={violationPeakUrl} alt="Peak violation frame" />
+              </div>
+            </GraphFrame>
+
+            <GraphFrame title="Peak Crowd Frame" icon={<Timer className="h-4 w-4" />}>
+              <div className="aspect-video overflow-hidden rounded-xl border border-slate-300 bg-slate-100 dark:border-slate-700 dark:bg-black">
+                <SessionImage src={crowdPeakUrl} alt="Peak crowd frame" />
+              </div>
+            </GraphFrame>
+
             <GraphFrame title="Density Heatmap" icon={<Flame className="h-4 w-4" />}>
               <div className="aspect-video overflow-hidden rounded-xl border border-slate-300 bg-slate-100 dark:border-slate-700 dark:bg-black">
-                {selectedStream ? <img src={heatmapUrl} alt="Heatmap" className="h-full w-full object-cover mix-blend-multiply dark:mix-blend-screen" /> : null}
+                <SessionImage src={heatmapUrl} alt="Heatmap" />
               </div>
             </GraphFrame>
 
             <GraphFrame title="Movement Trajectories" icon={<Route className="h-4 w-4" />}>
               <div className="aspect-video overflow-hidden rounded-xl border border-slate-300 bg-slate-100 dark:border-slate-700 dark:bg-black">
-                {selectedStream ? <img src={tracksUrl} alt="Tracks" className="h-full w-full object-cover mix-blend-multiply dark:mix-blend-screen" /> : null}
+                <SessionImage src={tracksUrl} alt="Tracks" />
               </div>
             </GraphFrame>
 
@@ -358,6 +396,16 @@ export default function AnalyticsDashboard() {
                   <div className="flex h-full items-center justify-center text-sm text-slate-400">No crowd data</div>
                 ) : (
                   <svg viewBox="0 0 100 100" className="h-full w-full">
+                    {crowdSeries.map((row, index) => {
+                      const x = (index / Math.max(crowdSeries.length, 1)) * 100;
+                      const width = 100 / Math.max(crowdSeries.length, 1);
+                      return (
+                        <g key={`band-${row.x}`}>
+                          {row.restricted ? <rect x={x} y={90} width={width} height={10} fill="rgba(239,68,68,0.75)" /> : null}
+                          {row.abnormal ? <rect x={x} y={82} width={width} height={8} fill="rgba(37,99,235,0.75)" /> : null}
+                        </g>
+                      );
+                    })}
                     <polyline fill="none" stroke="rgb(16 185 129)" strokeWidth="1.8" points={crowdLine} />
                     <polyline fill="none" stroke="rgb(244 63 94)" strokeWidth="1.6" points={violationLine} />
                   </svg>

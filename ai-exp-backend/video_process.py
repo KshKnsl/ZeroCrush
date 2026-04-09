@@ -88,7 +88,18 @@ def _smooth_tracks(humans_detected, visual_state, alpha):
 			del visual_state[stale_id]
 
 
-def video_process(cap, frame_size, movement_data_writer, crowd_data_writer, settings: Optional[dict[str, Any]] = None, frame_callback=None, stop_event=None, headless=False, status_callback=None):
+def video_process(
+	cap,
+	frame_size,
+	movement_data_writer,
+	crowd_data_writer,
+	settings: Optional[dict[str, Any]] = None,
+	frame_callback=None,
+	stop_event=None,
+	headless=False,
+	status_callback=None,
+	artifact_state: Optional[dict[str, Any]] = None,
+):
 	active_settings = settings or {}
 	IS_CAM = bool(active_settings.get("IS_REALTIME", False))
 	DISTANCE_THRESHOLD = float(active_settings.get("DISTANCE_THRESHOLD", 100))
@@ -130,6 +141,12 @@ def video_process(cap, frame_size, movement_data_writer, crowd_data_writer, sett
 	track_histories = {}
 	track_visual_state = {}
 	prev_output_frame = None
+	if artifact_state is not None:
+		artifact_state["last_frame"] = None
+		artifact_state["max_crowd_frame"] = None
+		artifact_state["max_violation_frame"] = None
+		artifact_state["max_crowd"] = -1
+		artifact_state["max_violations"] = -1
 
 	while True:
 		if stop_event is not None and stop_event.is_set():
@@ -332,6 +349,16 @@ def video_process(cap, frame_size, movement_data_writer, crowd_data_writer, sett
 		_record_crowd_data(record_time, len(humans_detected), len(violate_set), RE, ABNORMAL, crowd_data_writer)
 		if status_callback is not None:
 			status_callback(record_time, len(humans_detected), len(violate_set), RE, ABNORMAL)
+		if artifact_state is not None:
+			artifact_state["last_frame"] = frame.copy()
+			crowd_count = len(humans_detected)
+			violation_count = len(violate_set)
+			if crowd_count > int(artifact_state.get("max_crowd", -1)):
+				artifact_state["max_crowd"] = crowd_count
+				artifact_state["max_crowd_frame"] = frame.copy()
+			if violation_count > int(artifact_state.get("max_violations", -1)):
+				artifact_state["max_violations"] = violation_count
+				artifact_state["max_violation_frame"] = frame.copy()
 		if show_window:
 			cv2.imshow("Processed Output", frame)
 		else:

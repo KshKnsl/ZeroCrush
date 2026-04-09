@@ -172,6 +172,10 @@ export function heatmapImageUrl(session?: string | null): string {
   return buildUrl('/api/analytics/heatmap-image', { session });
 }
 
+export function processedImageUrl(session?: string | null, kind: 'preview' | 'crowd' | 'violation' = 'preview'): string {
+  return buildUrl('/api/analytics/processed-image', { session, kind });
+}
+
 export type EnergyBucket = { bucket: string; count: number };
 
 export async function getEnergyDistribution(session?: string | null): Promise<EnergyBucket[]> {

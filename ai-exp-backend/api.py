@@ -246,6 +246,7 @@ def _process_single_video(
 			["Time", "Human Count", "Social Distance violate", "Restricted Entry", "Abnormal Activity"]
 		)
 
+		artifact_state: dict[str, Any] = {}
 		start_wall_time = time.time()
 		processing_fps = video_process(
 			cap,
@@ -257,6 +258,7 @@ def _process_single_video(
 			stop_event=stop_event,
 			headless=headless,
 			status_callback=status_callback,
+			artifact_state=artifact_state,
 		)
 		end_wall_time = time.time()
 
@@ -310,6 +312,15 @@ def _process_single_video(
 	cv2.imwrite(os.path.join(video_log_dir, "tracks.png"), cv2.cvtColor(tracks_img, cv2.COLOR_RGB2BGR))
 	cv2.imwrite(os.path.join(video_log_dir, "heatmap.png"), cv2.cvtColor(heatmap_img, cv2.COLOR_RGB2BGR))
 
+	for artifact_name, artifact_key in (
+		("processed_preview.png", "last_frame"),
+		("crowd_peak.png", "max_crowd_frame"),
+		("violation_peak.png", "max_violation_frame"),
+	):
+		artifact_frame = artifact_state.get(artifact_key)
+		if artifact_frame is not None:
+			cv2.imwrite(os.path.join(video_log_dir, artifact_name), artifact_frame)
+
 
 def _start_pipeline(source: Any, is_realtime: bool) -> None:
 	global pipeline_thread, session_start_time, latest_frame
@@ -333,7 +344,7 @@ def _start_pipeline(source: Any, is_realtime: bool) -> None:
 				is_realtime=is_realtime,
 				frame_callback=_frame_callback,
 				stop_event=stop_event,
-				headless=True,
+			headless=False,
 				graph_headless=True,
 				status_callback=_set_metrics,
 				settings=settings_snapshot,
@@ -379,7 +390,7 @@ async def api_start(body: StartBody) -> dict[str, str]:
 					is_realtime=True,
 					frame_callback=_frame_callback,
 					stop_event=stop_event,
-					headless=True,
+					headless=False,
 					graph_headless=True,
 				)
 			else:
@@ -391,7 +402,7 @@ async def api_start(body: StartBody) -> dict[str, str]:
 					is_realtime=False,
 					frame_callback=_frame_callback,
 					stop_event=stop_event,
-					headless=True,
+					headless=False,
 					graph_headless=True,
 				)
 		except Exception as e:
@@ -613,11 +624,20 @@ async def websocket_stream(websocket: WebSocket):
 async def api_sessions() -> dict[str, Any]:
 	if not os.path.isdir(LOG_DIR):
 		return {"sessions": [], "items": []}
-	names = [
-		name
-		for name in sorted(os.listdir(LOG_DIR), reverse=True)
-		if os.path.isdir(os.path.join(LOG_DIR, name))
-	]
+
+	def _is_session_dir(path: str) -> bool:
+		# Ignore upload staging and include only folders with generated session artifacts.
+		if not os.path.isdir(path):
+			return False
+		if os.path.basename(path).lower() == "uploads":
+			return False
+		return any(
+			os.path.isfile(os.path.join(path, filename))
+			for filename in ("crowd_data.csv", "video_data.json", "tracks.png", "heatmap.png")
+		)
+
+	names = [name for name in os.listdir(LOG_DIR) if _is_session_dir(os.path.join(LOG_DIR, name))]
+	names.sort(key=lambda name: os.path.getmtime(os.path.join(LOG_DIR, name)), reverse=True)
 
 	items: list[dict[str, Any]] = []
 	for name in names:
@@ -666,6 +686,21 @@ async def api_heatmap_image(session: Optional[str] = None) -> FileResponse:
 	path = os.path.join(base, "heatmap.png")
 	if not os.path.isfile(path):
 		raise HTTPException(status_code=404, detail="heatmap.png not found")
+	return FileResponse(path, media_type="image/png")
+
+
+@app.get("/api/analytics/processed-image")
+async def api_processed_image(session: Optional[str] = None, kind: str = "preview") -> FileResponse:
+	base = _session_output_dir(session)
+	kind_map = {
+		"preview": "processed_preview.png",
+		"crowd": "crowd_peak.png",
+		"violation": "violation_peak.png",
+	}
+	filename = kind_map.get(kind, "processed_preview.png")
+	path = os.path.join(base, filename)
+	if not os.path.isfile(path):
+		raise HTTPException(status_code=404, detail=f"{filename} not found")
 	return FileResponse(path, media_type="image/png")
 
 
