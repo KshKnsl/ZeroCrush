@@ -1,9 +1,17 @@
 from deep_sort_realtime.deepsort_tracker import DeepSort
-from config import TRACK_MAX_AGE
 
-tracker = DeepSort(max_age=TRACK_MAX_AGE)
+tracker = None
+tracker_max_age = None
 
-def update_tracks(detections, frame):
+def _get_tracker(max_age):
+	global tracker, tracker_max_age
+	max_age = int(max_age)
+	if tracker is None or tracker_max_age != max_age:
+		tracker = DeepSort(max_age=max_age)
+		tracker_max_age = max_age
+	return tracker
+
+def update_tracks(detections, frame, track_max_age):
 	"""Update tracker and return confirmed tracks.
 
 	Args:
@@ -17,7 +25,7 @@ def update_tracks(detections, frame):
 		h = max(1, int(y2 - y1))
 		bbs.append(([int(x1), int(y1), w, h], float(confidence), "person"))
 
-	tracks = tracker.update_tracks(bbs, frame=frame)
+	tracks = _get_tracker(track_max_age).update_tracks(bbs, frame=frame)
 
 	confirmed_tracks = []
 	for track in tracks:

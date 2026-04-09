@@ -9,99 +9,19 @@ import { toast } from 'sonner';
 
 type ConfigValue = string | number | boolean | null | ConfigValue[] | { [key: string]: ConfigValue };
 
-const SETTING_DESCRIPTIONS: Record<string, string> = {
-  VIDEO_SOURCE: 'Default video source path or camera index used by the pipeline.',
-  IS_REALTIME: 'Controls real-time mode behavior and frame-timestamp handling.',
-  CAMERA_ELEVATED: 'Switches distance logic between centroid mode and box-edge mode.',
-  FRAME_WIDTH: 'Target width used when resizing frames before inference.',
-  YOLO_MODEL_PATH: 'Path to the YOLO model weights file.',
-  YOLO_CONFIDENCE: 'Minimum confidence required to keep person detections.',
-  TRACK_SMOOTHING_ALPHA: 'Bounding-box smoothing factor. Lower is steadier, higher is more reactive.',
-  FRAME_SMOOTHING_ALPHA: 'Temporal frame blend factor for smoother output frames.',
-  STREAM_JPEG_QUALITY: 'JPEG quality used for stream encoding (1-100).',
-  TRACK_MAX_AGE: 'Maximum tracker age before stale tracks are dropped.',
-  DISTANCE_THRESHOLD: 'Minimum spacing threshold used for social-distance checks.',
-  MIN_CROWD_FOR_ANALYSIS: 'Minimum people count required for certain crowd analysis views.',
-  RESTRICTED_ZONE: 'Polygon points defining the restricted area as [[x,y], ...].',
-  CHECK_ABNORMAL: 'Enables kinetic-energy based abnormal movement detection.',
-  MIN_PERSONS_ABNORMAL: 'Minimum people required before abnormal ratio checks are applied.',
-  ENERGY_THRESHOLD: 'Energy threshold to classify an individual as abnormal.',
-  ABNORMAL_RATIO_THRESHOLD: 'Crowd ratio threshold that triggers abnormal crowd alert.',
-  DATA_RECORD_RATE: 'How many processed data points are recorded per second.',
-  LOG_DIR: 'Directory where CSV logs and session artifacts are stored.',
-  START_TIME: 'Start timestamp used for offline video timeline alignment.',
-  API_HOST: 'Host interface used by the backend API server.',
-  API_PORT: 'Port used by the backend API server.',
-};
-
-const PRIORITY_ORDER = [
-  'VIDEO_SOURCE',
-  'IS_REALTIME',
-  'CAMERA_ELEVATED',
-  'FRAME_WIDTH',
-  'YOLO_MODEL_PATH',
-  'YOLO_CONFIDENCE',
-  'TRACK_SMOOTHING_ALPHA',
-  'FRAME_SMOOTHING_ALPHA',
-  'STREAM_JPEG_QUALITY',
-  'TRACK_MAX_AGE',
-  'DISTANCE_THRESHOLD',
-  'MIN_CROWD_FOR_ANALYSIS',
-  'RESTRICTED_ZONE',
-  'CHECK_ABNORMAL',
-  'MIN_PERSONS_ABNORMAL',
-  'ENERGY_THRESHOLD',
-  'ABNORMAL_RATIO_THRESHOLD',
-  'DATA_RECORD_RATE',
-  'LOG_DIR',
-  'START_TIME',
-  'API_HOST',
-  'API_PORT',
-];
-
-const CATEGORY_ORDER = [
-  'Video Source',
-  'Detection & Model',
-  'Tracking & Smoothing',
-  'Rules & Alerts',
-  'Storage & Timeline',
-  'API Runtime',
-  'Other',
-] as const;
-
-const SETTING_CATEGORY: Record<string, (typeof CATEGORY_ORDER)[number]> = {
-  VIDEO_SOURCE: 'Video Source',
-  IS_REALTIME: 'Video Source',
-  CAMERA_ELEVATED: 'Video Source',
-  FRAME_WIDTH: 'Video Source',
-  YOLO_MODEL_PATH: 'Detection & Model',
-  YOLO_CONFIDENCE: 'Detection & Model',
-  TRACK_MAX_AGE: 'Tracking & Smoothing',
-  TRACK_SMOOTHING_ALPHA: 'Tracking & Smoothing',
-  FRAME_SMOOTHING_ALPHA: 'Tracking & Smoothing',
-  STREAM_JPEG_QUALITY: 'Tracking & Smoothing',
-  DISTANCE_THRESHOLD: 'Rules & Alerts',
-  MIN_CROWD_FOR_ANALYSIS: 'Rules & Alerts',
-  RESTRICTED_ZONE: 'Rules & Alerts',
-  CHECK_ABNORMAL: 'Rules & Alerts',
-  MIN_PERSONS_ABNORMAL: 'Rules & Alerts',
-  ENERGY_THRESHOLD: 'Rules & Alerts',
-  ABNORMAL_RATIO_THRESHOLD: 'Rules & Alerts',
-  DATA_RECORD_RATE: 'Storage & Timeline',
-  LOG_DIR: 'Storage & Timeline',
-  START_TIME: 'Storage & Timeline',
-  API_HOST: 'API Runtime',
-  API_PORT: 'API Runtime',
-};
-
-const CATEGORY_DESCRIPTION: Record<(typeof CATEGORY_ORDER)[number], string> = {
-  'Video Source': 'Input stream behavior and frame processing basics.',
-  'Detection & Model': 'Model path and confidence filtering for person detection.',
-  'Tracking & Smoothing': 'Tracker persistence and output smoothness tuning.',
-  'Rules & Alerts': 'Crowd safety checks, restricted-zone and anomaly triggers.',
-  'Storage & Timeline': 'Logging frequency, output folder and offline timeline values.',
-  'API Runtime': 'Backend API host/port runtime settings.',
-  Other: 'Uncategorized settings exposed by backend config.',
+type SettingsSchema = {
+  categories: Array<{
+    id: string;
+    description: string;
+  }>;
+  settings: Record<
+    string,
+    {
+      default: ConfigValue;
+      description: string;
+      category: string;
+    }
+  >;
 };
 
 const prettifyKey = (key: string) => key.toLowerCase().replace(/_/g, ' ');
@@ -119,13 +39,9 @@ const stringifyValue = (value: ConfigValue) => {
 
 const parseEditedValue = (baseValue: ConfigValue, draftValue: string): ConfigValue => {
   const trimmed = draftValue.trim();
-  if (trimmed.length === 0) {
-    return baseValue;
-  }
+  if (trimmed.length === 0) return baseValue;
 
-  if (typeof baseValue === 'boolean') {
-    return trimmed === 'true';
-  }
+  if (typeof baseValue === 'boolean') return trimmed === 'true';
 
   if (typeof baseValue === 'number') {
     const parsed = Number(trimmed);
@@ -140,74 +56,86 @@ const parseEditedValue = (baseValue: ConfigValue, draftValue: string): ConfigVal
     }
   }
 
-  if (baseValue === null) {
-    if (trimmed === 'null') return null;
-    return trimmed;
-  }
-
+  if (baseValue === null) return trimmed === 'null' ? null : trimmed;
   return trimmed;
 };
 
 export default function SettingsPanel() {
   const apiUrl = backendUrl();
+  const [schema, setSchema] = useState<SettingsSchema | null>(null);
   const [config, setConfig] = useState<Record<string, ConfigValue>>({});
+  const [defaultConfig, setDefaultConfig] = useState<Record<string, ConfigValue>>({});
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const fetchConfig = async () => {
-      try {
-        const res = await fetch(`${apiUrl}/api/config`);
-        const data = await res.json();
-        setConfig(data as Record<string, ConfigValue>);
-        setDraft({});
-      } catch (err) {
-        console.error("Failed to fetch settings", err);
-        toast.error('Could not load backend configuration.');
-      } finally {
-        setLoading(false);
+      const [configRes, schemaRes] = await Promise.all([
+        fetch(`${apiUrl}/api/config`),
+        fetch('/settings.json', { cache: 'no-store' }),
+      ]);
+
+      const configData = (await configRes.json()) as Record<string, ConfigValue>;
+      const loadedSchema = (await schemaRes.json()) as SettingsSchema;
+
+      const defaultsData: Record<string, ConfigValue> = {};
+      for (const [key, meta] of Object.entries(loadedSchema.settings ?? {})) {
+        if (/^[A-Z_]+$/.test(key)) defaultsData[key] = meta.default;
       }
+
+      const nextConfig: Record<string, ConfigValue> = {};
+      for (const key of Object.keys(defaultsData)) {
+        nextConfig[key] = key in configData ? configData[key] : defaultsData[key];
+      }
+
+      setSchema(loadedSchema);
+      setDefaultConfig(defaultsData);
+      setConfig(nextConfig);
+      setDraft({});
+      setLoading(false);
     };
+
     fetchConfig();
   }, [apiUrl]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    const toastId = toast.loading('Saving backend configuration...');
+    const toastId = toast.loading('Saving runtime settings...');
 
-    const settingsKeys = Object.keys(config).filter((k) => /^[A-Z_]+$/.test(k));
     const payload: Record<string, ConfigValue> = {};
-    for (const key of settingsKeys) {
-      const baseValue = config[key];
-      const rawDraft = draft[key] ?? '';
-      payload[key] = parseEditedValue(baseValue, rawDraft);
+    for (const key of Object.keys(defaultConfig)) {
+      const baseValue = key in config ? config[key] : defaultConfig[key];
+      payload[key] = parseEditedValue(baseValue, draft[key] ?? '');
     }
 
-    try {
-      const res = await fetch(`${apiUrl}/api/config`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (res.ok) {
-        setConfig(payload);
-        setDraft({});
-        toast.success('Settings saved. New values will be used by the next pipeline cycle.', { id: toastId });
-      } else {
-        toast.error('Failed to save settings.', { id: toastId });
-      }
-    } catch {
-      toast.error('Network error while saving settings.', { id: toastId });
-    } finally {
-      setSaving(false);
-    }
+    await fetch(`${apiUrl}/api/config`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    setConfig(payload);
+    setDraft({});
+    toast.success('Settings saved.', { id: toastId });
+    setSaving(false);
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
+    setSaving(true);
+    const toastId = toast.loading('Resetting to frontend defaults...');
+
+    await fetch(`${apiUrl}/api/config`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(defaultConfig),
+    });
+
+    setConfig(defaultConfig);
     setDraft({});
-    toast.info('Unsaved changes have been reset to current backend values.');
+    toast.success('Settings reset to defaults.', { id: toastId });
+    setSaving(false);
   };
 
   if (loading) {
@@ -220,21 +148,20 @@ export default function SettingsPanel() {
     );
   }
 
+  if (!schema) return null;
+
+  const categoryDescription = Object.fromEntries((schema.categories ?? []).map((c) => [c.id, c.description])) as Record<string, string>;
+
   const settingsKeys = Object.keys(config)
     .filter((k) => /^[A-Z_]+$/.test(k))
-    .sort((a, b) => {
-      const ai = PRIORITY_ORDER.indexOf(a);
-      const bi = PRIORITY_ORDER.indexOf(b);
-      if (ai !== -1 && bi !== -1) return ai - bi;
-      if (ai !== -1) return -1;
-      if (bi !== -1) return 1;
-      return a.localeCompare(b);
-    });
+    .filter((key) => key in schema.settings);
 
-  const groupedSettings = CATEGORY_ORDER.map((category) => {
-    const keys = settingsKeys.filter((key) => (SETTING_CATEGORY[key] ?? 'Other') === category);
-    return { category, keys };
-  }).filter((group) => group.keys.length > 0);
+  const groupedSettings = [...schema.categories.map((category) => category.id), 'Other']
+    .map((category) => {
+      const keys = settingsKeys.filter((key) => (schema.settings[key]?.category ?? 'Other') === category);
+      return { category, keys };
+    })
+    .filter((group) => group.keys.length > 0);
 
   const leftColumn: typeof groupedSettings = [];
   const rightColumn: typeof groupedSettings = [];
@@ -264,7 +191,7 @@ export default function SettingsPanel() {
             <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-400">Pipeline control center</p>
             <h2 className="mt-1 text-2xl font-semibold text-slate-900 dark:text-white">System Settings Matrix</h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
-              Every backend setting is editable here. Each field shows a short description, and the current backend value is shown as the placeholder.
+              Settings metadata and defaults are loaded from one schema file, then only key/value runtime settings are sent to backend.
             </p>
           </div>
         </div>
@@ -285,7 +212,7 @@ export default function SettingsPanel() {
                 <section key={category} className="h-fit border border-slate-300 bg-white/90 dark:border-slate-700 dark:bg-slate-900/40">
                   <div className="border-b border-slate-300 px-4 py-3 dark:border-slate-700">
                     <h3 className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-700 dark:text-slate-300">{category}</h3>
-                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{CATEGORY_DESCRIPTION[category]}</p>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{categoryDescription[category] ?? 'Settings group'}</p>
                   </div>
 
                   <div className="divide-y divide-slate-200 dark:divide-slate-700">
@@ -294,7 +221,7 @@ export default function SettingsPanel() {
                       const isBool = typeof currentValue === 'boolean';
                       const isComplex = Array.isArray(currentValue) || (typeof currentValue === 'object' && currentValue !== null);
                       const value = draft[key] ?? '';
-                      const description = SETTING_DESCRIPTIONS[key] ?? 'Backend configuration value exposed from config.py.';
+                      const description = schema.settings[key]?.description ?? 'Runtime setting value exposed by backend.';
 
                       return (
                         <div key={key} className="px-4 py-4">
@@ -349,23 +276,17 @@ export default function SettingsPanel() {
 
         <div className="sticky bottom-0 z-20 -mx-6 border-t border-slate-200/80 bg-white/90 px-6 py-4 backdrop-blur dark:border-slate-700/70 dark:bg-[#0f141b]/90 sm:-mx-8 sm:px-8">
           <div className="flex flex-wrap items-center justify-end gap-3">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleReset}
-            disabled={saving}
-            className="h-11 px-5 rounded-2xl"
-          >
-            <RotateCcw className="mr-2 h-4 w-4" />
-            Reset Changes
-          </Button>
-          <Button
-            disabled={saving}
-            type="submit"
-            className="h-11 rounded-2xl bg-emerald-900 px-6 font-semibold text-white hover:bg-emerald-800 dark:bg-emerald-950 dark:text-emerald-100 dark:hover:bg-emerald-900"
-          >
-            {saving ? 'Saving...' : <><Save className="mr-2 h-4 w-4" />Save Settings</>}
-          </Button>
+            <Button type="button" variant="outline" onClick={handleReset} disabled={saving} className="h-11 px-5 rounded-2xl">
+              <RotateCcw className="mr-2 h-4 w-4" />
+              Reset to Defaults
+            </Button>
+            <Button
+              disabled={saving}
+              type="submit"
+              className="h-11 rounded-2xl bg-emerald-900 px-6 font-semibold text-white hover:bg-emerald-800 dark:bg-emerald-950 dark:text-emerald-100 dark:hover:bg-emerald-900"
+            >
+              {saving ? 'Saving...' : <><Save className="mr-2 h-4 w-4" />Save Settings</>}
+            </Button>
           </div>
         </div>
       </form>

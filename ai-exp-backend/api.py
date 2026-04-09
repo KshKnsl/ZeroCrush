@@ -2,13 +2,13 @@
 FastAPI bridge for SmartWatch dashboard and pipeline control.
 Run from project root: uvicorn api:app --reload --host 0.0.0.0 --port 8000
 """
+
 import asyncio
 import csv
 import datetime
 import io
 import json
 import os
-import re
 import threading
 import time
 from collections import deque
@@ -23,8 +23,6 @@ from pydantic import BaseModel
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-import config
-from config import API_HOST, API_PORT, DATA_RECORD_RATE, FRAME_WIDTH, LOG_DIR, START_TIME, TRACK_MAX_AGE, STREAM_JPEG_QUALITY
 import queue
 class VirtualVideoCapture:
 	def __init__(self):
@@ -80,6 +78,68 @@ app.add_middleware(
 	allow_headers=["*"],
 )
 
+RUNTIME_SETTINGS: dict[str, Any] = {
+	"API_HOST": "0.0.0.0",
+	"API_PORT": 8000,
+	"DATA_RECORD_RATE": 10,
+	"FRAME_WIDTH": 640,
+	"LOG_DIR": "processed_data",
+	"START_TIME": "2025:1:1:0:0:0:0",
+	"TRACK_MAX_AGE": 30,
+	"STREAM_JPEG_QUALITY": 90,
+	"IS_REALTIME": False,
+}
+
+
+def _is_json_value(value: Any) -> bool:
+	if value is None:
+		return True
+	if isinstance(value, (str, int, float, bool)):
+		return True
+	if isinstance(value, list):
+		return all(_is_json_value(v) for v in value)
+	if isinstance(value, dict):
+		return all(isinstance(k, str) and _is_json_value(v) for k, v in value.items())
+	return False
+
+
+def _get_setting(key: str, default: Any = None) -> Any:
+	return RUNTIME_SETTINGS.get(key, default)
+
+
+def _update_runtime_settings(patch: dict[str, Any]) -> dict[str, Any]:
+	updated: dict[str, Any] = {}
+	for key, value in patch.items():
+		if not isinstance(key, str) or not key.isupper():
+			continue
+		if isinstance(value, tuple):
+			value = list(value)
+		if not _is_json_value(value):
+			continue
+		RUNTIME_SETTINGS[key] = value
+		updated[key] = value
+
+	if updated:
+		_refresh_runtime_constants()
+
+	return updated
+
+
+def _refresh_runtime_constants() -> None:
+	global API_HOST, API_PORT, DATA_RECORD_RATE, FRAME_WIDTH, LOG_DIR, START_TIME, TRACK_MAX_AGE, STREAM_JPEG_QUALITY
+	settings = RUNTIME_SETTINGS
+	API_HOST = str(settings["API_HOST"])
+	API_PORT = int(settings["API_PORT"])
+	DATA_RECORD_RATE = int(settings["DATA_RECORD_RATE"])
+	FRAME_WIDTH = int(settings["FRAME_WIDTH"])
+	LOG_DIR = str(settings["LOG_DIR"])
+	START_TIME = str(settings["START_TIME"])
+	TRACK_MAX_AGE = int(settings["TRACK_MAX_AGE"])
+	STREAM_JPEG_QUALITY = int(settings["STREAM_JPEG_QUALITY"])
+
+
+_refresh_runtime_constants()
+
 
 def _set_status(s: str, err: Optional[str] = None) -> None:
 	global status_state, error_message
@@ -90,7 +150,7 @@ def _set_status(s: str, err: Optional[str] = None) -> None:
 
 def _frame_callback(frame) -> None:
 	global latest_frame
-	quality = int(max(1, min(100, STREAM_JPEG_QUALITY)))
+	quality = int(max(1, min(100, int(_get_setting("STREAM_JPEG_QUALITY", STREAM_JPEG_QUALITY)))))
 	ok, buf = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
 	if not ok:
 		return
@@ -174,13 +234,14 @@ def _process_single_video(
 	headless: bool = False,
 	graph_headless: bool = True,
 	status_callback=None,
+	settings: Optional[dict[str, Any]] = None,
 ) -> None:
 	from graph_grid_present import load_movement_tracks, render_movement_images
 	from video_process import video_process
+	active_settings = settings if settings is not None else dict(RUNTIME_SETTINGS)
 
 	if is_realtime is None:
-		is_realtime = config.IS_REALTIME
-	config.IS_REALTIME = is_realtime
+		is_realtime = bool(active_settings.get("IS_REALTIME", False))
 
 	if FRAME_WIDTH > 1920:
 		raise ValueError("Frame width is too large!")
@@ -205,7 +266,8 @@ def _process_single_video(
 			raise RuntimeError(f"Unable to open video source: {video_source}")
 
 	video_stem = _safe_stem(video_source)
-	video_log_dir = os.path.join(LOG_DIR, video_stem)
+	log_dir = str(active_settings.get("LOG_DIR", LOG_DIR))
+	video_log_dir = os.path.join(log_dir, video_stem)
 	os.makedirs(video_log_dir, exist_ok=True)
 
 	movement_data_path = os.path.join(video_log_dir, "movement_data.csv")
@@ -227,10 +289,11 @@ def _process_single_video(
 			FRAME_WIDTH,
 			movement_data_writer,
 			crowd_data_writer,
-			frame_callback,
-			stop_event,
-			headless,
-			status_callback,
+			settings=active_settings,
+			frame_callback=frame_callback,
+			stop_event=stop_event,
+			headless=headless,
+			status_callback=status_callback,
 		)
 		end_wall_time = time.time()
 
@@ -247,11 +310,13 @@ def _process_single_video(
 	else:
 		frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT)
 		vid_fps = cap.get(cv2.CAP_PROP_FPS) or 1.0
-		data_record_frame = max(1, int(vid_fps / DATA_RECORD_RATE))
+		data_record_rate = int(active_settings.get("DATA_RECORD_RATE", DATA_RECORD_RATE))
+		data_record_frame = max(1, int(vid_fps / data_record_rate))
 		processed_fps = frame_count / process_time
 		print("Processed FPS:", round(processed_fps, 2))
 
-		parts = [int(p) for p in START_TIME.split(":")]
+		start_time = str(active_settings.get("START_TIME", START_TIME))
+		parts = [int(p) for p in start_time.split(":")]
 		start_dt = datetime.datetime(parts[0], parts[1], parts[2], parts[3], parts[4], parts[5], parts[6] * 1000)
 		time_elapsed = round(frame_count / vid_fps)
 		end_dt = start_dt + datetime.timedelta(seconds=time_elapsed)
@@ -263,7 +328,7 @@ def _process_single_video(
 		"DATA_RECORD_FRAME": data_record_frame,
 		"VID_FPS": vid_fps,
 		"PROCESSED_FRAME_SIZE": FRAME_WIDTH,
-		"TRACK_MAX_AGE": TRACK_MAX_AGE,
+		"TRACK_MAX_AGE": int(active_settings.get("TRACK_MAX_AGE", TRACK_MAX_AGE)),
 		"START_TIME": start_dt.strftime("%d/%m/%Y, %H:%M:%S"),
 		"END_TIME": end_dt.strftime("%d/%m/%Y, %H:%M:%S"),
 	}
@@ -299,6 +364,7 @@ def _start_pipeline(source: Any, is_realtime: bool) -> None:
 		global session_start_time
 		try:
 			session_start_time = time.time()
+			settings_snapshot = dict(RUNTIME_SETTINGS)
 			_process_single_video(
 				source,
 				is_realtime=is_realtime,
@@ -307,6 +373,7 @@ def _start_pipeline(source: Any, is_realtime: bool) -> None:
 				headless=True,
 				graph_headless=True,
 				status_callback=_set_metrics,
+				settings=settings_snapshot,
 			)
 		except Exception as e:
 			_set_status("error", str(e))
@@ -413,8 +480,9 @@ async def api_stop() -> dict[str, str]:
 
 @app.get("/api/logs/crowd")
 async def api_logs_crowd(session: Optional[str] = None, limit: int = 100) -> JSONResponse:
+	log_dir = str(_get_setting("LOG_DIR", LOG_DIR))
 	if session:
-		path = os.path.join(LOG_DIR, session, "crowd_data.csv")
+		path = os.path.join(log_dir, session, "crowd_data.csv")
 	else:
 		path = _find_latest_crowd_csv()
 	if not path or not os.path.isfile(path):
@@ -580,13 +648,11 @@ async def websocket_stream(websocket: WebSocket):
 						normalized.append([x, y])
 					if len(normalized) not in (0, 1, 2) and len(normalized) < 3:
 						raise ValueError("Restricted zone needs at least 3 points, or 0 to clear")
-					config.RESTRICTED_ZONE = normalized
-					_persist_config_patch({"RESTRICTED_ZONE": normalized})
+					_update_runtime_settings({"RESTRICTED_ZONE": normalized})
 					await websocket.send_text(json.dumps({"type": "zone_updated", "restricted_zone": normalized}))
 					await websocket.send_text(json.dumps({"type": "status", **_snapshot_status()}))
 				elif action == "clear_restricted_zone":
-					config.RESTRICTED_ZONE = []
-					_persist_config_patch({"RESTRICTED_ZONE": []})
+					_update_runtime_settings({"RESTRICTED_ZONE": []})
 					await websocket.send_text(json.dumps({"type": "zone_updated", "restricted_zone": []}))
 					await websocket.send_text(json.dumps({"type": "status", **_snapshot_status()}))
 				elif action == "status":
@@ -683,69 +749,22 @@ async def api_analytics_energy(session: Optional[str] = None) -> dict[str, Any]:
 
 
 def _session_output_dir(session: Optional[str]) -> str:
+	log_dir = str(_get_setting("LOG_DIR", LOG_DIR))
 	if session:
-		return os.path.join(LOG_DIR, session)
+		return os.path.join(log_dir, session)
 	p = _find_latest_crowd_csv()
-	return os.path.dirname(p) if p else LOG_DIR
-
-
-def _load_config_module():
-	import importlib
-
-	importlib.reload(config)
-	return config
-
-
-def _persist_config_patch(body: dict[str, Any]) -> None:
-	path = os.path.join(os.path.dirname(__file__), "config.py")
-	with open(path, encoding="utf-8") as f:
-		lines = f.readlines()
-	pattern = re.compile(r"^([A-Z][A-Z0-9_]*)\s*=")
-	new_lines: list[str] = []
-	for line in lines:
-		m = pattern.match(line.strip())
-		if m and m.group(1) in body:
-			key = m.group(1)
-			val = body[key]
-			new_lines.append(f"{key} = {repr(val)}\\n")
-		else:
-			new_lines.append(line)
-	with open(path, "w", encoding="utf-8") as f:
-		f.writelines(new_lines)
+	return os.path.dirname(p) if p else log_dir
 
 
 @app.get("/api/config")
 async def api_get_config() -> dict[str, Any]:
-	mod = _load_config_module()
-	out = {}
-	for key in dir(mod):
-		if key.startswith("_"):
-			continue
-		val = getattr(mod, key)
-		if callable(val):
-			continue
-		if isinstance(val, tuple):
-			out[key] = list(val)
-		elif isinstance(val, (str, int, float, bool)) or val is None:
-			out[key] = val
-		elif isinstance(val, (list, dict)):
-			try:
-				json.dumps(val)
-				out[key] = val
-			except (TypeError, ValueError):
-				out[key] = repr(val)
-		else:
-			out[key] = repr(val)
-	return out
+	return dict(RUNTIME_SETTINGS)
 
 
 @app.post("/api/config")
-async def api_post_config(body: dict[str, Any]) -> dict[str, str]:
-	_persist_config_patch(body)
-	for key, value in body.items():
-		if hasattr(config, key):
-			setattr(config, key, value)
-	return {"message": "saved"}
+async def api_post_config(body: dict[str, Any]) -> dict[str, Any]:
+	updated = _update_runtime_settings(body)
+	return {"message": "saved", "updated": len(updated)}
 
 
 if __name__ == "__main__":

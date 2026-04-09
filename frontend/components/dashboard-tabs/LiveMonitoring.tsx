@@ -10,11 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { backendUrl, getConfig, websocketUrl } from '@/lib/api';
 import { toast } from 'sonner';
 
-type SourceMode = 'webcam' | 'mp4' | 'rtsp';
-type PipelineStatus = 'idle' | 'running' | 'error';
+type SourceMode = string;
+type PipelineStatus = string;
 
 type WsStatusPayload = {
-  type?: 'status' | 'error' | 'zone_updated';
+  type?: string;
   status?: PipelineStatus;
   error?: string | null;
   stream_ready?: boolean;
@@ -52,17 +52,17 @@ export default function LiveMonitoring() {
   const [streamError, setStreamError] = useState<string | null>(null);
   const [humanCount, setHumanCount] = useState(0);
   const [incidentCount, setIncidentCount] = useState(0);
-  const [riskLevel, setRiskLevel] = useState<'LOW' | 'MED' | 'HIGH'>(initialRisk);
+  const [riskLevel, setRiskLevel] = useState<string>(initialRisk);
   const [rtspUrl, setRtspUrl] = useState('');
   const [selectedFileName, setSelectedFileName] = useState('');
-  const [connectionState, setConnectionState] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
+  const [connectionState, setConnectionState] = useState<string>('disconnected');
   const [wsFrame, setWsFrame] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const [drawingZone, setDrawingZone] = useState(false);
   const [zonePoints, setZonePoints] = useState<Point[]>([]);
   const [zoneSaving, setZoneSaving] = useState(false);
   const [overlayGeometry, setOverlayGeometry] = useState<OverlayGeometry | null>(null);
-  const { color: riskColor, bg: riskBg, border: riskBorder, Icon: RiskIcon } = riskConfig[riskLevel];
+  const { color: riskColor, bg: riskBg, border: riskBorder, Icon: RiskIcon } = riskConfig[riskLevel as keyof typeof riskConfig] ?? riskConfig.LOW;
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);

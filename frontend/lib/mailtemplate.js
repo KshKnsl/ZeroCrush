@@ -1,4 +1,22 @@
-<!doctype html>
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+export function buildLoginMailTemplate({ app, name, email, role, time }) {
+  const safe = {
+    app: escapeHtml(app),
+    name: escapeHtml(name),
+    email: escapeHtml(email),
+    role: escapeHtml(role),
+    time: escapeHtml(time),
+  };
+
+  return `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -46,21 +64,22 @@
   <body>
     <div class="container">
       <div class="header">
-        <h2 style="margin: 0; font-size: 20px">{{app}} Login Alert</h2>
+        <h2 style="margin: 0; font-size: 20px">${safe.app} Login Alert</h2>
       </div>
       <div class="content">
-        <p style="margin-top: 0">Hello {{name}},</p>
-        <p>We noticed a successful login to your {{app}} account.</p>
+        <p style="margin-top: 0">Hello ${safe.name},</p>
+        <p>We noticed a successful login to your ${safe.app} account.</p>
         <div class="meta">
-          <div><strong>Email:</strong> {{email}}</div>
-          <div><strong>Role:</strong> {{role}}</div>
-          <div><strong>Time:</strong> {{time}}</div>
+          <div><strong>Email:</strong> ${safe.email}</div>
+          <div><strong>Role:</strong> ${safe.role}</div>
+          <div><strong>Time:</strong> ${safe.time}</div>
         </div>
         <p style="margin-bottom: 0">If this was not you, reset your password and contact your administrator immediately.</p>
       </div>
       <div class="footer">
-        This is an automated security message from {{app}}.
+        This is an automated security message from ${safe.app}.
       </div>
     </div>
   </body>
-</html>
+</html>`;
+}

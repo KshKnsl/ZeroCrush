@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Inter } from "next/font/google";
-import PWARegister from "@/components/PWARegister";
+import PWARegister from "@/components/ui/PWARegister";
+import AuthSessionProvider from "@/components/AuthSessionProvider";
 import { Toaster } from "sonner";
 import "./globals.css";
 import { cn } from "@/lib/utils";
@@ -53,17 +54,19 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} min-h-dvh bg-background text-foreground antialiased transition-colors`}
       >
-        <PWARegister />
-        <Toaster
-          richColors
-          expand
-          closeButton
-          position="top-center"
-          toastOptions={{
-            className: 'rounded-2xl border border-slate-300/80 dark:border-slate-700/80',
-          }}
-        />
-        {children}
+        <AuthSessionProvider>
+          <PWARegister />
+          <Toaster
+            richColors
+            expand
+            closeButton
+            position="top-center"
+            toastOptions={{
+              className: 'rounded-2xl border border-slate-300/80 dark:border-slate-700/80',
+            }}
+          />
+          {children}
+        </AuthSessionProvider>
       </body>
     </html>
   );

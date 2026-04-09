@@ -4,38 +4,30 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { getStoredSession } from '@/lib/auth';
 import { toast } from 'sonner';
 
 interface User {
   id: number;
   name: string | null;
   email: string;
-  role: 'ADMIN' | 'OPERATOR' | 'VIEWER';
+  role: string;
   createdAt: string;
 }
 
 export default function UsersManagement() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const session = getStoredSession();
-
-  const headers = {
-    'Content-Type': 'application/json',
-    'x-user-role': session?.role ?? '',
-    'x-user-id': session?.id ? String(session.id) : '',
-  };
   
   // Create user form
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<'ADMIN' | 'OPERATOR' | 'VIEWER'>('VIEWER');
+  const [role, setRole] = useState('VIEWER');
   const [createLoading, setCreateLoading] = useState(false);
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch('/api/users', { headers });
+      const res = await fetch('/api/users');
       const data = await res.json();
       if (data.users) setUsers(data.users);
     } catch (err) {
@@ -58,7 +50,7 @@ export default function UsersManagement() {
     try {
       const res = await fetch('/api/users', {
         method: 'POST',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, password, role }),
       });
       const data = await res.json();
@@ -84,7 +76,7 @@ export default function UsersManagement() {
     if (!confirm('Are you sure you want to delete this user?')) return;
     const toastId = toast.loading('Revoking account...');
     try {
-      const res = await fetch(`/api/users/${id}`, { method: 'DELETE', headers });
+      const res = await fetch(`/api/users?id=${id}`, { method: 'DELETE' });
       if (!res.ok) {
         throw new Error('Failed to revoke account');
       }

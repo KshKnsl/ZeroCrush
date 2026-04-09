@@ -1,42 +1,37 @@
 import { PrismaClient } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 
-function normalizeConnectionString(rawUrl: string | undefined) {
-  if (!rawUrl) {
-    return rawUrl
-  }
+function getConnectionString() {
+  const rawUrl = process.env.DATABASE_URL
+  if (!rawUrl) return rawUrl
 
   try {
-    const parsedUrl = new URL(rawUrl)
-    const sslMode = parsedUrl.searchParams.get('sslmode')
-    const useLibpqCompat = parsedUrl.searchParams.get('uselibpqcompat')
+    const url = new URL(rawUrl)
+    const sslMode = url.searchParams.get('sslmode')
+    const hasLibpqCompat = url.searchParams.has('uselibpqcompat')
 
-    // Keep current secure behavior explicit and silence pg-connection-string warning.
-    if (!useLibpqCompat && (sslMode === 'prefer' || sslMode === 'require' || sslMode === 'verify-ca')) {
-      parsedUrl.searchParams.set('sslmode', 'verify-full')
-      return parsedUrl.toString()
+    if (!hasLibpqCompat && (sslMode === 'prefer' || sslMode === 'require' || sslMode === 'verify-ca')) {
+      url.searchParams.set('sslmode', 'verify-full')
+      return url.toString()
     }
   } catch {
-    return rawUrl
   }
 
   return rawUrl
 }
 
-const prismaClientSingleton = () => {
-  const connectionString = normalizeConnectionString(process.env.DATABASE_URL)
-  const adapter = new PrismaPg({ 
-    connectionString
+const globalForPrisma = globalThis as typeof globalThis & {
+  prismaGlobal?: PrismaClient
+}
+
+const prisma =
+  globalForPrisma.prismaGlobal ??
+  new PrismaClient({
+    adapter: new PrismaPg({ connectionString: getConnectionString() }),
   })
-  return new PrismaClient({ adapter })
-}
 
-declare global {
-  var prismaGlobal: undefined | ReturnType<typeof prismaClientSingleton>
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prismaGlobal = prisma
 }
-
-const prisma = globalThis.prismaGlobal ?? prismaClientSingleton()
 
 export default prisma
-
-if (process.env.NODE_ENV !== 'production') globalThis.prismaGlobal = prisma

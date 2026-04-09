@@ -1,0 +1,140 @@
+{
+  "categories": [
+    {
+      "id": "Video Source",
+      "description": "Input stream behavior and frame processing basics."
+    },
+    {
+      "id": "Detection & Model",
+      "description": "Model path and confidence filtering for person detection."
+    },
+    {
+      "id": "Tracking & Smoothing",
+      "description": "Tracker persistence and output smoothness tuning."
+    },
+    {
+      "id": "Rules & Alerts",
+      "description": "Crowd safety checks, restricted-zone and anomaly triggers."
+    },
+    {
+      "id": "Storage & Timeline",
+      "description": "Logging frequency, output folder and offline timeline values."
+    },
+    {
+      "id": "API Runtime",
+      "description": "Backend API host/port runtime settings."
+    }
+  ],
+  "settings": {
+    "VIDEO_SOURCE": {
+      "default": "video/1.mp4",
+      "description": "Default video source path or camera index used by the pipeline.",
+      "category": "Video Source"
+    },
+    "IS_REALTIME": {
+      "default": false,
+      "description": "Controls real-time mode behavior and frame-timestamp handling.",
+      "category": "Video Source"
+    },
+    "CAMERA_ELEVATED": {
+      "default": true,
+      "description": "Switches distance logic between centroid mode and box-edge mode.",
+      "category": "Video Source"
+    },
+    "FRAME_WIDTH": {
+      "default": 640,
+      "description": "Target width used when resizing frames before inference.",
+      "category": "Video Source"
+    },
+    "YOLO_MODEL_PATH": {
+      "default": "yolov8n.pt",
+      "description": "Path to the YOLO model weights file.",
+      "category": "Detection & Model"
+    },
+    "YOLO_CONFIDENCE": {
+      "default": 0.4,
+      "description": "Minimum confidence required to keep person detections.",
+      "category": "Detection & Model"
+    },
+    "TRACK_SMOOTHING_ALPHA": {
+      "default": 0.6,
+      "description": "Bounding-box smoothing factor. Lower is steadier, higher is more reactive.",
+      "category": "Tracking & Smoothing"
+    },
+    "FRAME_SMOOTHING_ALPHA": {
+      "default": 0.85,
+      "description": "Temporal frame blend factor for smoother output frames.",
+      "category": "Tracking & Smoothing"
+    },
+    "STREAM_JPEG_QUALITY": {
+      "default": 90,
+      "description": "JPEG quality used for stream encoding (1-100).",
+      "category": "Tracking & Smoothing"
+    },
+    "TRACK_MAX_AGE": {
+      "default": 30,
+      "description": "Maximum tracker age before stale tracks are dropped.",
+      "category": "Tracking & Smoothing"
+    },
+    "DISTANCE_THRESHOLD": {
+      "default": 100,
+      "description": "Minimum spacing threshold used for social-distance checks.",
+      "category": "Rules & Alerts"
+    },
+    "MIN_CROWD_FOR_ANALYSIS": {
+      "default": 3,
+      "description": "Minimum people count required for certain crowd analysis views.",
+      "category": "Rules & Alerts"
+    },
+    "RESTRICTED_ZONE": {
+      "default": [],
+      "description": "Polygon points defining the restricted area as [[x,y], ...].",
+      "category": "Rules & Alerts"
+    },
+    "CHECK_ABNORMAL": {
+      "default": true,
+      "description": "Enables kinetic-energy based abnormal movement detection.",
+      "category": "Rules & Alerts"
+    },
+    "MIN_PERSONS_ABNORMAL": {
+      "default": 5,
+      "description": "Minimum people required before abnormal ratio checks are applied.",
+      "category": "Rules & Alerts"
+    },
+    "ENERGY_THRESHOLD": {
+      "default": 1500,
+      "description": "Energy threshold to classify an individual as abnormal.",
+      "category": "Rules & Alerts"
+    },
+    "ABNORMAL_RATIO_THRESHOLD": {
+      "default": 0.66,
+      "description": "Crowd ratio threshold that triggers abnormal crowd alert.",
+      "category": "Rules & Alerts"
+    },
+    "DATA_RECORD_RATE": {
+      "default": 10,
+      "description": "How many processed data points are recorded per second.",
+      "category": "Storage & Timeline"
+    },
+    "LOG_DIR": {
+      "default": "processed_data",
+      "description": "Directory where CSV logs and session artifacts are stored.",
+      "category": "Storage & Timeline"
+    },
+    "START_TIME": {
+      "default": "2025:1:1:0:0:0:0",
+      "description": "Start timestamp used for offline video timeline alignment.",
+      "category": "Storage & Timeline"
+    },
+    "API_HOST": {
+      "default": "0.0.0.0",
+      "description": "Host interface used by the backend API server.",
+      "category": "API Runtime"
+    },
+    "API_PORT": {
+      "default": 8000,
+      "description": "Port used by the backend API server.",
+      "category": "API Runtime"
+    }
+  }
+}

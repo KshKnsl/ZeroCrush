@@ -4,6 +4,7 @@ import numpy as np
 import imutils
 import cv2
 import pathlib
+from typing import Any, Optional
 from scipy.spatial.distance import euclidean
 
 
@@ -23,28 +24,13 @@ try:
 finally:
 	pathlib.Path.exists = _original_path_exists
 
-import config
 from tracking import update_tracks
 from util import rect_distance, progress, kinetic_energy
-from config import (
-	DISTANCE_THRESHOLD,
-	DATA_RECORD_RATE,
-	CHECK_ABNORMAL,
-	ENERGY_THRESHOLD,
-	ABNORMAL_RATIO_THRESHOLD,
-	MIN_PERSONS_ABNORMAL,
-	YOLO_MODEL_PATH,
-	YOLO_CONFIDENCE,
-	TRACK_SMOOTHING_ALPHA,
-	FRAME_SMOOTHING_ALPHA,
-)
 
 RED = (0, 0, 255)
 GREEN = (0, 255, 0)
 YELLOW = (0, 255, 255)
 BLUE = (255, 0, 0)
-CHECK_SOCIAL_DISTANCE = DISTANCE_THRESHOLD > 0
-model = YOLO(YOLO_MODEL_PATH)
 
 def _record_movement_data(movement_data_writer, track_id, entry_time, exit_time, positions):
 	positions = np.array(positions).flatten()
@@ -102,8 +88,22 @@ def _smooth_tracks(humans_detected, visual_state, alpha):
 			del visual_state[stale_id]
 
 
-def video_process(cap, frame_size, movement_data_writer, crowd_data_writer, frame_callback=None, stop_event=None, headless=False, status_callback=None):
-	IS_CAM = config.IS_REALTIME
+def video_process(cap, frame_size, movement_data_writer, crowd_data_writer, settings: Optional[dict[str, Any]] = None, frame_callback=None, stop_event=None, headless=False, status_callback=None):
+	active_settings = settings or {}
+	IS_CAM = bool(active_settings.get("IS_REALTIME", False))
+	DISTANCE_THRESHOLD = float(active_settings.get("DISTANCE_THRESHOLD", 100))
+	DATA_RECORD_RATE = int(active_settings.get("DATA_RECORD_RATE", 10))
+	CHECK_ABNORMAL = bool(active_settings.get("CHECK_ABNORMAL", True))
+	ENERGY_THRESHOLD = float(active_settings.get("ENERGY_THRESHOLD", 1500))
+	ABNORMAL_RATIO_THRESHOLD = float(active_settings.get("ABNORMAL_RATIO_THRESHOLD", 0.66))
+	MIN_PERSONS_ABNORMAL = int(active_settings.get("MIN_PERSONS_ABNORMAL", 5))
+	YOLO_MODEL_PATH = str(active_settings.get("YOLO_MODEL_PATH", "yolov8n.pt"))
+	YOLO_CONFIDENCE = float(active_settings.get("YOLO_CONFIDENCE", 0.4))
+	TRACK_SMOOTHING_ALPHA = float(active_settings.get("TRACK_SMOOTHING_ALPHA", 0.6))
+	FRAME_SMOOTHING_ALPHA = float(active_settings.get("FRAME_SMOOTHING_ALPHA", 0.85))
+	TRACK_MAX_AGE = int(active_settings.get("TRACK_MAX_AGE", 30))
+	CHECK_SOCIAL_DISTANCE = DISTANCE_THRESHOLD > 0
+	model = YOLO(YOLO_MODEL_PATH)
 	show_window = not headless
 	# Some sources (especially RTSP) need a short warm-up before first frame.
 	startup_deadline = time.time() + 15
@@ -186,7 +186,7 @@ def video_process(cap, frame_size, movement_data_writer, crowd_data_writer, fram
 		boxes = results.boxes.xyxy.cpu().numpy()
 		scores = results.boxes.conf.cpu().numpy()
 		detections = [(boxes[i].tolist(), float(scores[i])) for i in range(len(boxes))]
-		humans_detected = update_tracks(detections, frame)
+		humans_detected = update_tracks(detections, frame, TRACK_MAX_AGE)
 		_smooth_tracks(humans_detected, track_visual_state, TRACK_SMOOTHING_ALPHA)
 
 		for track in humans_detected:
@@ -199,9 +199,10 @@ def video_process(cap, frame_size, movement_data_writer, crowd_data_writer, fram
 		violate_count = np.zeros(len(humans_detected))
 
 		# Check for restricted entry (centroid inside polygon)
-		zone_points = list(config.RESTRICTED_ZONE) if isinstance(config.RESTRICTED_ZONE, list) else []
+		restricted_zone = active_settings.get("RESTRICTED_ZONE", [])
+		zone_points = list(restricted_zone) if isinstance(restricted_zone, list) else []
 		check_restricted_zone = len(zone_points) >= 3
-		high_cam = bool(config.CAMERA_ELEVATED)
+		high_cam = bool(active_settings.get("CAMERA_ELEVATED", True))
 
 		if check_restricted_zone:
 			RE = False
@@ -221,7 +222,7 @@ def video_process(cap, frame_size, movement_data_writer, crowd_data_writer, fram
 		ABNORMAL = False
 
 		# Initiate video process loop
-		if (not headless) or CHECK_SOCIAL_DISTANCE or CHECK_RESTRICTED_ZONE or CHECK_ABNORMAL:
+		if (not headless) or CHECK_SOCIAL_DISTANCE or check_restricted_zone or CHECK_ABNORMAL:
 			for i, track in enumerate(humans_detected):
 				# Get object bounding box (ltrb)
 				x1, y1, x2, y2 = list(map(int, track["bbox"]))

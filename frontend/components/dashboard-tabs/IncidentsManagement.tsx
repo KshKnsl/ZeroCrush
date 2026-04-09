@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from 'react';
-import { getStoredSession } from '@/lib/auth';
 import { ShieldAlert, CheckCircle2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -17,10 +16,7 @@ interface Incident {
 export default function IncidentsManagement() {
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [loading, setLoading] = useState(true);
-  const session = getStoredSession();
   const fetchErrorToastShown = useRef(false);
-
-  const isAdmin = session?.role === 'ADMIN';
 
   const fetchIncidents = async () => {
     try {
@@ -52,7 +48,7 @@ export default function IncidentsManagement() {
     const toastId = toast.loading('Resolving incident...');
     try {
       setIncidents(prev => prev.map(i => i.id === id ? { ...i, status: 'RESOLVED' } : i));
-      const res = await fetch(`/api/incidents/${id}`, {
+      const res = await fetch(`/api/incidents?id=${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'RESOLVED' })
@@ -70,12 +66,11 @@ export default function IncidentsManagement() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!isAdmin) return;
     if (!confirm('Are you sure you want to permanently delete this incident record?')) return;
     const toastId = toast.loading('Deleting incident...');
     try {
       setIncidents(prev => prev.filter(i => i.id !== id));
-      const res = await fetch(`/api/incidents/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/incidents?id=${id}`, { method: 'DELETE' });
       if (!res.ok) {
         throw new Error('Failed to delete incident');
       }
@@ -175,15 +170,13 @@ export default function IncidentsManagement() {
                     Mark Resolved
                   </button>
                 )}
-                {isAdmin && (
-                  <button 
-                    onClick={() => handleDelete(incident.id)}
-                    className="p-2 text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-900/25 transition-colors border border-transparent hover:border-rose-300 dark:hover:border-rose-700"
-                    title="Permanently remove"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                )}
+                <button 
+                  onClick={() => handleDelete(incident.id)}
+                  className="p-2 text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-900/25 transition-colors border border-transparent hover:border-rose-300 dark:hover:border-rose-700"
+                  title="Permanently remove"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
             </div>
           ))
