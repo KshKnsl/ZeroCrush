@@ -10,7 +10,6 @@ import LiveMonitoring from '@/components/dashboard-tabs/LiveMonitoring';
 import UsersManagement from '@/components/dashboard-tabs/UsersManagement';
 import AnalyticsDashboard from '@/components/dashboard-tabs/AnalyticsDashboard';
 import SettingsPanel from '@/components/dashboard-tabs/SettingsPanel';
-import IncidentsManagement from '@/components/dashboard-tabs/IncidentsManagement';
 
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: 'Administrator',
@@ -20,7 +19,6 @@ const ROLE_LABELS: Record<string, string> = {
 
 const tabs: { id: string; label: string; icon: typeof Activity; roles: string[] }[] = [
   { id: 'live', label: 'Live Dashboard', icon: Activity, roles: ['ADMIN', 'OPERATOR', 'VIEWER'] },
-  { id: 'incidents', label: 'Incidents', icon: Users, roles: ['ADMIN', 'OPERATOR'] },
   { id: 'analytics', label: 'Analytics', icon: LayoutDashboard, roles: ['ADMIN', 'OPERATOR', 'VIEWER'] },
   { id: 'settings', label: 'Settings', icon: CalendarPlus2, roles: ['ADMIN'] },
   { id: 'users', label: 'Users', icon: KeyRound, roles: ['ADMIN'] },
@@ -75,7 +73,6 @@ function DashboardPageContent() {
 
   const panelByTab: Record<string, ReactNode> = {
     live: <LiveMonitoring />,
-    incidents: <IncidentsManagement />,
     analytics: <AnalyticsDashboard />,
     settings: <SettingsPanel />,
     users: <UsersManagement />,
@@ -142,8 +139,7 @@ function DashboardPageContent() {
       <header className="sticky top-0 z-30 border-b border-slate-300/70 bg-white/80 px-4 py-3 backdrop-blur md:hidden dark:border-slate-700/70 dark:bg-[#0f141b]/85">
         <div className="mx-auto flex w-full max-w-xl items-center justify-between">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">ZeroCrush</p>
-            <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">{roleLabel} Console</p>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">SmartMonitor</p>
           </div>
           <div className="rounded-full border border-slate-300/80 bg-white/80 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600 dark:border-slate-700 dark:bg-[#121923] dark:text-slate-300">
             {activeTab}

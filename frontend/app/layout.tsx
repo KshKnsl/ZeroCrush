@@ -19,14 +19,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ZeroCrush",
-  description: "ZeroCrush operations dashboard",
-  applicationName: "ZeroCrush",
+  title: "SmartMonitor",
+  description: "SmartMonitor operations dashboard",
+  applicationName: "SmartMonitor",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "ZeroCrush",
+    title: "SmartMonitor",
   },
   icons: {
     icon: [

@@ -1,10 +1,11 @@
 import type { NextRequest } from 'next/server';
 import type { NextAuthOptions } from 'next-auth';
+import { getServerSession } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import type { JWT } from 'next-auth/jwt';
 import { getToken } from 'next-auth/jwt';
 import prisma from '@/lib/prisma';
-import { sendLoginMail } from '@/lib/mailutil';
+import { sendLoginMail } from '@/lib/utils';
 
 export type UserRole = 'ADMIN' | 'OPERATOR' | 'VIEWER';
 
@@ -83,5 +84,18 @@ export const authOptions: NextAuthOptions = {
 
 export async function getRequestAuth(request: NextRequest): Promise<RequestAuth | null> {
   const token = await getToken({ req: request, secret: AUTH_SECRET });
-  return token ? parseRequestAuth(token) : null;
+  const tokenAuth = token ? parseRequestAuth(token) : null;
+  if (tokenAuth) {
+    return tokenAuth;
+  }
+
+  const session = await getServerSession(authOptions);
+  const role = normalizeRole(session?.user?.role);
+  const userId = Number(session?.user?.id);
+
+  if (!role || !Number.isFinite(userId) || userId <= 0) {
+    return null;
+  }
+
+  return { userId, role };
 }

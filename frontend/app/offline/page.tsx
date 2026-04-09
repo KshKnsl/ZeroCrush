@@ -5,7 +5,7 @@ export default function OfflinePage() {
         <p className="text-xs uppercase tracking-[0.24em] text-slate-400 dark:text-slate-500">Offline</p>
         <h1 className="mt-3 text-2xl font-semibold text-slate-900 dark:text-slate-100">No network connection</h1>
         <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
-          ZeroCrush is installed and running offline mode. Reconnect to refresh dashboard data.
+          SmartMonitor is installed and running offline mode. Reconnect to refresh dashboard data.
         </p>
       </div>
     </div>

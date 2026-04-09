@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { signIn, useSession } from 'next-auth/react';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { ArrowDownRight, BellRing, Radar, Shield } from 'lucide-react';
 
@@ -30,10 +29,9 @@ const highlights = [
 export default function HomePage() {
   const router = useRouter();
   const { status } = useSession();
-  const [email, setEmail] = useState<string>('');
-  const [password, setPassword] = useState<string>('');
+  const [email, setEmail] = useState<string>('admin@gmail.com');
+  const [password, setPassword] = useState<string>('admin123');
   const [loading, setLoading] = useState(false);
-  const [bootstrapping, setBootstrapping] = useState(false);
   const [theme, setTheme] = useState<string>('light');
 
   useEffect(() => {
@@ -85,44 +83,13 @@ export default function HomePage() {
     }
   };
 
-  const handleBootstrap = async () => {
-    setBootstrapping(true);
-    const toastId = toast.loading('Creating temp database rows...');
-
-    try {
-      const response = await fetch('/api/dev/bootstrap', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-
-      const payload = (await response.json().catch(() => null)) as
-        | { message?: string; adminCredentials?: { email: string; password: string } }
-        | null;
-
-      if (!response.ok) {
-        throw new Error(payload?.message ?? 'Bootstrap failed.');
-      }
-
-      const adminEmail = payload?.adminCredentials?.email ?? 'admin@gmail.com';
-      const adminPassword = payload?.adminCredentials?.password ?? 'admin123';
-      setEmail(adminEmail);
-      setPassword(adminPassword);
-
-      toast.success('Database seeded. Admin credentials loaded into the form.', { id: toastId });
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Bootstrap failed.', { id: toastId });
-    } finally {
-      setBootstrapping(false);
-    }
-  };
-
   return (
     <div className="min-h-dvh px-4 py-5 transition-colors sm:px-6 sm:py-8">
       <div className="mx-auto grid w-full max-w-6xl gap-5 xl:grid-cols-[1.15fr_0.85fr]">
         <section className="rounded-[2rem] border border-slate-300/70 bg-white/70 p-4 shadow-[0_22px_50px_-18px_rgba(15,23,42,0.35)] backdrop-blur dark:border-slate-700/70 dark:bg-[#0f141b]/80 dark:shadow-[0_30px_70px_-28px_rgba(0,0,0,0.7)]">
           <div className="rounded-[1.5rem] border border-slate-200/80 bg-[linear-gradient(165deg,#f8fbff_0%,#edf3ff_45%,#e9fff8_100%)] p-5 dark:border-slate-800 dark:bg-[linear-gradient(165deg,#0f1726_0%,#141f2f_50%,#0f2621_100%)] sm:p-6">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">ZeroCrush Platform</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">SmartMonitor Platform</p>
               <button
                 onClick={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
                 className="rounded-full border border-slate-300 bg-white/75 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-white dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-200 dark:hover:bg-slate-900"
@@ -135,7 +102,7 @@ export default function HomePage() {
               One home screen for discovery and secure access.
             </h1>
             <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600 dark:text-slate-300 sm:text-base">
-              ZeroCrush monitors crowd behavior, stream quality, and incident risk in one control layer. Explore what the platform does, then sign in on this same page to enter your live workspace.
+              SmartMonitor monitors crowd behavior, stream quality, and incident risk in one control layer. Explore what the platform does, then sign in on this same page to enter your live workspace.
             </p>
 
             <div className="mt-5 flex flex-wrap items-center gap-3">
@@ -203,26 +170,6 @@ export default function HomePage() {
                 {loading ? 'Authenticating...' : 'Unlock Dashboard'}
               </button>
             </form>
-
-            <div className="mt-4 rounded-[1.35rem] border border-dashed border-amber-400/70 bg-amber-50/80 p-4 dark:border-amber-500/40 dark:bg-amber-950/20">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-amber-700 dark:text-amber-300">Temporary bootstrap</p>
-                  <p className="mt-1 text-xs leading-5 text-amber-950/80 dark:text-amber-100/80">
-                    Creates demo rows in the current Prisma tables and loads admin credentials into the form.
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleBootstrap}
-                  disabled={bootstrapping}
-                  className="h-11 rounded-2xl border-amber-400/70 bg-white/80 px-4 text-xs font-semibold uppercase tracking-[0.12em] text-amber-950 hover:bg-amber-100 dark:border-amber-500/40 dark:bg-amber-950/20 dark:text-amber-100 dark:hover:bg-amber-950/40"
-                >
-                  {bootstrapping ? 'Bootstrapping...' : 'Create temp rows'}
-                </Button>
-              </div>
-            </div>
 
             <div className="mt-5 grid grid-cols-2 gap-3">
               <div className="rounded-2xl border border-slate-300/70 bg-white/75 px-3 py-2 dark:border-slate-700 dark:bg-[#111111]/75">

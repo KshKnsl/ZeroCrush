@@ -7,7 +7,7 @@ import { Activity, Camera, Link2, MonitorPlay, Play, ShieldAlert, ShieldCheck, S
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { backendUrl, getConfig, websocketUrl } from '@/lib/api';
+import { getConfig, useBackendUrl, websocketUrl } from '@/lib/api';
 import { toast } from 'sonner';
 
 type SourceMode = string;
@@ -45,6 +45,7 @@ const riskConfig = {
 const initialRisk = 'LOW' as const;
 
 export default function LiveMonitoring() {
+  const apiUrl = useBackendUrl();
   const [sourceMode, setSourceMode] = useState<SourceMode>('webcam');
   const [pipelineStatus, setPipelineStatus] = useState<PipelineStatus>('idle');
   const [pipelineError, setPipelineError] = useState<string | null>(null);
@@ -406,7 +407,7 @@ export default function LiveMonitoring() {
       const formData = new FormData();
       formData.append('file', file);
 
-      const uploadResponse = await fetch(`${backendUrl()}/api/upload`, {
+      const uploadResponse = await fetch(`${apiUrl}/api/upload`, {
         method: 'POST',
         body: formData,
       });
@@ -480,6 +481,10 @@ export default function LiveMonitoring() {
   }, []);
 
   useEffect(() => {
+    resetSession();
+  }, [apiUrl]);
+
+  useEffect(() => {
     const onResize = () => refreshOverlayGeometry();
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
@@ -507,7 +512,7 @@ export default function LiveMonitoring() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [apiUrl]);
 
   const overlayPoints = zonePoints
     .map((point) => framePointToOverlay(point))
@@ -647,7 +652,7 @@ export default function LiveMonitoring() {
               </Button>
               <div className="ml-auto flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                 <MonitorPlay className="h-4 w-4 text-slate-600 dark:text-slate-300" />
-                Backend: {backendUrl()}
+                Backend: {apiUrl}
               </div>
             </div>
 

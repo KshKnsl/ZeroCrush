@@ -2,9 +2,9 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'ZeroCrush',
-    short_name: 'ZeroCrush',
-    description: 'ZeroCrush operations dashboard',
+    name: 'SmartMonitor',
+    short_name: 'SmartMonitor',
+    description: 'SmartMonitor operations dashboard',
     start_url: '/',
     scope: '/',
     display: 'standalone',

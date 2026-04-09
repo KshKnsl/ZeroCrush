@@ -18,7 +18,6 @@ export default function UsersManagement() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Create user form
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -27,7 +26,7 @@ export default function UsersManagement() {
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch('/api/users');
+      const res = await fetch('/api/users', { credentials: 'include' });
       const data = await res.json();
       if (data.users) setUsers(data.users);
     } catch (err) {
@@ -50,6 +49,7 @@ export default function UsersManagement() {
     try {
       const res = await fetch('/api/users', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, password, role }),
       });
@@ -76,7 +76,7 @@ export default function UsersManagement() {
     if (!confirm('Are you sure you want to delete this user?')) return;
     const toastId = toast.loading('Revoking account...');
     try {
-      const res = await fetch(`/api/users?id=${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/users?id=${id}`, { method: 'DELETE', credentials: 'include' });
       if (!res.ok) {
         throw new Error('Failed to revoke account');
       }
@@ -107,7 +107,7 @@ export default function UsersManagement() {
             </div>
             <div>
               <label className="mb-1 block text-xs tracking-wider text-slate-500 uppercase dark:text-slate-400">Email Address</label>
-              <Input value={email} onChange={e => setEmail(e.target.value)} type="email" required className="dark:bg-[#151515] dark:border-slate-800 bg-slate-50" placeholder="user@zerocrush.io" />
+              <Input value={email} onChange={e => setEmail(e.target.value)} type="email" required className="dark:bg-[#151515] dark:border-slate-800 bg-slate-50" placeholder="user@gmail.com" />
             </div>
             <div>
               <label className="mb-1 block text-xs tracking-wider text-slate-500 uppercase dark:text-slate-400">Password</label>

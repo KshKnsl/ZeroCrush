@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192" role="img" aria-label="ZeroCrush icon 192">
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192" role="img" aria-label="SmartMonitor icon 192">
   <defs>
     <linearGradient id="zcBg192" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0%" stop-color="#0b1220" />
@@ -16,5 +16,5 @@
   <path d="M52 126 L90 84 L112 106 L140 68" fill="none" stroke="url(#zcMark192)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" />
   <circle cx="140" cy="68" r="10" fill="#d9f99d" />
 
-  <text x="96" y="156" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="700" fill="#d1d5db">ZC</text>
+  <text x="96" y="156" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" fill="#d1d5db">SM</text>
 </svg>

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { RotateCcw, Save, Settings, SlidersHorizontal } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { backendUrl } from '@/lib/api';
+import { LOCAL_BACKEND_URL, setBackendMode, useBackendUrl } from '@/lib/api';
 import { toast } from 'sonner';
 
 type ConfigValue = string | number | boolean | null | ConfigValue[] | { [key: string]: ConfigValue };
@@ -61,13 +61,35 @@ const parseEditedValue = (baseValue: ConfigValue, draftValue: string): ConfigVal
 };
 
 export default function SettingsPanel() {
-  const apiUrl = backendUrl();
+  const apiUrl = useBackendUrl();
   const [schema, setSchema] = useState<SettingsSchema | null>(null);
   const [config, setConfig] = useState<Record<string, ConfigValue>>({});
   const [defaultConfig, setDefaultConfig] = useState<Record<string, ConfigValue>>({});
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const mode = apiUrl === LOCAL_BACKEND_URL ? 'headded' : 'headless';
+
+  const handleModeChange = (nextMode: 'headded' | 'headless') => {
+    setBackendMode(nextMode);
+    toast.success(`Mode set to ${nextMode}.`);
+  };
+
+  const persistConfig = async (nextConfig: Record<string, ConfigValue>, loadingText: string, successText: string) => {
+    setSaving(true);
+    const toastId = toast.loading(loadingText);
+
+    await fetch(`${apiUrl}/api/config`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(nextConfig),
+    });
+
+    setConfig(nextConfig);
+    setDraft({});
+    toast.success(successText, { id: toastId });
+    setSaving(false);
+  };
 
   useEffect(() => {
     const fetchConfig = async () => {
@@ -101,41 +123,17 @@ export default function SettingsPanel() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
-    const toastId = toast.loading('Saving runtime settings...');
-
     const payload: Record<string, ConfigValue> = {};
     for (const key of Object.keys(defaultConfig)) {
       const baseValue = key in config ? config[key] : defaultConfig[key];
       payload[key] = parseEditedValue(baseValue, draft[key] ?? '');
     }
 
-    await fetch(`${apiUrl}/api/config`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-
-    setConfig(payload);
-    setDraft({});
-    toast.success('Settings saved.', { id: toastId });
-    setSaving(false);
+    await persistConfig(payload, 'Saving runtime settings...', 'Settings saved.');
   };
 
   const handleReset = async () => {
-    setSaving(true);
-    const toastId = toast.loading('Resetting to frontend defaults...');
-
-    await fetch(`${apiUrl}/api/config`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(defaultConfig),
-    });
-
-    setConfig(defaultConfig);
-    setDraft({});
-    toast.success('Settings reset to defaults.', { id: toastId });
-    setSaving(false);
+    await persistConfig(defaultConfig, 'Resetting to frontend defaults...', 'Settings reset to defaults.');
   };
 
   if (loading) {
@@ -202,6 +200,26 @@ export default function SettingsPanel() {
             <span>{settingsKeys.length} settings detected</span>
           </div>
         </div>
+      </div>
+
+      <div className="relative mb-6 border border-slate-300 bg-white/90 p-4 dark:border-slate-700 dark:bg-[#0f1724]/80">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-400">Backend mode</p>
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Headded uses localhost:8000. Headless uses the environment backend.</p>
+          </div>
+          <div className="min-w-56">
+            <select
+              value={mode}
+              onChange={(e) => handleModeChange(e.target.value as 'headded' | 'headless')}
+              className="h-11 w-full border border-slate-300 bg-slate-50 px-3 text-sm font-semibold text-slate-900 focus:border-slate-500 focus:outline-none dark:border-slate-700 dark:bg-[#0f1724] dark:text-slate-100"
+            >
+              <option value="headded">Headded</option>
+              <option value="headless">Headless</option>
+            </select>
+          </div>
+        </div>
+        <p className="mt-3 font-mono text-xs break-all text-slate-500 dark:text-slate-400">{apiUrl}</p>
       </div>
 
       <form onSubmit={handleSave} className="relative space-y-6">

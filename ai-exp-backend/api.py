@@ -679,16 +679,46 @@ async def websocket_stream(websocket: WebSocket):
 
 
 @app.get("/api/sessions")
-async def api_sessions() -> dict[str, list[str]]:
+async def api_sessions() -> dict[str, Any]:
 	if not os.path.isdir(LOG_DIR):
-		return {"sessions": []}
+		return {"sessions": [], "items": []}
 	names = [
 		name
 		for name in sorted(os.listdir(LOG_DIR), reverse=True)
 		if os.path.isdir(os.path.join(LOG_DIR, name))
 	]
-	return {"sessions": names}
 
+	items: list[dict[str, Any]] = []
+	for name in names:
+		session_dir = os.path.join(LOG_DIR, name)
+		meta_path = os.path.join(session_dir, "video_data.json")
+		start_time = None
+		end_time = None
+		if os.path.isfile(meta_path):
+			try:
+				with open(meta_path, "r", encoding="utf-8") as f:
+					meta = json.load(f)
+				start_time = meta.get("START_TIME")
+				end_time = meta.get("END_TIME")
+			except Exception:
+				pass
+
+		updated_at = None
+		try:
+			updated_at = datetime.datetime.fromtimestamp(os.path.getmtime(session_dir)).isoformat()
+		except OSError:
+			pass
+
+		items.append(
+			{
+				"id": name,
+				"start_time": start_time,
+				"end_time": end_time,
+				"updated_at": updated_at,
+			}
+		)
+
+	return {"sessions": names, "items": items}
 
 @app.get("/api/analytics/tracks-image")
 async def api_tracks_image(session: Optional[str] = None) -> FileResponse:
