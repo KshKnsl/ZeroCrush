@@ -116,8 +116,6 @@ export default function HomePage() {
     }
   };
 
-  const showBootstrap = process.env.NODE_ENV !== 'production';
-
   return (
     <div className="min-h-dvh px-4 py-5 transition-colors sm:px-6 sm:py-8">
       <div className="mx-auto grid w-full max-w-6xl gap-5 xl:grid-cols-[1.15fr_0.85fr]">
@@ -206,27 +204,25 @@ export default function HomePage() {
               </button>
             </form>
 
-            {showBootstrap ? (
-              <div className="mt-4 rounded-[1.35rem] border border-dashed border-amber-400/70 bg-amber-50/80 p-4 dark:border-amber-500/40 dark:bg-amber-950/20">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-amber-700 dark:text-amber-300">Temporary bootstrap</p>
-                    <p className="mt-1 text-xs leading-5 text-amber-950/80 dark:text-amber-100/80">
-                      Creates demo rows in the current Prisma tables and loads admin credentials into the form.
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleBootstrap}
-                    disabled={bootstrapping}
-                    className="h-11 rounded-2xl border-amber-400/70 bg-white/80 px-4 text-xs font-semibold uppercase tracking-[0.12em] text-amber-950 hover:bg-amber-100 dark:border-amber-500/40 dark:bg-amber-950/20 dark:text-amber-100 dark:hover:bg-amber-950/40"
-                  >
-                    {bootstrapping ? 'Bootstrapping...' : 'Create temp rows'}
-                  </Button>
+            <div className="mt-4 rounded-[1.35rem] border border-dashed border-amber-400/70 bg-amber-50/80 p-4 dark:border-amber-500/40 dark:bg-amber-950/20">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-amber-700 dark:text-amber-300">Temporary bootstrap</p>
+                  <p className="mt-1 text-xs leading-5 text-amber-950/80 dark:text-amber-100/80">
+                    Creates demo rows in the current Prisma tables and loads admin credentials into the form.
+                  </p>
                 </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleBootstrap}
+                  disabled={bootstrapping}
+                  className="h-11 rounded-2xl border-amber-400/70 bg-white/80 px-4 text-xs font-semibold uppercase tracking-[0.12em] text-amber-950 hover:bg-amber-100 dark:border-amber-500/40 dark:bg-amber-950/20 dark:text-amber-100 dark:hover:bg-amber-950/40"
+                >
+                  {bootstrapping ? 'Bootstrapping...' : 'Create temp rows'}
+                </Button>
               </div>
-            ) : null}
+            </div>
 
             <div className="mt-5 grid grid-cols-2 gap-3">
               <div className="rounded-2xl border border-slate-300/70 bg-white/75 px-3 py-2 dark:border-slate-700 dark:bg-[#111111]/75">
