@@ -92,33 +92,57 @@ export default function SettingsPanel() {
   };
 
   useEffect(() => {
+    let cancelled = false;
+
     const fetchConfig = async () => {
-      const [configRes, schemaRes] = await Promise.all([
-        fetch(`${apiUrl}/api/config`),
-        fetch('/settings.json', { cache: 'no-store' }),
-      ]);
+      setLoading(true);
 
-      const configData = (await configRes.json()) as Record<string, ConfigValue>;
-      const loadedSchema = (await schemaRes.json()) as SettingsSchema;
+      try {
+        const schemaRes = await fetch('/settings.json', { cache: 'no-store' });
+        if (!schemaRes.ok) throw new Error(`Failed to load settings schema (${schemaRes.status})`);
 
-      const defaultsData: Record<string, ConfigValue> = {};
-      for (const [key, meta] of Object.entries(loadedSchema.settings ?? {})) {
-        if (/^[A-Z_]+$/.test(key)) defaultsData[key] = meta.default;
+        const loadedSchema = (await schemaRes.json()) as SettingsSchema;
+        const defaultsData: Record<string, ConfigValue> = {};
+        for (const [key, meta] of Object.entries(loadedSchema.settings ?? {})) {
+          if (/^[A-Z_]+$/.test(key)) defaultsData[key] = meta.default;
+        }
+
+        let configData: Record<string, ConfigValue> = {};
+        try {
+          const configRes = await fetch(`${apiUrl}/api/config`);
+          if (!configRes.ok) throw new Error(`Failed to load runtime config (${configRes.status})`);
+          configData = (await configRes.json()) as Record<string, ConfigValue>;
+        } catch (configError) {
+          configData = defaultsData;
+        }
+
+        const nextConfig: Record<string, ConfigValue> = {};
+        for (const key of Object.keys(defaultsData)) {
+          nextConfig[key] = key in configData ? configData[key] : defaultsData[key];
+        }
+
+        if (!cancelled) {
+          setSchema(loadedSchema);
+          setDefaultConfig(defaultsData);
+          setConfig(nextConfig);
+          setDraft({});
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setSchema(null);
+          setDefaultConfig({});
+          setConfig({});
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-
-      const nextConfig: Record<string, ConfigValue> = {};
-      for (const key of Object.keys(defaultsData)) {
-        nextConfig[key] = key in configData ? configData[key] : defaultsData[key];
-      }
-
-      setSchema(loadedSchema);
-      setDefaultConfig(defaultsData);
-      setConfig(nextConfig);
-      setDraft({});
-      setLoading(false);
     };
 
     fetchConfig();
+
+    return () => {
+      cancelled = true;
+    };
   }, [apiUrl]);
 
   const handleSave = async (e: React.FormEvent) => {
@@ -136,30 +160,22 @@ export default function SettingsPanel() {
     await persistConfig(defaultConfig, 'Resetting to frontend defaults...', 'Settings reset to defaults.');
   };
 
-  if (loading) {
-    return (
-      <div className="space-y-4 rounded-3xl border border-slate-300 bg-slate-50 p-5 dark:border-slate-700 dark:bg-[#141b25]">
-        <div className="h-4 w-44 animate-pulse rounded-full bg-slate-200 dark:bg-slate-700" />
-        <div className="h-20 animate-pulse rounded-2xl bg-slate-200/80 dark:bg-slate-800/70" />
-        <div className="h-20 animate-pulse rounded-2xl bg-slate-200/80 dark:bg-slate-800/70" />
-      </div>
-    );
-  }
+  const categoryDescription = Object.fromEntries((schema?.categories ?? []).map((c) => [c.id, c.description])) as Record<string, string>;
 
-  if (!schema) return null;
+  const settingsKeys = schema
+    ? Object.keys(config)
+        .filter((k) => /^[A-Z_]+$/.test(k))
+        .filter((key) => key in schema.settings)
+    : [];
 
-  const categoryDescription = Object.fromEntries((schema.categories ?? []).map((c) => [c.id, c.description])) as Record<string, string>;
-
-  const settingsKeys = Object.keys(config)
-    .filter((k) => /^[A-Z_]+$/.test(k))
-    .filter((key) => key in schema.settings);
-
-  const groupedSettings = [...schema.categories.map((category) => category.id), 'Other']
-    .map((category) => {
-      const keys = settingsKeys.filter((key) => (schema.settings[key]?.category ?? 'Other') === category);
-      return { category, keys };
-    })
-    .filter((group) => group.keys.length > 0);
+  const groupedSettings = schema
+    ? [...schema.categories.map((category) => category.id), 'Other']
+        .map((category) => {
+          const keys = settingsKeys.filter((key) => (schema.settings[key]?.category ?? 'Other') === category);
+          return { category, keys };
+        })
+        .filter((group) => group.keys.length > 0)
+    : [];
 
   const leftColumn: typeof groupedSettings = [];
   const rightColumn: typeof groupedSettings = [];
@@ -177,32 +193,8 @@ export default function SettingsPanel() {
   }
 
   return (
-    <section className="relative overflow-hidden border border-slate-300 bg-[linear-gradient(140deg,#f7f9fc,#eef2f7)] p-6 dark:border-slate-700 dark:bg-[linear-gradient(140deg,#0f141b,#17202b)] sm:p-8">
-      <div className="pointer-events-none absolute inset-0 opacity-40 bg-[linear-gradient(rgba(15,23,42,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.04)_1px,transparent_1px)] bg-size-[26px_26px] dark:bg-[linear-gradient(rgba(148,163,184,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.08)_1px,transparent_1px)]" />
-
-      <div className="relative mb-8 flex flex-col gap-4 border-b border-slate-200/80 pb-6 dark:border-slate-700/60 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-4">
-          <div className="border border-emerald-500/45 bg-emerald-200/70 p-3 text-emerald-950 dark:border-emerald-700/55 dark:bg-emerald-950/35 dark:text-emerald-200">
-            <Settings className="h-6 w-6" />
-          </div>
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-400">Pipeline control center</p>
-            <h2 className="mt-1 text-2xl font-semibold text-slate-900 dark:text-white">System Settings Matrix</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
-              Settings metadata and defaults are loaded from one schema file, then only key/value runtime settings are sent to backend.
-            </p>
-          </div>
-        </div>
-
-        <div className="border border-emerald-500/40 bg-emerald-100/60 px-4 py-3 text-xs text-emerald-950 dark:border-emerald-700/50 dark:bg-emerald-950/30 dark:text-emerald-200">
-          <div className="flex items-center gap-2">
-            <SlidersHorizontal className="h-3.5 w-3.5 text-emerald-900 dark:text-emerald-200" />
-            <span>{settingsKeys.length} settings detected</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="relative mb-6 border border-slate-300 bg-white/90 p-4 dark:border-slate-700 dark:bg-[#0f1724]/80">
+    <div className="space-y-4">
+      <div className="relative overflow-hidden border border-slate-300 bg-white/90 p-4 dark:border-slate-700 dark:bg-[#0f1724]/80">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-400">Backend mode</p>
@@ -222,7 +214,41 @@ export default function SettingsPanel() {
         <p className="mt-3 font-mono text-xs break-all text-slate-500 dark:text-slate-400">{apiUrl}</p>
       </div>
 
-      <form onSubmit={handleSave} className="relative space-y-6">
+      <section className="relative overflow-hidden border border-slate-300 bg-[linear-gradient(140deg,#f7f9fc,#eef2f7)] p-6 dark:border-slate-700 dark:bg-[linear-gradient(140deg,#0f141b,#17202b)] sm:p-8">
+        <div className="pointer-events-none absolute inset-0 opacity-40 bg-[linear-gradient(rgba(15,23,42,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.04)_1px,transparent_1px)] bg-size-[26px_26px] dark:bg-[linear-gradient(rgba(148,163,184,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.08)_1px,transparent_1px)]" />
+
+        <div className="relative mb-8 flex flex-col gap-4 border-b border-slate-200/80 pb-6 dark:border-slate-700/60 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-4">
+          <div className="border border-emerald-500/45 bg-emerald-200/70 p-3 text-emerald-950 dark:border-emerald-700/55 dark:bg-emerald-950/35 dark:text-emerald-200">
+            <Settings className="h-6 w-6" />
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-400">Pipeline control center</p>
+            <h2 className="mt-1 text-2xl font-semibold text-slate-900 dark:text-white">System Settings Matrix</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
+              Settings metadata and defaults are loaded from one schema file, then only key/value runtime settings are sent to backend.
+            </p>
+          </div>
+        </div>
+
+        <div className="border border-emerald-500/40 bg-emerald-100/60 px-4 py-3 text-xs text-emerald-950 dark:border-emerald-700/50 dark:bg-emerald-950/30 dark:text-emerald-200">
+          <div className="flex items-center gap-2">
+            <SlidersHorizontal className="h-3.5 w-3.5 text-emerald-900 dark:text-emerald-200" />
+            <span>{settingsKeys.length} settings detected</span>
+          </div>
+        </div>
+        </div>
+
+        <form onSubmit={handleSave} className="relative space-y-6">
+        {loading ? (
+          <div className="space-y-4 rounded-3xl border border-slate-300 bg-slate-50 p-5 dark:border-slate-700 dark:bg-[#141b25]">
+            <div className="h-4 w-44 animate-pulse rounded-full bg-slate-200 dark:bg-slate-700" />
+            <div className="h-20 animate-pulse rounded-2xl bg-slate-200/80 dark:bg-slate-800/70" />
+            <div className="h-20 animate-pulse rounded-2xl bg-slate-200/80 dark:bg-slate-800/70" />
+          </div>
+        ) : null}
+
+        {!schema ? null : (
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
           {[leftColumn, rightColumn].map((column, columnIndex) => (
             <div key={`settings-col-${columnIndex}`} className="space-y-6">
@@ -291,8 +317,9 @@ export default function SettingsPanel() {
             </div>
           ))}
         </div>
+        )}
 
-        <div className="sticky bottom-0 z-20 -mx-6 border-t border-slate-200/80 bg-white/90 px-6 py-4 backdrop-blur dark:border-slate-700/70 dark:bg-[#0f141b]/90 sm:-mx-8 sm:px-8">
+          <div className="sticky bottom-0 z-20 -mx-6 border-t border-slate-200/80 bg-white/90 px-6 py-4 backdrop-blur dark:border-slate-700/70 dark:bg-[#0f141b]/90 sm:-mx-8 sm:px-8">
           <div className="flex flex-wrap items-center justify-end gap-3">
             <Button type="button" variant="outline" onClick={handleReset} disabled={saving} className="h-11 px-5 rounded-2xl">
               <RotateCcw className="mr-2 h-4 w-4" />
@@ -306,8 +333,9 @@ export default function SettingsPanel() {
               {saving ? 'Saving...' : <><Save className="mr-2 h-4 w-4" />Save Settings</>}
             </Button>
           </div>
-        </div>
-      </form>
-    </section>
+          </div>
+        </form>
+      </section>
+    </div>
   );
 }
