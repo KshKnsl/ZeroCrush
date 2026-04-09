@@ -32,10 +32,6 @@ const INCIDENT_SEEDS = [
 ] as const;
 
 export async function POST() {
-  if (process.env.NODE_ENV === 'production') {
-    return NextResponse.json({ message: 'Bootstrap is disabled in production.' }, { status: 403 });
-  }
-
   try {
     const admin = await prisma.user.upsert({
       where: { email: ADMIN_EMAIL },
