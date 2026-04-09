@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { signIn, useSession } from 'next-auth/react';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { ArrowDownRight, BellRing, Radar, Shield } from 'lucide-react';
 
@@ -32,6 +33,7 @@ export default function HomePage() {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [loading, setLoading] = useState(false);
+  const [bootstrapping, setBootstrapping] = useState(false);
   const [theme, setTheme] = useState<string>('light');
 
   useEffect(() => {
@@ -83,6 +85,39 @@ export default function HomePage() {
     }
   };
 
+  const handleBootstrap = async () => {
+    setBootstrapping(true);
+    const toastId = toast.loading('Creating temp database rows...');
+
+    try {
+      const response = await fetch('/api/dev/bootstrap', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const payload = (await response.json().catch(() => null)) as
+        | { message?: string; adminCredentials?: { email: string; password: string } }
+        | null;
+
+      if (!response.ok) {
+        throw new Error(payload?.message ?? 'Bootstrap failed.');
+      }
+
+      const adminEmail = payload?.adminCredentials?.email ?? 'admin@gmail.com';
+      const adminPassword = payload?.adminCredentials?.password ?? 'admin123';
+      setEmail(adminEmail);
+      setPassword(adminPassword);
+
+      toast.success('Database seeded. Admin credentials loaded into the form.', { id: toastId });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Bootstrap failed.', { id: toastId });
+    } finally {
+      setBootstrapping(false);
+    }
+  };
+
+  const showBootstrap = process.env.NODE_ENV !== 'production';
+
   return (
     <div className="min-h-dvh px-4 py-5 transition-colors sm:px-6 sm:py-8">
       <div className="mx-auto grid w-full max-w-6xl gap-5 xl:grid-cols-[1.15fr_0.85fr]">
@@ -114,7 +149,6 @@ export default function HomePage() {
                 Enter with account
                 <ArrowDownRight className="h-3.5 w-3.5" />
               </button>
-              <p className="text-xs text-slate-500 dark:text-slate-400">No route switch required. Landing and login are unified.</p>
             </div>
 
             <div className="mt-6 grid gap-3 sm:grid-cols-3">
@@ -171,6 +205,28 @@ export default function HomePage() {
                 {loading ? 'Authenticating...' : 'Unlock Dashboard'}
               </button>
             </form>
+
+            {showBootstrap ? (
+              <div className="mt-4 rounded-[1.35rem] border border-dashed border-amber-400/70 bg-amber-50/80 p-4 dark:border-amber-500/40 dark:bg-amber-950/20">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-amber-700 dark:text-amber-300">Temporary bootstrap</p>
+                    <p className="mt-1 text-xs leading-5 text-amber-950/80 dark:text-amber-100/80">
+                      Creates demo rows in the current Prisma tables and loads admin credentials into the form.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleBootstrap}
+                    disabled={bootstrapping}
+                    className="h-11 rounded-2xl border-amber-400/70 bg-white/80 px-4 text-xs font-semibold uppercase tracking-[0.12em] text-amber-950 hover:bg-amber-100 dark:border-amber-500/40 dark:bg-amber-950/20 dark:text-amber-100 dark:hover:bg-amber-950/40"
+                  >
+                    {bootstrapping ? 'Bootstrapping...' : 'Create temp rows'}
+                  </Button>
+                </div>
+              </div>
+            ) : null}
 
             <div className="mt-5 grid grid-cols-2 gap-3">
               <div className="rounded-2xl border border-slate-300/70 bg-white/75 px-3 py-2 dark:border-slate-700 dark:bg-[#111111]/75">
