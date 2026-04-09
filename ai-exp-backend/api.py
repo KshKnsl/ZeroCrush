@@ -17,41 +17,10 @@ from typing import Any, Optional
 import cv2
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-import numpy as np
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
-
-import queue
-class VirtualVideoCapture:
-	def __init__(self):
-		self.frame_queue = queue.Queue(maxsize=1)
-		self.fps = 30.0
-		self.opened = True
-
-	def get(self, propId):
-		if propId == cv2.CAP_PROP_FPS:
-			return self.fps
-		if propId == cv2.CAP_PROP_FRAME_COUNT:
-			return -1
-		return 0
-
-	def read(self):
-		try:
-			frame = self.frame_queue.get(timeout=2.0)
-			return True, frame
-		except queue.Empty:
-			return False, None
-
-	def release(self):
-		self.opened = False
-
-	def isOpened(self):
-		return self.opened
-
-
-virtual_caps = {}
 
 latest_frame: Optional[bytes] = None
 latest_frame_lock = threading.Lock()
@@ -249,21 +218,15 @@ def _process_single_video(
 		raise ValueError("Frame width is too small! You won't see anything")
 
 	is_cam = is_realtime
-	
-	if video_source == "browser":
-		cap = virtual_caps.get("browser")
-		if cap is None:
-			cap = VirtualVideoCapture()
-			virtual_caps["browser"] = cap
-	else:
-		cap = cv2.VideoCapture(video_source)
-		if not cap.isOpened() and is_cam:
-			# Try common Windows camera backends if the default fails
-			cap = cv2.VideoCapture(video_source, cv2.CAP_DSHOW)
-		if not cap.isOpened() and is_cam:
-			cap = cv2.VideoCapture(video_source, cv2.CAP_MSMF)
-		if not cap.isOpened():
-			raise RuntimeError(f"Unable to open video source: {video_source}")
+
+	cap = cv2.VideoCapture(video_source)
+	if not cap.isOpened() and is_cam:
+		# Try common Windows camera backends if the default fails
+		cap = cv2.VideoCapture(video_source, cv2.CAP_DSHOW)
+	if not cap.isOpened() and is_cam:
+		cap = cv2.VideoCapture(video_source, cv2.CAP_MSMF)
+	if not cap.isOpened():
+		raise RuntimeError(f"Unable to open video source: {video_source}")
 
 	video_stem = _safe_stem(video_source)
 	log_dir = str(active_settings.get("LOG_DIR", LOG_DIR))
@@ -405,13 +368,6 @@ async def api_start(body: StartBody) -> dict[str, str]:
 		latest_frame = None
 	_set_status("running", None)
 	source = body.source.strip()
-	
-	if "browser" in virtual_caps:
-		virtual_caps["browser"].opened = False
-		virtual_caps.pop("browser", None)
-	
-	if source == "browser":
-		virtual_caps["browser"] = VirtualVideoCapture()
 
 	def run() -> None:
 		global session_start_time
@@ -420,15 +376,6 @@ async def api_start(body: StartBody) -> dict[str, str]:
 			if source.lower() == "webcam":
 				_process_single_video(
 					0,
-					is_realtime=True,
-					frame_callback=_frame_callback,
-					stop_event=stop_event,
-					headless=True,
-					graph_headless=True,
-				)
-			elif source.lower() == "browser":
-				_process_single_video(
-					"browser",
 					is_realtime=True,
 					frame_callback=_frame_callback,
 					stop_event=stop_event,
@@ -604,14 +551,7 @@ async def websocket_stream(websocket: WebSocket):
 				if action == "start":
 					try:
 						source = str(payload.get("source", "")).strip().lower()
-						if source == "browser":
-							if "browser" in virtual_caps:
-								virtual_caps["browser"].opened = False
-								virtual_caps.pop("browser", None)
-							virtual_caps["browser"] = VirtualVideoCapture()
-							_start_pipeline("browser", True)
-							session_source = "browser"
-						elif source == "webcam":
+						if source == "webcam":
 							_start_pipeline(0, True)
 							session_source = "webcam"
 						elif source in {"file", "video", "mp4"}:
@@ -659,16 +599,7 @@ async def websocket_stream(websocket: WebSocket):
 					await websocket.send_text(json.dumps({"type": "status", **_snapshot_status()}))
 
 			elif message.get("bytes") is not None:
-				data = message["bytes"]
-				if session_source == "browser" and status_state == "running" and "browser" in virtual_caps:
-					np_arr = np.frombuffer(data, np.uint8)
-					frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-					if frame is not None:
-						try:
-							if not virtual_caps["browser"].frame_queue.full():
-								virtual_caps["browser"].frame_queue.put_nowait(frame)
-						except queue.Empty:
-							pass
+				await websocket.send_text(json.dumps({"type": "error", "message": "Binary frame upload is not supported. Use webcam, MP4, or RTSP backend sources."}))
 	except WebSocketDisconnect:
 		pass
 	except Exception as e:

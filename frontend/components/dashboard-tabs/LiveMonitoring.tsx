@@ -65,13 +65,9 @@ export default function LiveMonitoring() {
   const [overlayGeometry, setOverlayGeometry] = useState<OverlayGeometry | null>(null);
   const { color: riskColor, bg: riskBg, border: riskBorder, Icon: RiskIcon } = riskConfig[riskLevel as keyof typeof riskConfig] ?? riskConfig.LOW;
 
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const imageWrapRef = useRef<HTMLDivElement>(null);
   const websocketRef = useRef<WebSocket | null>(null);
-  const mediaStreamRef = useRef<MediaStream | null>(null);
-  const frameLoopRef = useRef<number | null>(null);
   const wsFrameRef = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastErrorToastRef = useRef('');
@@ -92,22 +88,6 @@ export default function LiveMonitoring() {
     setWsFrame(null);
   };
 
-  const stopCamera = () => {
-    if (frameLoopRef.current !== null) {
-      window.cancelAnimationFrame(frameLoopRef.current);
-      frameLoopRef.current = null;
-    }
-
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach((track) => track.stop());
-      mediaStreamRef.current = null;
-    }
-
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-  };
-
   const closeSocket = () => {
     if (websocketRef.current) {
       websocketRef.current.close();
@@ -117,7 +97,6 @@ export default function LiveMonitoring() {
   };
 
   const resetSession = () => {
-    stopCamera();
     closeSocket();
     clearFrame();
     setStreamReady(false);
@@ -353,50 +332,14 @@ export default function LiveMonitoring() {
     });
   };
 
-  const startBrowserStream = async () => {
-    const socket = websocketRef.current ?? attachWebSocket();
-    await waitForSocketOpen(socket);
-
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-    mediaStreamRef.current = stream;
-
-    if (videoRef.current) {
-      videoRef.current.srcObject = stream;
-      await videoRef.current.play();
-    }
-
-    const sendFrame = () => {
-      const activeSocket = websocketRef.current;
-      if (!activeSocket || activeSocket.readyState !== WebSocket.OPEN) {
-        return;
-      }
-
-      if (videoRef.current && canvasRef.current) {
-        const context = canvasRef.current.getContext('2d');
-        if (context) {
-          const width = videoRef.current.videoWidth || 1280;
-          const height = videoRef.current.videoHeight || 720;
-          canvasRef.current.width = width;
-          canvasRef.current.height = height;
-          context.drawImage(videoRef.current, 0, 0, width, height);
-          canvasRef.current.toBlob((blob) => {
-            if (blob && activeSocket.readyState === WebSocket.OPEN) {
-              activeSocket.send(blob);
-            }
-          }, 'image/jpeg', 0.72);
-        }
-      }
-
-      frameLoopRef.current = window.requestAnimationFrame(sendFrame);
-    };
-
-    socket.send(JSON.stringify({ type: 'start', source: 'browser' }));
-    frameLoopRef.current = window.requestAnimationFrame(sendFrame);
-  };
-
   const startRemoteSource = async () => {
     const socket = websocketRef.current ?? attachWebSocket();
     await waitForSocketOpen(socket);
+
+    if (sourceMode === 'webcam') {
+      socket.send(JSON.stringify({ type: 'start', source: 'webcam' }));
+      return;
+    }
 
     if (sourceMode === 'mp4') {
       const file = fileInputRef.current?.files?.[0];
@@ -444,11 +387,7 @@ export default function LiveMonitoring() {
 
     try {
       resetSession();
-      if (sourceMode === 'webcam') {
-        await startBrowserStream();
-      } else {
-        await startRemoteSource();
-      }
+      await startRemoteSource();
       toast.success('Monitoring session started.', { id: toastId });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to start stream';
@@ -519,7 +458,7 @@ export default function LiveMonitoring() {
     .filter((point): point is Point => point !== null);
   const overlayPolygon = overlayPoints.map((p) => `${p.x},${p.y}`).join(' ');
 
-  const liveLabel = sourceMode === 'webcam' ? 'Laptop webcam' : sourceMode === 'mp4' ? 'MP4 upload' : 'RTSP source';
+  const liveLabel = sourceMode === 'webcam' ? 'Backend camera' : sourceMode === 'mp4' ? 'MP4 upload' : 'RTSP source';
   const frameSource = wsFrame;
 
   return (
@@ -536,9 +475,9 @@ export default function LiveMonitoring() {
               <Waves className="h-3.5 w-3.5" />
               Live monitoring control room
             </p>
-            <h2 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">Choose a source and stream it to the backend over websocket.</h2>
+            <h2 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">Choose a backend source and start monitoring.</h2>
             <p className="mt-3 max-w-xl text-sm leading-6 text-slate-300">
-              Use the laptop webcam for browser capture, upload an MP4 for batch processing, or provide an RTSP URL for a remote camera feed. The backend returns processed frames and live stats in the same websocket session.
+              Frontend only sends source commands. The backend opens webcam, uploaded MP4, or RTSP feed server-side and returns processed frames with live metrics.
             </p>
           </div>
 
@@ -573,7 +512,7 @@ export default function LiveMonitoring() {
               </div>
               <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                 <Camera className="h-4 w-4" />
-                Frames are encoded in the browser and streamed directly to the backend.
+                Frontend controls source selection; backend handles video capture and processing.
               </div>
             </div>
 
@@ -585,7 +524,7 @@ export default function LiveMonitoring() {
                     <SelectValue placeholder="Choose source" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="webcam">Laptop webcam</SelectItem>
+                    <SelectItem value="webcam">Backend camera</SelectItem>
                     <SelectItem value="mp4">Video MP4 upload</SelectItem>
                     <SelectItem value="rtsp">RTSP URL</SelectItem>
                   </SelectContent>
@@ -595,8 +534,8 @@ export default function LiveMonitoring() {
               <div className="space-y-4">
                 {sourceMode === 'webcam' && (
                   <div className="border border-dashed border-slate-400/70 bg-slate-100 p-4 text-sm text-slate-600 dark:border-slate-600 dark:bg-slate-800/30 dark:text-slate-300">
-                    <p className="font-medium text-slate-900 dark:text-white">Browser webcam capture</p>
-                    <p className="mt-1 leading-6">Your laptop camera is captured in the browser, encoded as JPEG frames, and pushed to the backend through the websocket session.</p>
+                    <p className="font-medium text-slate-900 dark:text-white">Backend camera source</p>
+                    <p className="mt-1 leading-6">Starts camera index 0 on the backend host. No raw footage is streamed from this frontend.</p>
                   </div>
                 )}
 
@@ -709,9 +648,6 @@ export default function LiveMonitoring() {
               className="relative aspect-video overflow-hidden bg-black"
               onClick={handleZoneClick}
             >
-              <video ref={videoRef} playsInline muted autoPlay className="hidden" />
-              <canvas ref={canvasRef} className="hidden" />
-
               {pipelineStatus === 'running' ? (
                 <>
                   <img
@@ -819,7 +755,7 @@ export default function LiveMonitoring() {
                 1. Select the source mode in the dropdown.
               </p>
               <p>
-                2. Upload the MP4 or enter the RTSP URL, or allow webcam capture permissions in the browser.
+                2. For camera mode, backend opens local camera index 0. For MP4 or RTSP, frontend only sends file path or URL.
               </p>
               <p>
                 3. The backend streams processed frames and live detection status back through the websocket.
