@@ -5,7 +5,7 @@ import Credentials from 'next-auth/providers/credentials';
 import type { JWT } from 'next-auth/jwt';
 import { getToken } from 'next-auth/jwt';
 import prisma from '@/lib/prisma';
-import { sendLoginMail } from '@/lib/utils';
+import { sendLoginMail } from '@/lib/mailer';
 
 export type UserRole = 'ADMIN' | 'OPERATOR' | 'VIEWER';
 
