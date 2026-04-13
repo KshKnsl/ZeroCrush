@@ -219,8 +219,8 @@ export default function SettingsPanel() {
           <button type="button" onClick={() => setBackendUrlDraft('http://localhost:8000')} className="border border-slate-300 bg-slate-50 px-3 py-1.5 font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-[#0f1724] dark:text-slate-300 dark:hover:bg-[#17202b]">
             Use localhost
           </button>
-          <button type="button" onClick={() => setBackendUrlDraft('http://localhost:8000')} className="border border-slate-300 bg-slate-50 px-3 py-1.5 font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-[#0f1724] dark:text-slate-300 dark:hover:bg-[#17202b]">
-            Use default
+          <button type="button" onClick={() => setBackendUrlDraft('https://knsl-zero-crush-backend.hf.space')} className="border border-slate-300 bg-slate-50 px-3 py-1.5 font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-[#0f1724] dark:text-slate-300 dark:hover:bg-[#17202b]">
+            Use HF Server
           </button>
           <button type="button" onClick={() => setBackendUrlDraft(apiUrl)} className="border border-slate-300 bg-slate-50 px-3 py-1.5 font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-[#0f1724] dark:text-slate-300 dark:hover:bg-[#17202b]">
             Revert

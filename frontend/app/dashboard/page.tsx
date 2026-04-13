@@ -10,6 +10,7 @@ import LiveMonitoring from '@/components/dashboard-tabs/LiveMonitoring';
 import UsersManagement from '@/components/dashboard-tabs/UsersManagement';
 import AnalyticsDashboard from '@/components/dashboard-tabs/AnalyticsDashboard';
 import SettingsPanel from '@/components/dashboard-tabs/SettingsPanel';
+import { useThemeContext } from '@/components/ui/ThemeContext';
 
 const tabs: { id: string; icon: typeof Activity; roles: string[] }[] = [
   { id: 'Live', icon: Activity, roles: ['ADMIN', 'OPERATOR', 'VIEWER'] },
@@ -35,28 +36,20 @@ function DashboardPageContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { data, status } = useSession();
+  const { theme, toggleTheme, ready: themeReady } = useThemeContext();
   const [activeTab, setActiveTab] = useState<string>('Live');
-  const [theme, setTheme] = useState<string>('light');
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
     if (status === 'unauthenticated') return void router.replace('/');
     if (status !== 'authenticated') return;
 
-    const storedTheme = window.localStorage.getItem('theme') as string | null;
     const tabFromUrl = searchParams.get('activeTab') as string;
     if (tabFromUrl) setActiveTab(tabFromUrl);
-    setTheme(storedTheme ?? 'light');
     setIsReady(true);
   }, [router, searchParams, status]);
 
-  useEffect(() => {
-    if (!isReady) return;
-    document.documentElement.classList.toggle('dark', theme === 'dark');
-    window.localStorage.setItem('theme', theme);
-  }, [isReady, theme]);
-
-  if (status === 'loading' || !isReady) return <LoadingShell />;
+  if (status === 'loading' || !isReady || !themeReady) return <LoadingShell />;
   if (status !== 'authenticated') return null;
 
   const role = ((data?.user as { role?: string } | undefined)?.role ?? 'VIEWER') as string;
@@ -76,7 +69,7 @@ function DashboardPageContent() {
     router.replace(`${pathname}?activeTab=${tab}`, { scroll: false });
   };
 
-  const onToggleTheme = () => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  const onToggleTheme = () => toggleTheme();
 
   const handleLogout = async () => {
     await signOut({ redirect: false });

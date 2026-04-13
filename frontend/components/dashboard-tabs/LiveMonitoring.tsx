@@ -6,7 +6,7 @@ import { clsx } from 'clsx';
 import { Activity, Camera, Link2, MonitorPlay, Play, ShieldAlert, ShieldCheck, ShieldX, Square, Upload, Waves } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 
 type StatusPayload = {
@@ -539,91 +539,94 @@ export default function LiveMonitoring(): JSX.Element {
               </div>
             </div>
 
-            <div className="grid gap-5 px-5 py-5 md:grid-cols-[16rem_1fr]">
-              <div className="space-y-2">
-                <label className="text-[10px] font-semibold uppercase tracking-[0.28em] text-slate-400">Mode</label>
-                <Select value={sourceMode} onValueChange={setSourceMode}>
-                  <SelectTrigger className="h-12 w-full border-slate-300 bg-white text-slate-900 dark:border-slate-700 dark:bg-[#101721] dark:text-white">
-                    <SelectValue placeholder="Choose source" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="webcam">Backend camera</SelectItem>
-                    <SelectItem value="mp4">Video MP4 upload</SelectItem>
-                    <SelectItem value="rtsp">RTSP URL</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="px-5 pt-4 pb-5">
+              <Tabs value={sourceMode} onValueChange={setSourceMode} className="w-full">
+                <TabsList variant="line" className="w-full justify-start border-b border-slate-200 dark:border-slate-800 mb-6 pb-0">
+                  <TabsTrigger value="rtsp" className="min-w-28 flex gap-2"><Link2 className="h-4 w-4"/> RTSP Stream</TabsTrigger>
+                  <TabsTrigger value="webcam" className="min-w-28 flex gap-2"><Camera className="h-4 w-4"/> Hardware</TabsTrigger>
+                  <TabsTrigger value="mp4" className="min-w-28 flex gap-2"><Upload className="h-4 w-4"/> Upload</TabsTrigger>
+                </TabsList>
 
-              <div className="space-y-4">
-                {sourceMode === 'webcam' && (
-                  <div className="border border-dashed border-slate-400/70 bg-slate-100 p-4 text-sm text-slate-600 dark:border-slate-600 dark:bg-slate-800/30 dark:text-slate-300">
-                    <p className="font-medium text-slate-900 dark:text-white">Backend camera source</p>
-                    <p className="mt-1 leading-6">Starts camera index 0 on the backend host. No raw footage is streamed from this frontend.</p>
-                  </div>
-                )}
-
-                {sourceMode === 'mp4' && (
-                  <div className="space-y-3 border border-slate-300 bg-white p-4 dark:border-slate-700 dark:bg-[#101721]">
-                    <div className="flex items-center gap-2 text-sm font-medium text-slate-900 dark:text-white">
-                      <Upload className="h-4 w-4 text-slate-700 dark:text-slate-300" />
-                      Upload a video file
-                    </div>
-                    <Input ref={fileInputRef} type="file" accept="video/mp4" className="h-12 border-slate-300 bg-white dark:border-slate-700 dark:bg-[#0f141c]" />
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Selected file: {selectedFileName || 'No MP4 selected yet'}
-                    </p>
-                  </div>
-                )}
-
-                {sourceMode === 'rtsp' && (
-                  <div className="space-y-3 border border-slate-300 bg-white p-4 dark:border-slate-700 dark:bg-[#101721]">
-                    <div className="flex items-center gap-2 text-sm font-medium text-slate-900 dark:text-white">
-                      <Link2 className="h-4 w-4 text-slate-700 dark:text-slate-300" />
-                      RTSP camera URL
+                <TabsContent value="rtsp" className="mt-0 outline-none">
+                  <div className="flex max-w-2xl flex-col gap-3 rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-[#101721]">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-slate-100 dark:bg-slate-800 p-2.5 rounded-md"><Link2 className="h-4 w-4 text-slate-600 dark:text-slate-300" /></div>
+                      <div>
+                        <h4 className="text-sm font-medium text-slate-900 dark:text-white">RTSP URL Stream</h4>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Processed server-side.</p>
+                      </div>
                     </div>
                     <Input
                       value={rtspUrl}
                       onChange={(event) => setRtspUrl(event.target.value)}
                       placeholder="rtsp://user:password@camera-ip:554/stream"
-                      className="h-12 border-slate-300 bg-white font-mono text-sm dark:border-slate-700 dark:bg-[#0f141c]"
+                      className="h-11 mt-2 border-slate-300 bg-slate-50 font-mono text-sm dark:border-slate-700 dark:bg-[#0f141c]"
                     />
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      The URL is sent to the backend, which opens and processes the stream server-side.
-                    </p>
                   </div>
-                )}
-              </div>
+                </TabsContent>
+
+                <TabsContent value="webcam" className="mt-0 outline-none">
+                  <div className="flex max-w-2xl flex-col gap-3 rounded-lg border border-dashed border-slate-300 bg-slate-50/50 p-5 dark:border-slate-700 dark:bg-slate-800/20">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-slate-200 dark:bg-slate-800 p-2.5 rounded-md"><Camera className="h-4 w-4 text-slate-700 dark:text-slate-300" /></div>
+                      <div>
+                        <h4 className="text-sm font-medium text-slate-900 dark:text-white">Backend Camera Stream</h4>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Uses primary camera index 0 on host device.</p>
+                      </div>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="mp4" className="mt-0 outline-none">
+                  <div className="flex max-w-2xl flex-col gap-3 rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-[#101721]">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-slate-100 dark:bg-slate-800 p-2.5 rounded-md"><Upload className="h-4 w-4 text-slate-600 dark:text-slate-300" /></div>
+                      <div>
+                        <h4 className="text-sm font-medium text-slate-900 dark:text-white">Upload Pre-recorded Video</h4>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Select MP4 file to run through pipeline.</p>
+                      </div>
+                    </div>
+                    <Input ref={fileInputRef} type="file" accept="video/mp4" className="h-11 mt-2 border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-[#0f141c] hover:bg-slate-100 dark:hover:bg-[#141b25] transition-colors cursor-pointer" />
+                    {selectedFileName && (
+                      <p className="px-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                        Selected: {selectedFileName}
+                      </p>
+                    )}
+                  </div>
+                </TabsContent>
+              </Tabs>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 px-5 py-5 dark:border-slate-800">
+            <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 px-5 py-4 dark:border-slate-800 bg-slate-100/50 dark:bg-[#101721]/50">
               <Button
                 onClick={handleStart}
                 disabled={starting || connectionState === 'connecting'}
-                        className="h-12 bg-emerald-900 px-5 font-semibold text-white hover:bg-emerald-800 dark:bg-emerald-950 dark:text-emerald-100 dark:hover:bg-emerald-900"
+                className="h-11 bg-emerald-600 px-6 font-semibold text-white hover:bg-emerald-700 dark:bg-emerald-600 dark:text-white dark:hover:bg-emerald-700 shadow-sm transition-all"
               >
                 <Play className="mr-2 h-4 w-4" />
-                {starting ? 'Starting...' : 'Start session'}
+                {starting ? 'Starting...' : 'Start Session'}
               </Button>
               <Button
                 variant="outline"
                 onClick={handleStop}
-                className="h-12 border-slate-300 bg-white px-5 text-slate-900 hover:bg-slate-100 dark:border-slate-700 dark:bg-[#101721] dark:text-white dark:hover:bg-[#182231]"
+                className="h-11 border-slate-300 bg-white px-6 text-slate-900 hover:bg-slate-100 dark:border-slate-700 dark:bg-[#101721] dark:text-white dark:hover:bg-[#182231] shadow-sm transition-all"
               >
                 <Square className="mr-2 h-4 w-4" />
-                Stop session
+                Stop
               </Button>
-              <div className="ml-auto flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                <MonitorPlay className="h-4 w-4 text-slate-600 dark:text-slate-300" />
-                Backend: {apiUrl}
+              <div className="ml-auto flex items-center gap-2 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#101721] px-4 py-2 text-xs font-medium text-slate-500 dark:text-slate-400 shadow-sm">
+                <MonitorPlay className="h-3.5 w-3.5 text-slate-600 dark:text-slate-300" />
+                Backend: <span className="text-slate-900 dark:text-white">{apiUrl}</span>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 px-5 py-4 dark:border-slate-800">
+            <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 px-5 py-3 dark:border-slate-800">
+              <p className="mr-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Zone Tools</p>
               <Button
                 type="button"
                 variant={drawingZone ? 'default' : 'outline'}
                 onClick={() => setDrawingZone((v) => !v)}
-                className="h-10 px-4"
+                className="h-9 px-3 text-xs"
               >
                 {drawingZone ? 'Drawing enabled' : 'Draw restricted zone'}
               </Button>
@@ -632,7 +635,7 @@ export default function LiveMonitoring(): JSX.Element {
                 variant="outline"
                 onClick={() => setZonePoints((pts) => pts.slice(0, -1))}
                 disabled={zonePoints.length === 0 || zoneSaving}
-                className="h-10 px-4"
+                className="h-9 px-3 text-xs"
               >
                 Undo point
               </Button>
@@ -640,21 +643,22 @@ export default function LiveMonitoring(): JSX.Element {
                 type="button"
                 onClick={handleZoneSave}
                 disabled={zoneSaving || zonePoints.length < 3}
-                className="h-10 bg-slate-700 px-4 font-semibold text-white hover:bg-slate-600 dark:bg-slate-200 dark:text-slate-900 dark:hover:bg-white"
+                className="h-9 bg-slate-800 px-3 text-xs font-semibold text-white hover:bg-slate-700 dark:bg-slate-200 dark:text-slate-900 dark:hover:bg-white"
               >
                 {zoneSaving ? 'Saving...' : 'Save zone'}
               </Button>
               <Button
                 type="button"
-                variant="destructive"
+                variant="ghost"
                 onClick={handleZoneClear}
                 disabled={zoneSaving}
-                className="h-10 px-4"
+                className="h-9 px-3 text-xs text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/30 dark:hover:text-rose-300"
               >
                 Clear zone
               </Button>
-              <p className="ml-auto text-xs text-slate-500 dark:text-slate-400">
-                Points: {zonePoints.length} {drawingZone ? '• click on the video to place points' : ''}
+              <p className="ml-auto flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 bg-slate-100 dark:bg-[#101721]">
+                <span>Points: <strong className="text-slate-700 dark:text-slate-300">{zonePoints.length}</strong></span>
+                {drawingZone && <span className="text-amber-500 dark:text-amber-400"> • Click video to place points</span>}
               </p>
             </div>
 

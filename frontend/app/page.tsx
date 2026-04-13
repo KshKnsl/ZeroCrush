@@ -4,25 +4,25 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { signIn, useSession } from 'next-auth/react';
 import { Input } from '@/components/ui/input';
+import { useThemeContext } from '@/components/ui/ThemeContext';
 import { toast } from 'sonner';
 import { ArrowDownRight, BellRing, Radar, Shield } from 'lucide-react';
-
 
 const highlights = [
   {
     icon: Shield,
-    title: 'Risk-first operations',
-    description: 'Live crowd scoring and role-based controls across all monitoring surfaces.',
+    title: 'Live safety view',
+    description: 'See crowd risk and safety signals in one clear dashboard.',
   },
   {
     icon: Radar,
-    title: 'Real-time stream intelligence',
-    description: 'Use webcam, RTSP, or uploaded video with immediate backend inference feedback.',
+    title: 'Multiple video inputs',
+    description: 'Use webcam, RTSP, or MP4 and track the stream status in real time.',
   },
   {
     icon: BellRing,
-    title: 'Actionable notifications',
-    description: 'Get notified of restricted zone alerts and abnormal activity with clear system status and alert flow.',
+    title: 'Clear alerts and reports',
+    description: 'Get quick alerts for unusual activity and review full session analytics later.',
   },
 ];
 
@@ -32,23 +32,13 @@ export default function HomePage() {
   const [email, setEmail] = useState<string>('admin@gmail.com');
   const [password, setPassword] = useState<string>('admin123');
   const [loading, setLoading] = useState(false);
-  const [theme, setTheme] = useState<string>('light');
+  const { theme, toggleTheme } = useThemeContext();
 
   useEffect(() => {
     if (status === 'authenticated') {
       router.replace('/dashboard');
-      return;
     }
-
-    const storedTheme = window.localStorage.getItem('theme') as string | null;
-    const nextTheme = storedTheme ?? 'light';
-    setTheme(nextTheme);
   }, [router, status]);
-
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark');
-    window.localStorage.setItem('theme', theme);
-  }, [theme]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -89,9 +79,9 @@ export default function HomePage() {
         <section className="border border-slate-300/70 bg-white/70 p-4 shadow-[0_22px_50px_-18px_rgba(15,23,42,0.35)] backdrop-blur dark:border-slate-700/70 dark:bg-[#0f141b]/80 dark:shadow-[0_30px_70px_-28px_rgba(0,0,0,0.7)]">
           <div className="border border-slate-200/80 bg-[linear-gradient(165deg,#f8fbff_0%,#edf3ff_45%,#e9fff8_100%)] p-5 dark:border-slate-800 dark:bg-[linear-gradient(165deg,#0f1726_0%,#141f2f_50%,#0f2621_100%)] sm:p-6">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">SmartMonitor Platform</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">CCTV Monitoring Platform</p>
               <button
-                onClick={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
+                onClick={toggleTheme}
                 className=" border border-slate-300 bg-white/75 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-white dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-200 dark:hover:bg-slate-900"
               >
                 {theme === 'dark' ? 'Light' : 'Dark'}
@@ -99,10 +89,11 @@ export default function HomePage() {
             </div>
 
             <h1 className="mt-4 text-3xl font-semibold leading-tight text-slate-900 dark:text-slate-100 sm:text-4xl">
-              One home screen for discovery and secure access.
+              Smart crowd monitoring, made simple.
             </h1>
             <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600 dark:text-slate-300 sm:text-base">
-              SmartMonitor monitors crowd behavior, stream quality, and anomaly risk in one control layer. Explore what the platform does, then sign in on this same page to enter your live workspace.
+              This platform combines live video monitoring, safety alerts, and session analytics in one place.
+              Sign in to start monitoring streams and reviewing insights.
             </p>
 
             <div className="mt-5 flex flex-wrap items-center gap-3">
@@ -111,7 +102,7 @@ export default function HomePage() {
                 onClick={() => document.getElementById('login-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
                 className="inline-flex items-center gap-2  bg-emerald-900 px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.12em] text-white transition-colors hover:bg-emerald-800 dark:bg-emerald-950 dark:text-emerald-100 dark:hover:bg-emerald-900"
               >
-                Enter with account
+                Sign in
                 <ArrowDownRight className="h-3.5 w-3.5" />
               </button>
             </div>
@@ -138,7 +129,7 @@ export default function HomePage() {
             <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">Secure access</p>
             <h2 className="mt-2 text-2xl font-semibold leading-tight text-slate-900 dark:text-slate-100">Sign in to continue</h2>
             <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-              Use your assigned credentials to open the operations dashboard.
+              Use your account to open the monitoring dashboard.
             </p>
 
             <form onSubmit={handleSubmit} className="mt-6 space-y-4">
@@ -173,12 +164,12 @@ export default function HomePage() {
 
             <div className="mt-5 grid grid-cols-2 gap-3">
               <div className=" border border-slate-300/70 bg-white/75 px-3 py-2 dark:border-slate-700 dark:bg-[#111111]/75">
-                <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Admin</p>
-                <p className="mt-1 text-xs text-slate-700 dark:text-slate-300">User and system controls</p>
+                <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Live monitoring</p>
+                <p className="mt-1 text-xs text-slate-700 dark:text-slate-300">Watch stream health, crowd count, and active alerts.</p>
               </div>
               <div className=" border border-slate-300/70 bg-white/75 px-3 py-2 dark:border-slate-700 dark:bg-[#111111]/75">
-                <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Ops</p>
-                <p className="mt-1 text-xs text-slate-700 dark:text-slate-300">Live stream and analytics</p>
+                <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Session analytics</p>
+                <p className="mt-1 text-xs text-slate-700 dark:text-slate-300">Review trend charts, incidents, and saved artifacts.</p>
               </div>
             </div>
           </div>
