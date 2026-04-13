@@ -6,19 +6,21 @@ Run from project root: uvicorn api:app --reload --host 0.0.0.0 --port 8000
 import asyncio
 import csv
 import datetime
-import io
 import json
 import os
 import threading
 import time
-from collections import deque
 from typing import Any, Optional
 
 import cv2
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
-from pydantic import BaseModel
+
+from core.crowd import parse_crowd_row, read_crowd_tail
+from core.energy import build_energy_buckets
+from core.session_summary import build_session_summary
+from core.source import open_video_capture, resolve_start_source, safe_stem
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
@@ -37,6 +39,8 @@ status_state = "idle"
 status_lock = threading.Lock()
 error_message: Optional[str] = None
 session_start_time: Optional[float] = None
+latest_session_summary: Optional[dict[str, Any]] = None
+latest_session_summary_lock = threading.Lock()
 
 app = FastAPI(title="SmartWatch API")
 app.add_middleware(
@@ -80,6 +84,8 @@ def _update_runtime_settings(patch: dict[str, Any]) -> dict[str, Any]:
 	updated: dict[str, Any] = {}
 	for key, value in patch.items():
 		if not isinstance(key, str) or not key.isupper():
+			continue
+		if key not in RUNTIME_SETTINGS:
 			continue
 		if isinstance(value, tuple):
 			value = list(value)
@@ -178,30 +184,12 @@ def _find_latest_crowd_csv() -> Optional[str]:
 	return best_path
 
 
-def _read_crowd_tail(path: str, n: int = 100) -> list[list[str]]:
-	if not os.path.isfile(path):
-		return []
-	rows: deque[list[str]] = deque(maxlen=n)
-	with open(path, newline="", encoding="utf-8") as f:
-		reader = csv.reader(f)
-		next(reader, None)
-		for row in reader:
-			rows.append(row)
-	return list(rows)
-
-
-def _safe_stem(path: Any) -> str:
-	stem = os.path.splitext(os.path.basename(str(path)))[0]
-	return "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in stem)
-
-
 def _process_single_video(
 	video_source: Any,
 	is_realtime: Optional[bool] = None,
 	frame_callback=None,
 	stop_event=None,
 	headless: bool = False,
-	graph_headless: bool = True,
 	status_callback=None,
 	settings: Optional[dict[str, Any]] = None,
 ) -> None:
@@ -218,17 +206,9 @@ def _process_single_video(
 		raise ValueError("Frame width is too small! You won't see anything")
 
 	is_cam = is_realtime
+	cap = open_video_capture(video_source, is_cam)
 
-	cap = cv2.VideoCapture(video_source)
-	if not cap.isOpened() and is_cam:
-		# Try common Windows camera backends if the default fails
-		cap = cv2.VideoCapture(video_source, cv2.CAP_DSHOW)
-	if not cap.isOpened() and is_cam:
-		cap = cv2.VideoCapture(video_source, cv2.CAP_MSMF)
-	if not cap.isOpened():
-		raise RuntimeError(f"Unable to open video source: {video_source}")
-
-	video_stem = _safe_stem(video_source)
+	video_stem = safe_stem(video_source)
 	log_dir = str(active_settings.get("LOG_DIR", LOG_DIR))
 	video_log_dir = os.path.join(log_dir, video_stem)
 	os.makedirs(video_log_dir, exist_ok=True)
@@ -312,6 +292,20 @@ def _process_single_video(
 	cv2.imwrite(os.path.join(video_log_dir, "tracks.png"), cv2.cvtColor(tracks_img, cv2.COLOR_RGB2BGR))
 	cv2.imwrite(os.path.join(video_log_dir, "heatmap.png"), cv2.cvtColor(heatmap_img, cv2.COLOR_RGB2BGR))
 
+	session_summary = build_session_summary(
+		video_log_dir,
+		video_source,
+		is_cam,
+		start_dt,
+		end_dt,
+		float(vid_fps or 1.0),
+		FRAME_WIDTH,
+		int(active_settings.get("TRACK_MAX_AGE", TRACK_MAX_AGE)),
+	)
+	global latest_session_summary
+	with latest_session_summary_lock:
+		latest_session_summary = session_summary
+
 	for artifact_name, artifact_key in (
 		("processed_preview.png", "last_frame"),
 		("crowd_peak.png", "max_crowd_frame"),
@@ -331,6 +325,9 @@ def _start_pipeline(source: Any, is_realtime: bool) -> None:
 	stop_event.clear()
 	with latest_frame_lock:
 		latest_frame = None
+	with latest_session_summary_lock:
+		global latest_session_summary
+		latest_session_summary = None
 	_set_metrics(0, 0, False, False)
 	_set_status("running", None)
 
@@ -344,8 +341,7 @@ def _start_pipeline(source: Any, is_realtime: bool) -> None:
 				is_realtime=is_realtime,
 				frame_callback=_frame_callback,
 				stop_event=stop_event,
-			headless=False,
-				graph_headless=True,
+				headless=False,
 				status_callback=_set_metrics,
 				settings=settings_snapshot,
 			)
@@ -357,62 +353,9 @@ def _start_pipeline(source: Any, is_realtime: bool) -> None:
 	pipeline_thread = threading.Thread(target=run, daemon=True)
 	pipeline_thread.start()
 
-
-class StartBody(BaseModel):
-	source: str
-
-
 @app.get("/api/status")
 async def api_status() -> dict[str, Any]:
 	return _snapshot_status()
-
-@app.post("/api/start")
-async def api_start(body: StartBody) -> dict[str, str]:
-	global pipeline_thread, session_start_time, latest_frame
-
-	with status_lock:
-		if status_state == "running":
-			raise HTTPException(status_code=409, detail="Pipeline already running")
-
-	stop_event.clear()
-	with latest_frame_lock:
-		latest_frame = None
-	_set_status("running", None)
-	source = body.source.strip()
-
-	def run() -> None:
-		global session_start_time
-		try:
-			session_start_time = time.time()
-			if source.lower() == "webcam":
-				_process_single_video(
-					0,
-					is_realtime=True,
-					frame_callback=_frame_callback,
-					stop_event=stop_event,
-					headless=False,
-					graph_headless=True,
-				)
-			else:
-				if not os.path.isfile(source):
-					# Maybe an RTSP url
-					pass
-				_process_single_video(
-					source,
-					is_realtime=False,
-					frame_callback=_frame_callback,
-					stop_event=stop_event,
-					headless=False,
-					graph_headless=True,
-				)
-		except Exception as e:
-			_set_status("error", str(e))
-		else:
-			_set_status("idle", None)
-
-	pipeline_thread = threading.Thread(target=run, daemon=True)
-	pipeline_thread.start()
-	return {"message": "started"}
 
 
 @app.post("/api/upload")
@@ -436,6 +379,16 @@ async def api_stop() -> dict[str, str]:
 	return {"message": "stop requested"}
 
 
+@app.post("/api/start")
+async def api_start(body: dict[str, Any]) -> dict[str, Any]:
+	try:
+		source_value, is_realtime = resolve_start_source(body)
+		_start_pipeline(source_value, is_realtime)
+		return {"message": "start requested", **_snapshot_status()}
+	except Exception as exc:
+		raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @app.get("/api/logs/crowd")
 async def api_logs_crowd(session: Optional[str] = None, limit: int = 100) -> JSONResponse:
 	log_dir = str(_get_setting("LOG_DIR", LOG_DIR))
@@ -445,28 +398,13 @@ async def api_logs_crowd(session: Optional[str] = None, limit: int = 100) -> JSO
 		path = _find_latest_crowd_csv()
 	if not path or not os.path.isfile(path):
 		return JSONResponse(content={"rows": []})
-	rows = _read_crowd_tail(path, limit)
+	rows = read_crowd_tail(path, limit)
 	header = ["Time", "Human Count", "Social Distance violate", "Restricted Entry", "Abnormal Activity"]
 	out: list[dict[str, Any]] = []
 	for r in rows:
-		if len(r) < 5:
-			continue
-		try:
-			hc = int(r[1])
-		except (ValueError, TypeError):
-			hc = r[1]
-		try:
-			vio = int(r[2])
-		except (ValueError, TypeError):
-			vio = r[2]
-		row_obj: dict[str, Any] = {
-			"time": r[0],
-			"human_count": hc,
-			"violations": vio,
-			"restricted": bool(int(r[3])) if len(r) > 3 and str(r[3]).strip().lstrip("-").isdigit() else False,
-			"abnormal": bool(int(r[4])) if len(r) > 4 and str(r[4]).strip().lstrip("-").isdigit() else False,
-		}
-		out.append(row_obj)
+		parsed = parse_crowd_row(r)
+		if parsed is not None:
+			out.append(parsed)
 	return JSONResponse(content={"rows": out, "header": header, "path": path})
 
 
@@ -475,23 +413,27 @@ async def api_logs_events() -> JSONResponse:
 	path = _find_latest_crowd_csv()
 	if not path:
 		return JSONResponse(content={"events": []})
-	rows = _read_crowd_tail(path, 200)
+	rows = read_crowd_tail(path, 200)
 	events: list[dict[str, Any]] = []
 	for r in rows:
-		if len(r) < 5:
+		parsed = parse_crowd_row(r)
+		if parsed is None:
 			continue
-		t = r[0]
-		try:
-			restricted = bool(int(r[3]))
-			abnormal = bool(int(r[4]))
-		except (ValueError, IndexError):
-			continue
-		if restricted:
-			events.append({"type": "restricted_zone", "time": t, "severity": "medium", "label": "Restricted zone"})
-		if abnormal:
-			events.append({"type": "abnormal_activity", "time": t, "severity": "medium", "label": "Abnormal activity"})
+		if parsed["restricted"]:
+			events.append({"type": "restricted_zone", "time": parsed["time"], "severity": "medium", "label": "Restricted zone"})
+		if parsed["abnormal"]:
+			events.append({"type": "abnormal_activity", "time": parsed["time"], "severity": "medium", "label": "Abnormal activity"})
 	events.reverse()
 	return JSONResponse(content={"events": events, "session_start": session_start_time})
+
+
+@app.get("/api/session-summary")
+async def api_session_summary() -> dict[str, Any]:
+	global latest_session_summary
+	with latest_session_summary_lock:
+		session_summary = latest_session_summary
+		latest_session_summary = None
+	return {"sessionData": session_summary}
 
 
 
@@ -515,161 +457,6 @@ async def api_stream() -> StreamingResponse:
 	)
 
 
-@app.websocket("/api/ws/stream")
-async def websocket_stream(websocket: WebSocket):
-	await websocket.accept()
-	session_source: Optional[str] = None
-	last_sent_frame: Optional[bytes] = None
-	last_status_payload: Optional[str] = None
-	stop_sender = asyncio.Event()
-
-	async def sender() -> None:
-		nonlocal last_sent_frame, last_status_payload
-		while not stop_sender.is_set():
-			status_payload = json.dumps({"type": "status", **_snapshot_status()})
-			if status_payload != last_status_payload:
-				try:
-					await websocket.send_text(status_payload)
-				except Exception:
-					break
-				last_status_payload = status_payload
-
-			with latest_frame_lock:
-				frame = latest_frame
-			if frame and frame != last_sent_frame:
-				try:
-					await websocket.send_bytes(frame)
-				except Exception:
-					break
-				last_sent_frame = frame
-			await asyncio.sleep(0.08)
-
-	sender_task = asyncio.create_task(sender())
-	try:
-		while True:
-			message = await websocket.receive()
-			if message.get("type") == "websocket.disconnect":
-				break
-
-			if message.get("text") is not None:
-				try:
-					payload = json.loads(message["text"])
-				except Exception:
-					await websocket.send_text(json.dumps({"type": "error", "message": "Invalid control message"}))
-					continue
-
-				action = payload.get("type")
-				if action == "start":
-					try:
-						source = str(payload.get("source", "")).strip().lower()
-						if source == "webcam":
-							_start_pipeline(0, True)
-							session_source = "webcam"
-						elif source in {"file", "video", "mp4"}:
-							value = payload.get("path") or payload.get("value")
-							if not value:
-								raise ValueError("Missing uploaded video path")
-							_start_pipeline(str(value), False)
-							session_source = "file"
-						elif source in {"rtsp", "url"}:
-							value = payload.get("url") or payload.get("value")
-							if not value:
-								raise ValueError("Missing RTSP url")
-							_start_pipeline(str(value), False)
-							session_source = "rtsp"
-						else:
-							raise ValueError(f"Unsupported source type: {source}")
-						await websocket.send_text(json.dumps({"type": "status", **_snapshot_status()}))
-					except Exception as exc:
-						await websocket.send_text(json.dumps({"type": "error", "message": str(exc)}))
-				elif action == "stop":
-					stop_event.set()
-					session_source = None
-					await websocket.send_text(json.dumps({"type": "status", **_snapshot_status()}))
-				elif action == "set_restricted_zone":
-					points = payload.get("points")
-					if not isinstance(points, list):
-						raise ValueError("'points' must be a list")
-					normalized: list[list[int]] = []
-					for item in points:
-						if not isinstance(item, (list, tuple)) or len(item) != 2:
-							raise ValueError("Each point must be [x, y]")
-						x = int(item[0])
-						y = int(item[1])
-						normalized.append([x, y])
-					if len(normalized) not in (0, 1, 2) and len(normalized) < 3:
-						raise ValueError("Restricted zone needs at least 3 points, or 0 to clear")
-					_update_runtime_settings({"RESTRICTED_ZONE": normalized})
-					await websocket.send_text(json.dumps({"type": "zone_updated", "restricted_zone": normalized}))
-					await websocket.send_text(json.dumps({"type": "status", **_snapshot_status()}))
-				elif action == "clear_restricted_zone":
-					_update_runtime_settings({"RESTRICTED_ZONE": []})
-					await websocket.send_text(json.dumps({"type": "zone_updated", "restricted_zone": []}))
-					await websocket.send_text(json.dumps({"type": "status", **_snapshot_status()}))
-				elif action == "status":
-					await websocket.send_text(json.dumps({"type": "status", **_snapshot_status()}))
-
-			elif message.get("bytes") is not None:
-				await websocket.send_text(json.dumps({"type": "error", "message": "Binary frame upload is not supported. Use webcam, MP4, or RTSP backend sources."}))
-	except WebSocketDisconnect:
-		pass
-	except Exception as e:
-		print("WS Error:", str(e))
-	finally:
-		stop_sender.set()
-		sender_task.cancel()
-
-
-@app.get("/api/sessions")
-async def api_sessions() -> dict[str, Any]:
-	if not os.path.isdir(LOG_DIR):
-		return {"sessions": [], "items": []}
-
-	def _is_session_dir(path: str) -> bool:
-		# Ignore upload staging and include only folders with generated session artifacts.
-		if not os.path.isdir(path):
-			return False
-		if os.path.basename(path).lower() == "uploads":
-			return False
-		return any(
-			os.path.isfile(os.path.join(path, filename))
-			for filename in ("crowd_data.csv", "video_data.json", "tracks.png", "heatmap.png")
-		)
-
-	names = [name for name in os.listdir(LOG_DIR) if _is_session_dir(os.path.join(LOG_DIR, name))]
-	names.sort(key=lambda name: os.path.getmtime(os.path.join(LOG_DIR, name)), reverse=True)
-
-	items: list[dict[str, Any]] = []
-	for name in names:
-		session_dir = os.path.join(LOG_DIR, name)
-		meta_path = os.path.join(session_dir, "video_data.json")
-		start_time = None
-		end_time = None
-		if os.path.isfile(meta_path):
-			try:
-				with open(meta_path, "r", encoding="utf-8") as f:
-					meta = json.load(f)
-				start_time = meta.get("START_TIME")
-				end_time = meta.get("END_TIME")
-			except Exception:
-				pass
-
-		updated_at = None
-		try:
-			updated_at = datetime.datetime.fromtimestamp(os.path.getmtime(session_dir)).isoformat()
-		except OSError:
-			pass
-
-		items.append(
-			{
-				"id": name,
-				"start_time": start_time,
-				"end_time": end_time,
-				"updated_at": updated_at,
-			}
-		)
-
-	return {"sessions": names, "items": items}
 
 @app.get("/api/analytics/tracks-image")
 async def api_tracks_image(session: Optional[str] = None) -> FileResponse:
@@ -706,50 +493,18 @@ async def api_processed_image(session: Optional[str] = None, kind: str = "previe
 
 @app.get("/api/analytics/energy")
 async def api_analytics_energy(session: Optional[str] = None) -> dict[str, Any]:
-	from graph_grid_present import build_energy_series, load_movement_tracks, load_video_data
-
 	log_dir = _session_output_dir(session)
 
 	if not os.path.isdir(log_dir):
 		raise HTTPException(status_code=404, detail="Session not found")
-
-	try:
-		data = load_video_data(log_dir)
-	except Exception:
-		raise HTTPException(status_code=404, detail="video_data.json missing")
-	tracks = load_movement_tracks(log_dir)
-	vid_fps = float(data.get("VID_FPS", 1.0) or 1.0)
-	data_record_frame = max(1, int(data.get("DATA_RECORD_FRAME", 1)))
-	frame_size = int(data.get("PROCESSED_FRAME_SIZE", 640))
-	track_max_age = int(data.get("TRACK_MAX_AGE", 30))
-	time_steps = data_record_frame / vid_fps
-	energies = build_energy_series(tracks, frame_size, time_steps, track_max_age)
-	if not energies:
-		return {"buckets": []}
-	e_min, e_max = min(energies), max(energies)
-	if e_min == e_max:
-		return {"buckets": [{"bucket": str(e_min), "count": len(energies)}]}
-	n_bins = min(20, max(5, len(energies) // 10 + 1))
-	width = max(1, (e_max - e_min) / n_bins)
-	buckets_map: dict[int, int] = {}
-	for e in energies:
-		bin_i = int((e - e_min) / width) if width else 0
-		bin_i = min(bin_i, n_bins - 1)
-		buckets_map[bin_i] = buckets_map.get(bin_i, 0) + 1
-	out = []
-	for i in range(n_bins):
-		lo = e_min + i * width
-		hi = lo + width
-		out.append({"bucket": f"{int(lo)}–{int(hi)}", "count": buckets_map.get(i, 0)})
-	return {"buckets": out}
+	return {"buckets": build_energy_buckets(log_dir)}
 
 
 def _session_output_dir(session: Optional[str]) -> str:
 	log_dir = str(_get_setting("LOG_DIR", LOG_DIR))
-	if session:
-		return os.path.join(log_dir, session)
-	p = _find_latest_crowd_csv()
-	return os.path.dirname(p) if p else log_dir
+	if not session:
+		raise HTTPException(status_code=400, detail="Session id is required")
+	return os.path.join(log_dir, session)
 
 
 @app.get("/api/config")

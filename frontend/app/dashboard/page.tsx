@@ -5,32 +5,26 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
 import { motion } from 'motion/react';
 import { clsx } from 'clsx';
-import { Activity, CalendarPlus2, KeyRound, LayoutDashboard, LogOut, Moon, Sun, Users } from 'lucide-react';
+import { Activity, CalendarPlus2, KeyRound, LayoutDashboard, LogOut, Moon, Sun } from 'lucide-react';
 import LiveMonitoring from '@/components/dashboard-tabs/LiveMonitoring';
 import UsersManagement from '@/components/dashboard-tabs/UsersManagement';
 import AnalyticsDashboard from '@/components/dashboard-tabs/AnalyticsDashboard';
 import SettingsPanel from '@/components/dashboard-tabs/SettingsPanel';
 
-const ROLE_LABELS: Record<string, string> = {
-  ADMIN: 'Administrator',
-  OPERATOR: 'Operator',
-  VIEWER: 'Viewer',
-};
-
-const tabs: { id: string; label: string; icon: typeof Activity; roles: string[] }[] = [
-  { id: 'live', label: 'Live Dashboard', icon: Activity, roles: ['ADMIN', 'OPERATOR', 'VIEWER'] },
-  { id: 'analytics', label: 'Analytics', icon: LayoutDashboard, roles: ['ADMIN', 'OPERATOR', 'VIEWER'] },
-  { id: 'settings', label: 'Settings', icon: CalendarPlus2, roles: ['ADMIN'] },
-  { id: 'users', label: 'Users', icon: KeyRound, roles: ['ADMIN'] },
+const tabs: { id: string; icon: typeof Activity; roles: string[] }[] = [
+  { id: 'Live', icon: Activity, roles: ['ADMIN', 'OPERATOR', 'VIEWER'] },
+  { id: 'Analytics', icon: LayoutDashboard, roles: ['ADMIN', 'OPERATOR', 'VIEWER'] },
+  { id: 'Settings', icon: CalendarPlus2, roles: ['ADMIN'] },
+  { id: 'Users', icon: KeyRound, roles: ['ADMIN'] },
 ];
 
 function LoadingShell() {
   return (
     <div className="min-h-dvh px-4 py-4">
-      <div className="mx-auto w-full max-w-xl space-y-3 rounded-3xl border border-slate-300/70 bg-white/70 p-4 backdrop-blur dark:border-slate-700/70 dark:bg-[#0f141b]/70">
-        <div className="h-4 w-36 animate-pulse rounded-full bg-slate-200 dark:bg-slate-700" />
-        <div className="h-20 animate-pulse rounded-2xl bg-slate-200/80 dark:bg-slate-800/70" />
-        <div className="h-56 animate-pulse rounded-2xl bg-slate-200/80 dark:bg-slate-800/70" />
+      <div className="mx-auto w-full max-w-xl space-y-3  border border-slate-300/70 bg-white/70 p-4 backdrop-blur dark:border-slate-700/70 dark:bg-[#0f141b]/70">
+        <div className="h-4 w-36 animate-pulse  bg-slate-200 dark:bg-slate-700" />
+        <div className="h-20 animate-pulse  bg-slate-200/80 dark:bg-slate-800/70" />
+        <div className="h-56 animate-pulse  bg-slate-200/80 dark:bg-slate-800/70" />
       </div>
     </div>
   );
@@ -41,7 +35,7 @@ function DashboardPageContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { data, status } = useSession();
-  const [activeTab, setActiveTab] = useState<string>('live');
+  const [activeTab, setActiveTab] = useState<string>('Live');
   const [theme, setTheme] = useState<string>('light');
   const [isReady, setIsReady] = useState(false);
 
@@ -66,16 +60,15 @@ function DashboardPageContent() {
   if (status !== 'authenticated') return null;
 
   const role = ((data?.user as { role?: string } | undefined)?.role ?? 'VIEWER') as string;
-  const roleLabel = ROLE_LABELS[role] ?? role;
   const identifier = data?.user?.email || data?.user?.name || 'Unknown';
   const visibleTabs = tabs.filter((tab) => tab.roles.includes(role));
   const isDark = theme === 'dark';
 
   const panelByTab: Record<string, ReactNode> = {
-    live: <LiveMonitoring />,
-    analytics: <AnalyticsDashboard />,
-    settings: <SettingsPanel />,
-    users: <UsersManagement />,
+    Live: <LiveMonitoring />,
+    Analytics: <AnalyticsDashboard />,
+    Settings: <SettingsPanel />,
+    Users: <UsersManagement />,
   };
 
   const onTabChange = (tab: string) => {
@@ -96,7 +89,7 @@ function DashboardPageContent() {
 
     const buttonClass = mobile
       ? clsx(
-          'min-w-[72px] flex-1 rounded-xl border px-2 py-2 text-[10px] font-semibold uppercase tracking-[0.08em] transition-colors',
+          'min-w-[72px] flex-1  border px-2 py-2 text-[10px] font-semibold uppercase tracking-[0.08em] transition-colors',
           isActive
             ? 'border-emerald-700/50 bg-emerald-200/80 text-emerald-950 dark:border-emerald-700/60 dark:bg-emerald-950/45 dark:text-emerald-200'
             : 'border-transparent text-slate-600 hover:border-emerald-400 hover:bg-emerald-100 dark:text-slate-300 dark:hover:border-emerald-700/50 dark:hover:bg-emerald-950/35'
@@ -112,9 +105,9 @@ function DashboardPageContent() {
       <>
         <Icon className={clsx(mobile ? 'h-4 w-4' : 'w-5 h-5', isActive && 'text-emerald-900 dark:text-emerald-200')} />
         {mobile ? (
-          <span className="truncate max-w-full">{tab.label.replace(' Dashboard', '')}</span>
+          <span className="truncate max-w-full">{tab.id}</span>
         ) : (
-          tab.label
+          tab.id
         )}
       </>
     );
@@ -141,7 +134,7 @@ function DashboardPageContent() {
           <div>
               <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">SmartMonitor</p>
           </div>
-          <div className="rounded-full border border-slate-300/80 bg-white/80 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600 dark:border-slate-700 dark:bg-[#121923] dark:text-slate-300">
+          <div className=" border border-slate-300/80 bg-white/80 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600 dark:border-slate-700 dark:bg-[#121923] dark:text-slate-300">
             {activeTab}
           </div>
         </div>
@@ -172,15 +165,15 @@ function DashboardPageContent() {
 
       <aside className="fixed inset-x-0 bottom-0 z-40 md:hidden">
         <div className="mx-auto w-full max-w-xl px-3 pb-[max(env(safe-area-inset-bottom),0.6rem)]">
-          <div className="rounded-[1.5rem] border border-slate-300/80 bg-slate-50/92 p-2 shadow-[0_18px_32px_-16px_rgba(15,23,42,0.55)] backdrop-blur dark:border-slate-700/80 dark:bg-[#0f141b]/92 dark:shadow-[0_20px_34px_-14px_rgba(0,0,0,0.72)]">
+          <div className="border border-slate-300/80 bg-slate-50/92 p-2 shadow-[0_18px_32px_-16px_rgba(15,23,42,0.55)] backdrop-blur dark:border-slate-700/80 dark:bg-[#0f141b]/92 dark:shadow-[0_20px_34px_-14px_rgba(0,0,0,0.72)]">
             <nav className="flex items-stretch gap-1 overflow-x-auto pb-1">{visibleTabs.map((tab) => renderTabButton(tab, true))}</nav>
 
             <div className="mt-1 grid grid-cols-2 gap-1">
-              <button onClick={onToggleTheme} className="flex items-center justify-center gap-1 rounded-xl border border-emerald-500/40 bg-emerald-200/70 px-2 py-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-emerald-950 transition-colors hover:bg-emerald-300/70 dark:border-emerald-700/50 dark:bg-emerald-950/35 dark:text-emerald-200 dark:hover:bg-emerald-900/45">
+              <button onClick={onToggleTheme} className="flex items-center justify-center gap-1  border border-emerald-500/40 bg-emerald-200/70 px-2 py-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-emerald-950 transition-colors hover:bg-emerald-300/70 dark:border-emerald-700/50 dark:bg-emerald-950/35 dark:text-emerald-200 dark:hover:bg-emerald-900/45">
                 {isDark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
                 Theme
               </button>
-              <button onClick={handleLogout} className="flex items-center justify-center gap-1 rounded-xl border border-slate-300 bg-slate-100 px-2 py-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-700 transition-colors hover:bg-slate-200 dark:border-slate-700 dark:bg-[#121923] dark:text-slate-300 dark:hover:bg-[#17202b]">
+              <button onClick={handleLogout} className="flex items-center justify-center gap-1  border border-slate-300 bg-slate-100 px-2 py-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-700 transition-colors hover:bg-slate-200 dark:border-slate-700 dark:bg-[#121923] dark:text-slate-300 dark:hover:bg-[#17202b]">
                 <LogOut className="h-3.5 w-3.5" />
                 Logout
               </button>
@@ -189,7 +182,7 @@ function DashboardPageContent() {
         </div>
       </aside>
       <main className="flex-1 overflow-auto px-3 pb-28 pt-3 sm:px-5 md:pb-8 md:pt-5">
-        <div className="mx-auto w-full max-w-7xl rounded-[1.35rem] border border-slate-300/70 bg-white/70 p-3 shadow-[0_26px_50px_-24px_rgba(15,23,42,0.45)] backdrop-blur dark:border-slate-700/60 dark:bg-[#0f141b]/70 dark:shadow-[0_26px_52px_-22px_rgba(0,0,0,0.7)] sm:p-4 md:p-5">{panelByTab[activeTab]}</div>
+        <div className="mx-auto w-full max-w-7xl border border-slate-300/70 bg-white/70 p-3 shadow-[0_26px_50px_-24px_rgba(15,23,42,0.45)] backdrop-blur dark:border-slate-700/60 dark:bg-[#0f141b]/70 dark:shadow-[0_26px_52px_-22px_rgba(0,0,0,0.7)] sm:p-4 md:p-5">{panelByTab[activeTab]}</div>
       </main>
     </div>
   );

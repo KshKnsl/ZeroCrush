@@ -9,16 +9,26 @@ import numpy as np
 from scipy.spatial.distance import euclidean
 
 
+def _to_int(value, default=0):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _iter_csv_rows(path, min_columns=0):
+    with open(path, "r") as file:
+        reader = csv.reader(file, delimiter=",")
+        next(reader, None)
+        for row in reader:
+            if len(row) >= min_columns:
+                yield row
+
+
 def gradient_color_rgb(color1, color2, steps, current):
     if steps <= 0:
         return color1
-    step1 = (color2[0] - color1[0]) / steps
-    step2 = (color2[1] - color1[1]) / steps
-    step3 = (color2[2] - color1[2]) / steps
-    color_1 = int(color1[0] + current * step1)
-    color_2 = int(color1[1] + current * step2)
-    color_3 = int(color1[2] + current * step3)
-    return (color_1, color_2, color_3)
+    return tuple(int(color1[i] + current * ((color2[i] - color1[i]) / steps)) for i in range(3))
 
 
 def load_video_data(log_dir):
@@ -32,42 +42,33 @@ def load_crowd_data(log_dir):
     restricted_entry = []
     abnormal_activity = []
 
-    with open(os.path.join(log_dir, "crowd_data.csv"), "r") as file:
-        reader = csv.reader(file, delimiter=",")
-        next(reader, None)
-        for row in reader:
-            if len(row) < 5:
-                continue
-            human_count.append(int(row[1]))
-            violate_count.append(int(row[2]))
-            restricted_entry.append(bool(int(row[3])))
-            abnormal_activity.append(bool(int(row[4])))
+    for row in _iter_csv_rows(os.path.join(log_dir, "crowd_data.csv"), min_columns=5):
+        human_count.append(_to_int(row[1]))
+        violate_count.append(_to_int(row[2]))
+        restricted_entry.append(bool(_to_int(row[3])))
+        abnormal_activity.append(bool(_to_int(row[4])))
 
     return human_count, violate_count, restricted_entry, abnormal_activity
 
 
 def load_movement_tracks(log_dir):
     tracks = []
-    with open(os.path.join(log_dir, "movement_data.csv"), "r") as file:
-        reader = csv.reader(file, delimiter=",")
-        next(reader, None)
-        for row in reader:
-            if len(row[3:]) > 4:
-                temp = []
-                data = row[3:]
-                for i in range(0, len(data), 2):
-                    try:
-                        temp.append([int(data[i]), int(data[i + 1])])
-                    except (ValueError, IndexError):
-                        break
-                if temp:
-                    tracks.append(temp)
+    for row in _iter_csv_rows(os.path.join(log_dir, "movement_data.csv"), min_columns=7):
+        temp = []
+        data = row[3:]
+        for i in range(0, len(data), 2):
+            try:
+                temp.append([int(data[i]), int(data[i + 1])])
+            except (ValueError, IndexError):
+                break
+        if temp:
+            tracks.append(temp)
     return tracks
 
 
 def render_movement_images(video_source, tracks, frame_size, vid_fps, data_record_frame):
     cap = cv2.VideoCapture(video_source)
-    cap.set(1, 100)
+    cap.set(cv2.CAP_PROP_POS_FRAMES, 100)
     ret, tracks_frame = cap.read()
     cap.release()
 
@@ -93,6 +94,8 @@ def render_movement_images(video_source, tracks, frame_size, vid_fps, data_recor
     stationary_points = []
     movement_points = []
     for movement in tracks:
+        if not movement:
+            continue
         temp_movement_point = [movement[0]]
         stationary = movement[0]
         stationary_time = 0
@@ -141,10 +144,8 @@ def render_movement_images(video_source, tracks, frame_size, vid_fps, data_recor
     mask = cv2.inRange(heatmap, lo, hi)
     heatmap[mask > 0] = (0, 0, 0)
 
-    for row in range(heatmap.shape[0]):
-        for col in range(heatmap.shape[1]):
-            if (heatmap[row][col] == np.array([0, 0, 0])).all():
-                heatmap[row][col] = heatmap_frame[row][col]
+    black_mask = np.all(heatmap == np.array([0, 0, 0]), axis=2)
+    heatmap[black_mask] = heatmap_frame[black_mask]
 
     heatmap_frame = cv2.addWeighted(heatmap, 0.75, heatmap_frame, 0.25, 1)
 
@@ -154,7 +155,8 @@ def render_movement_images(video_source, tracks, frame_size, vid_fps, data_recor
 
 
 def build_energy_series(tracks, frame_size, time_steps, track_max_age):
-    stationary_time = math.ceil(track_max_age / max(time_steps, 1e-6))
+    safe_time_step = max(time_steps, 1e-6)
+    stationary_time = math.ceil(track_max_age / safe_time_step)
     stationary_distance = frame_size * 0.01
 
     useful_tracks = []
@@ -180,7 +182,7 @@ def build_energy_series(tracks, frame_size, time_steps, track_max_age):
     energies = []
     for movement in useful_tracks:
         for i in range(len(movement) - 1):
-            speed = euclidean(movement[i], movement[i + 1]) / max(time_steps, 1e-6)
+            speed = euclidean(movement[i], movement[i + 1]) / safe_time_step
             energy = int(0.5 * speed**2)
             energies.append(energy)
     return energies

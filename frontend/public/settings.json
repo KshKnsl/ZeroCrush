@@ -26,11 +26,6 @@
     }
   ],
   "settings": {
-    "VIDEO_SOURCE": {
-      "default": "video/1.mp4",
-      "description": "Default video source path or camera index used by the pipeline.",
-      "category": "Video Source"
-    },
     "IS_REALTIME": {
       "default": false,
       "description": "Controls real-time mode behavior and frame-timestamp handling.",
@@ -45,11 +40,6 @@
       "default": 640,
       "description": "Target width used when resizing frames before inference.",
       "category": "Video Source"
-    },
-    "YOLO_MODEL_PATH": {
-      "default": "yolov8n.pt",
-      "description": "Path to the YOLO model weights file.",
-      "category": "Detection & Model"
     },
     "YOLO_CONFIDENCE": {
       "default": 0.4,

@@ -2,7 +2,6 @@ import type { NextRequest } from 'next/server';
 import type { NextAuthOptions } from 'next-auth';
 import { getServerSession } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
-import type { JWT } from 'next-auth/jwt';
 import { getToken } from 'next-auth/jwt';
 import prisma from '@/lib/prisma';
 import { sendLoginMail } from '@/lib/mailer';
@@ -27,9 +26,9 @@ function normalizeRole(value: unknown): UserRole | null {
   return typeof value === 'string' && ROLES.includes(value as UserRole) ? (value as UserRole) : null;
 }
 
-function parseRequestAuth(token: JWT): RequestAuth | null {
-  const role = normalizeRole(token.role);
-  const userId = Number(token.id ?? token.sub);
+function toRequestAuth(userIdValue: unknown, roleValue: unknown): RequestAuth | null {
+  const role = normalizeRole(roleValue);
+  const userId = Number(userIdValue);
   if (!role || !Number.isFinite(userId) || userId <= 0) return null;
   return { userId, role };
 }
@@ -84,18 +83,11 @@ export const authOptions: NextAuthOptions = {
 
 export async function getRequestAuth(request: NextRequest): Promise<RequestAuth | null> {
   const token = await getToken({ req: request, secret: AUTH_SECRET });
-  const tokenAuth = token ? parseRequestAuth(token) : null;
+  const tokenAuth = token ? toRequestAuth(token.id ?? token.sub, token.role) : null;
   if (tokenAuth) {
     return tokenAuth;
   }
 
   const session = await getServerSession(authOptions);
-  const role = normalizeRole(session?.user?.role);
-  const userId = Number(session?.user?.id);
-
-  if (!role || !Number.isFinite(userId) || userId <= 0) {
-    return null;
-  }
-
-  return { userId, role };
+  return toRequestAuth(session?.user?.id, session?.user?.role);
 }

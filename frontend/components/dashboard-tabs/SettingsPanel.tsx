@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { RotateCcw, Save, Settings, SlidersHorizontal } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { LOCAL_BACKEND_URL, setBackendMode, useBackendUrl } from '@/lib/api';
 import { toast } from 'sonner';
 
 type ConfigValue = string | number | boolean | null | ConfigValue[] | { [key: string]: ConfigValue };
@@ -61,18 +60,22 @@ const parseEditedValue = (baseValue: ConfigValue, draftValue: string): ConfigVal
 };
 
 export default function SettingsPanel() {
-  const apiUrl = useBackendUrl();
+  const [apiUrl, setApiUrl] = useState(() => (typeof window === 'undefined' ? 'http://localhost:8000' : window.localStorage.getItem('backend-url') || 'http://localhost:8000'));
   const [schema, setSchema] = useState<SettingsSchema | null>(null);
   const [config, setConfig] = useState<Record<string, ConfigValue>>({});
   const [defaultConfig, setDefaultConfig] = useState<Record<string, ConfigValue>>({});
   const [draft, setDraft] = useState<Record<string, string>>({});
+  const [backendUrlDraft, setBackendUrlDraft] = useState(apiUrl);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const mode = apiUrl === LOCAL_BACKEND_URL ? 'headded' : 'headless';
 
-  const handleModeChange = (nextMode: 'headded' | 'headless') => {
-    setBackendMode(nextMode);
-    toast.success(`Mode set to ${nextMode}.`);
+  const applyBackendUrl = () => {
+    const nextUrl = backendUrlDraft;
+    setApiUrl(nextUrl);
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('backend-url', nextUrl);
+    }
+    toast.success('Backend URL saved.');
   };
 
   const persistConfig = async (nextConfig: Record<string, ConfigValue>, loadingText: string, successText: string) => {
@@ -197,21 +200,33 @@ export default function SettingsPanel() {
       <div className="relative overflow-hidden border border-slate-300 bg-white/90 p-4 dark:border-slate-700 dark:bg-[#0f1724]/80">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-400">Backend mode</p>
-            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Headded uses localhost:8000. Headless uses the environment backend.</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-400">Backend URL</p>
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">This value is shared across the app and cached in localStorage once per page load.</p>
           </div>
-          <div className="min-w-56">
-            <select
-              value={mode}
-              onChange={(e) => handleModeChange(e.target.value as 'headded' | 'headless')}
-              className="h-11 w-full border border-slate-300 bg-slate-50 px-3 text-sm font-semibold text-slate-900 focus:border-slate-500 focus:outline-none dark:border-slate-700 dark:bg-[#0f1724] dark:text-slate-100"
-            >
-              <option value="headded">Headded</option>
-              <option value="headless">Headless</option>
-            </select>
+          <div className="flex flex-col gap-2 sm:min-w-80 sm:flex-row">
+            <Input
+              value={backendUrlDraft}
+              onChange={(event) => setBackendUrlDraft(event.target.value)}
+              placeholder="http://localhost:8000 or https://example.com"
+              className="h-11 border-slate-300 bg-slate-50 font-mono text-sm text-slate-900 dark:border-slate-700 dark:bg-[#0f1724] dark:text-slate-100"
+            />
+            <Button type="button" onClick={applyBackendUrl} className="h-11 bg-emerald-900 px-4 text-sm font-semibold text-white hover:bg-emerald-800 dark:bg-emerald-950 dark:text-emerald-100 dark:hover:bg-emerald-900">
+              Apply
+            </Button>
           </div>
         </div>
-        <p className="mt-3 font-mono text-xs break-all text-slate-500 dark:text-slate-400">{apiUrl}</p>
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+          <button type="button" onClick={() => setBackendUrlDraft('http://localhost:8000')} className="border border-slate-300 bg-slate-50 px-3 py-1.5 font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-[#0f1724] dark:text-slate-300 dark:hover:bg-[#17202b]">
+            Use localhost
+          </button>
+          <button type="button" onClick={() => setBackendUrlDraft('http://localhost:8000')} className="border border-slate-300 bg-slate-50 px-3 py-1.5 font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-[#0f1724] dark:text-slate-300 dark:hover:bg-[#17202b]">
+            Use default
+          </button>
+          <button type="button" onClick={() => setBackendUrlDraft(apiUrl)} className="border border-slate-300 bg-slate-50 px-3 py-1.5 font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-[#0f1724] dark:text-slate-300 dark:hover:bg-[#17202b]">
+            Revert
+          </button>
+        </div>
+        <p className="mt-3 font-mono text-xs break-all text-slate-500 dark:text-slate-400">Current: {apiUrl}</p>
       </div>
 
       <section className="relative overflow-hidden border border-slate-300 bg-[linear-gradient(140deg,#f7f9fc,#eef2f7)] p-6 dark:border-slate-700 dark:bg-[linear-gradient(140deg,#0f141b,#17202b)] sm:p-8">
@@ -241,10 +256,10 @@ export default function SettingsPanel() {
 
         <form onSubmit={handleSave} className="relative space-y-6">
         {loading ? (
-          <div className="space-y-4 rounded-3xl border border-slate-300 bg-slate-50 p-5 dark:border-slate-700 dark:bg-[#141b25]">
-            <div className="h-4 w-44 animate-pulse rounded-full bg-slate-200 dark:bg-slate-700" />
-            <div className="h-20 animate-pulse rounded-2xl bg-slate-200/80 dark:bg-slate-800/70" />
-            <div className="h-20 animate-pulse rounded-2xl bg-slate-200/80 dark:bg-slate-800/70" />
+          <div className="space-y-4  border border-slate-300 bg-slate-50 p-5 dark:border-slate-700 dark:bg-[#141b25]">
+            <div className="h-4 w-44 animate-pulse  bg-slate-200 dark:bg-slate-700" />
+            <div className="h-20 animate-pulse  bg-slate-200/80 dark:bg-slate-800/70" />
+            <div className="h-20 animate-pulse  bg-slate-200/80 dark:bg-slate-800/70" />
           </div>
         ) : null}
 
@@ -321,14 +336,14 @@ export default function SettingsPanel() {
 
           <div className="sticky bottom-0 z-20 -mx-6 border-t border-slate-200/80 bg-white/90 px-6 py-4 backdrop-blur dark:border-slate-700/70 dark:bg-[#0f141b]/90 sm:-mx-8 sm:px-8">
           <div className="flex flex-wrap items-center justify-end gap-3">
-            <Button type="button" variant="outline" onClick={handleReset} disabled={saving} className="h-11 px-5 rounded-2xl">
+            <Button type="button" variant="outline" onClick={handleReset} disabled={saving} className="h-11 px-5 ">
               <RotateCcw className="mr-2 h-4 w-4" />
               Reset to Defaults
             </Button>
             <Button
               disabled={saving}
               type="submit"
-              className="h-11 rounded-2xl bg-emerald-900 px-6 font-semibold text-white hover:bg-emerald-800 dark:bg-emerald-950 dark:text-emerald-100 dark:hover:bg-emerald-900"
+              className="h-11  bg-emerald-900 px-6 font-semibold text-white hover:bg-emerald-800 dark:bg-emerald-950 dark:text-emerald-100 dark:hover:bg-emerald-900"
             >
               {saving ? 'Saving...' : <><Save className="mr-2 h-4 w-4" />Save Settings</>}
             </Button>

@@ -1,29 +1,26 @@
 "use client";
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type JSX, type MouseEvent } from 'react';
 import { motion } from 'motion/react';
 import { clsx } from 'clsx';
 import { Activity, Camera, Link2, MonitorPlay, Play, ShieldAlert, ShieldCheck, ShieldX, Square, Upload, Waves } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { getConfig, useBackendUrl, websocketUrl } from '@/lib/api';
 import { toast } from 'sonner';
 
-type SourceMode = string;
-type PipelineStatus = string;
-
-type WsStatusPayload = {
-  type?: string;
-  status?: PipelineStatus;
+type StatusPayload = {
+  status?: string;
   error?: string | null;
   stream_ready?: boolean;
   human_count?: number;
   violations?: number;
   restricted?: boolean;
   abnormal?: boolean;
-  message?: string;
-  restricted_zone?: number[][];
+};
+
+type SessionSummaryResponse = {
+  sessionData?: unknown;
 };
 
 type Point = { x: number; y: number };
@@ -44,33 +41,37 @@ const riskConfig = {
 
 const initialRisk = 'LOW' as const;
 
-export default function LiveMonitoring() {
-  const apiUrl = useBackendUrl();
-  const [sourceMode, setSourceMode] = useState<SourceMode>('webcam');
-  const [pipelineStatus, setPipelineStatus] = useState<PipelineStatus>('idle');
+export default function LiveMonitoring(): JSX.Element {
+  const [apiUrl] = useState(() => (typeof window === 'undefined' ? 'http://localhost:8000' : window.localStorage.getItem('backend-url') || 'http://localhost:8000'));
+  const [sourceMode, setSourceMode] = useState('webcam');
+  const [pipelineStatus, setPipelineStatus] = useState('idle');
   const [pipelineError, setPipelineError] = useState<string | null>(null);
   const [streamReady, setStreamReady] = useState(false);
   const [streamError, setStreamError] = useState<string | null>(null);
   const [humanCount, setHumanCount] = useState(0);
-  const [incidentCount, setIncidentCount] = useState(0);
+  const [violationCount, setViolationCount] = useState(0);
   const [riskLevel, setRiskLevel] = useState<string>(initialRisk);
   const [rtspUrl, setRtspUrl] = useState('');
   const [selectedFileName, setSelectedFileName] = useState('');
-  const [connectionState, setConnectionState] = useState<string>('disconnected');
-  const [wsFrame, setWsFrame] = useState<string | null>(null);
+  const [connectionState, setConnectionState] = useState<string>('polling');
   const [starting, setStarting] = useState(false);
   const [drawingZone, setDrawingZone] = useState(false);
   const [zonePoints, setZonePoints] = useState<Point[]>([]);
   const [zoneSaving, setZoneSaving] = useState(false);
   const [overlayGeometry, setOverlayGeometry] = useState<OverlayGeometry | null>(null);
+  const [streamToken, setStreamToken] = useState(0);
   const { color: riskColor, bg: riskBg, border: riskBorder, Icon: RiskIcon } = riskConfig[riskLevel as keyof typeof riskConfig] ?? riskConfig.LOW;
 
   const imageRef = useRef<HTMLImageElement>(null);
   const imageWrapRef = useRef<HTMLDivElement>(null);
-  const websocketRef = useRef<WebSocket | null>(null);
-  const wsFrameRef = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastErrorToastRef = useRef('');
+  const humanCountRef = useRef(0);
+  const violationCountRef = useRef(0);
+  const previousStatusRef = useRef('idle');
+  const sessionSummaryPendingRef = useRef(false);
+  const sessionSummaryInFlightRef = useRef(false);
+  const pollInFlightRef = useRef(false);
 
   const notifyError = (message: string) => {
     if (lastErrorToastRef.current === message) {
@@ -80,35 +81,21 @@ export default function LiveMonitoring() {
     toast.error(message);
   };
 
-  const clearFrame = () => {
-    if (wsFrameRef.current) {
-      URL.revokeObjectURL(wsFrameRef.current);
-      wsFrameRef.current = null;
-    }
-    setWsFrame(null);
-  };
-
-  const closeSocket = () => {
-    if (websocketRef.current) {
-      websocketRef.current.close();
-      websocketRef.current = null;
-    }
-    setConnectionState('disconnected');
-  };
-
   const resetSession = () => {
-    closeSocket();
-    clearFrame();
     setStreamReady(false);
+    setStreamError(null);
   };
 
-  const deriveRisk = (count: number, violations: number, restricted: boolean, abnormal: boolean) => {
-    const activeIncidents = Number(Boolean(restricted)) + Number(Boolean(abnormal)) + Number(violations > 0);
-    setIncidentCount(activeIncidents);
+  const updateRisk = (count: number, violations: number, restricted: boolean, abnormal: boolean) => {
+    const activeAlerts = Number(Boolean(restricted)) + Number(Boolean(abnormal)) + Number(violations > 0);
+    humanCountRef.current = count;
+    violationCountRef.current = violations;
+    setHumanCount(count);
+    setViolationCount(violations);
 
-    if (activeIncidents > 1 || count > 60) {
+    if (activeAlerts > 1 || count > 60) {
       setRiskLevel('HIGH');
-    } else if (activeIncidents === 1 || count > 25) {
+    } else if (activeAlerts === 1 || count > 25) {
       setRiskLevel('MED');
     } else {
       setRiskLevel('LOW');
@@ -163,49 +150,86 @@ export default function LiveMonitoring() {
     };
   };
 
-  const handleStatusMessage = (payload: WsStatusPayload) => {
-    if (payload.type === 'zone_updated' && Array.isArray(payload.restricted_zone)) {
-      const points = payload.restricted_zone
-        .filter((pt) => Array.isArray(pt) && pt.length === 2)
-        .map((pt) => ({ x: Number(pt[0]) || 0, y: Number(pt[1]) || 0 }));
-      setZonePoints(points);
-      return;
-    }
-
-    if (payload.type === 'error') {
-      const message = payload.message || payload.error || 'WebSocket error occurred';
-      setStreamError(message);
-      setPipelineError(message);
-      setPipelineStatus('error');
-      notifyError(message);
-      return;
-    }
-
-    if (payload.status) {
+  const applyStatusPayload = (payload: StatusPayload) => {
+    if (typeof payload.status === 'string') {
       setPipelineStatus(payload.status);
     }
 
     if (typeof payload.error === 'string') {
       setPipelineError(payload.error);
-      if (payload.error) {
-        setStreamError(payload.error);
-      }
+      setStreamError(payload.error);
+    } else if (payload.status === 'running') {
+      setPipelineError(null);
+      setStreamError(null);
     }
 
     if (typeof payload.stream_ready === 'boolean') {
       setStreamReady(payload.stream_ready);
     }
 
-    if (typeof payload.human_count === 'number') {
-      setHumanCount(payload.human_count);
-      deriveRisk(payload.human_count, payload.violations ?? 0, Boolean(payload.restricted), Boolean(payload.abnormal));
+    const hasMetrics =
+      typeof payload.human_count === 'number' ||
+      typeof payload.violations === 'number' ||
+      typeof payload.restricted === 'boolean' ||
+      typeof payload.abnormal === 'boolean';
+
+    if (hasMetrics) {
+      const nextCount = typeof payload.human_count === 'number' ? payload.human_count : humanCountRef.current;
+      const nextViolations = typeof payload.violations === 'number' ? payload.violations : violationCountRef.current;
+      updateRisk(nextCount, nextViolations, Boolean(payload.restricted), Boolean(payload.abnormal));
     }
   };
 
-  const sendZoneMessage = async (payload: Record<string, unknown>) => {
-    const socket = websocketRef.current ?? attachWebSocket();
-    await waitForSocketOpen(socket);
-    socket.send(JSON.stringify(payload));
+  const postJson = async (path: string, body: Record<string, unknown>) => {
+    const response = await fetch(`${apiUrl}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      throw new Error(await response.text());
+    }
+
+    return response;
+  };
+
+  const saveSessionSummary = async () => {
+    if (sessionSummaryInFlightRef.current) {
+      return;
+    }
+
+    sessionSummaryInFlightRef.current = true;
+    try {
+      const response = await fetch(`${apiUrl}/api/session-summary`, { cache: 'no-store' });
+      if (!response.ok) {
+        return;
+      }
+
+      const payload = (await response.json()) as SessionSummaryResponse;
+      if (!payload.sessionData) {
+        return;
+      }
+
+      const toastId = toast.loading('Session completed, saving data to database...');
+      const saveResponse = await fetch('/api/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload.sessionData),
+      });
+
+      if (!saveResponse.ok) {
+        throw new Error('Failed to save session');
+      }
+
+      sessionSummaryPendingRef.current = false;
+      toast.success('Session saved to database!', { id: toastId });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error saving session to DB';
+      toast.error(message);
+    } finally {
+      sessionSummaryInFlightRef.current = false;
+    }
   };
 
   const handleZoneSave = async () => {
@@ -220,10 +244,10 @@ export default function LiveMonitoring() {
     setStreamError(null);
     const toastId = toast.loading('Saving restricted zone...');
     try {
-      await sendZoneMessage({
-        type: 'set_restricted_zone',
-        points: zonePoints.map((p) => [p.x, p.y]),
-      });
+      const response = await postJson('/api/config', { RESTRICTED_ZONE: zonePoints.map((p) => [p.x, p.y]) });
+      if (!response.ok) {
+        throw new Error('Unable to save restricted zone');
+      }
       setDrawingZone(false);
       toast.success('Restricted zone saved.', { id: toastId });
     } catch (error) {
@@ -240,7 +264,10 @@ export default function LiveMonitoring() {
     setStreamError(null);
     const toastId = toast.loading('Clearing restricted zone...');
     try {
-      await sendZoneMessage({ type: 'clear_restricted_zone' });
+      const response = await postJson('/api/config', { RESTRICTED_ZONE: [] });
+      if (!response.ok) {
+        throw new Error('Unable to clear restricted zone');
+      }
       setZonePoints([]);
       setDrawingZone(false);
       toast.success('Restricted zone cleared.', { id: toastId });
@@ -253,91 +280,16 @@ export default function LiveMonitoring() {
     }
   };
 
-  const handleZoneClick = (event: React.MouseEvent<HTMLDivElement>) => {
+  const handleZoneClick = (event: MouseEvent<HTMLDivElement>) => {
     if (!drawingZone) return;
     const next = mapClientToFramePoint(event.clientX, event.clientY);
     if (!next) return;
     setZonePoints((current) => [...current, next]);
   };
 
-  const attachWebSocket = () => {
-    const socket = new WebSocket(websocketUrl('/api/ws/stream'));
-    websocketRef.current = socket;
-    setConnectionState('connecting');
-
-    socket.onopen = () => {
-      setConnectionState('connected');
-    };
-
-    socket.onmessage = async (event) => {
-      if (typeof event.data === 'string') {
-        try {
-          handleStatusMessage(JSON.parse(event.data) as WsStatusPayload);
-        } catch {
-          // Ignore malformed control messages.
-        }
-        return;
-      }
-
-      if (event.data instanceof Blob && event.data.size > 0) {
-        const nextUrl = URL.createObjectURL(event.data);
-        setWsFrame((current) => {
-          if (current) {
-            URL.revokeObjectURL(current);
-          }
-          wsFrameRef.current = nextUrl;
-          return nextUrl;
-        });
-        setStreamReady(true);
-      }
-    };
-
-    socket.onerror = () => {
-      setConnectionState('disconnected');
-      const message = `WebSocket connection failed (${websocketUrl('/api/ws/stream')})`;
-      setStreamError(message);
-      notifyError(message);
-    };
-
-    socket.onclose = () => {
-      setConnectionState('disconnected');
-    };
-
-    return socket;
-  };
-
-  const waitForSocketOpen = (socket: WebSocket) => {
-    if (socket.readyState === WebSocket.OPEN) {
-      return Promise.resolve();
-    }
-
-    return new Promise<void>((resolve, reject) => {
-      const cleanup = () => {
-        socket.removeEventListener('open', onOpen);
-        socket.removeEventListener('error', onError);
-      };
-
-      const onOpen = () => {
-        cleanup();
-        resolve();
-      };
-
-      const onError = () => {
-        cleanup();
-        reject(new Error(`WebSocket connection failed (${websocketUrl('/api/ws/stream')})`));
-      };
-
-      socket.addEventListener('open', onOpen);
-      socket.addEventListener('error', onError);
-    });
-  };
-
   const startRemoteSource = async () => {
-    const socket = websocketRef.current ?? attachWebSocket();
-    await waitForSocketOpen(socket);
-
     if (sourceMode === 'webcam') {
-      socket.send(JSON.stringify({ type: 'start', source: 'webcam' }));
+      await postJson('/api/start', { source: 'webcam' });
       return;
     }
 
@@ -365,7 +317,7 @@ export default function LiveMonitoring() {
       }
 
       setSelectedFileName(file.name);
-      socket.send(JSON.stringify({ type: 'start', source: 'file', path: uploadData.file_path }));
+      await postJson('/api/start', { source: 'file', path: uploadData.file_path });
       return;
     }
 
@@ -373,7 +325,7 @@ export default function LiveMonitoring() {
       throw new Error('Enter an RTSP URL first');
     }
 
-    socket.send(JSON.stringify({ type: 'start', source: 'rtsp', url: rtspUrl.trim() }));
+    await postJson('/api/start', { source: 'rtsp', url: rtspUrl.trim() });
   };
 
   const handleStart = async () => {
@@ -382,11 +334,12 @@ export default function LiveMonitoring() {
     setPipelineError(null);
     setPipelineStatus('idle');
     setStreamReady(false);
-    deriveRisk(0, 0, false, false);
+    setConnectionState('polling');
+    setStreamToken((current) => current + 1);
+    updateRisk(0, 0, false, false);
     const toastId = toast.loading('Starting monitoring session...');
 
     try {
-      resetSession();
       await startRemoteSource();
       toast.success('Monitoring session started.', { id: toastId });
     } catch (error) {
@@ -394,23 +347,26 @@ export default function LiveMonitoring() {
       setStreamError(message);
       setPipelineError(message);
       setPipelineStatus('error');
-      resetSession();
       toast.error(message, { id: toastId });
     } finally {
       setStarting(false);
     }
   };
 
-  const handleStop = () => {
-    const socket = websocketRef.current;
-    if (socket && socket.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify({ type: 'stop' }));
+  const handleStop = async () => {
+    try {
+      await postJson('/api/stop', {});
+      setPipelineStatus('idle');
+      setPipelineError(null);
+      setStreamError(null);
+      setStreamReady(false);
+      setConnectionState('polling');
+      toast.success('Monitoring session stopped.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to stop stream';
+      setStreamError(message);
+      notifyError(message);
     }
-    resetSession();
-    setPipelineStatus('idle');
-    setPipelineError(null);
-    setStreamError(null);
-    toast.success('Monitoring session stopped.');
   };
 
   useEffect(() => {
@@ -421,6 +377,71 @@ export default function LiveMonitoring() {
 
   useEffect(() => {
     resetSession();
+    previousStatusRef.current = 'idle';
+    sessionSummaryPendingRef.current = false;
+    setConnectionState('polling');
+    setStreamToken((current) => current + 1);
+  }, [apiUrl]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const pollStatus = async () => {
+      if (pollInFlightRef.current) {
+        return;
+      }
+
+      pollInFlightRef.current = true;
+      try {
+        const response = await fetch(`${apiUrl}/api/status`, { cache: 'no-store' });
+        if (!response.ok) {
+          throw new Error(`Failed to load status (${response.status})`);
+        }
+
+        const payload = (await response.json()) as StatusPayload;
+        if (cancelled) {
+          return;
+        }
+
+        const nextStatus = typeof payload.status === 'string' ? payload.status : 'idle';
+        const wasRunning = previousStatusRef.current === 'running';
+        const isRunning = nextStatus === 'running';
+
+        setConnectionState('connected');
+        applyStatusPayload(payload);
+
+        if (isRunning) {
+          sessionSummaryPendingRef.current = false;
+        } else if (wasRunning) {
+          sessionSummaryPendingRef.current = true;
+        }
+
+        previousStatusRef.current = nextStatus;
+
+        if (sessionSummaryPendingRef.current && !isRunning) {
+          await saveSessionSummary();
+        }
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        setConnectionState('disconnected');
+        const message = error instanceof Error ? error.message : 'Unable to load backend status';
+        setStreamError(message);
+        notifyError(message);
+      } finally {
+        pollInFlightRef.current = false;
+      }
+    };
+
+    pollStatus();
+    const interval = window.setInterval(pollStatus, 1200);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
   }, [apiUrl]);
 
   useEffect(() => {
@@ -434,7 +455,9 @@ export default function LiveMonitoring() {
 
     const loadZoneFromConfig = async () => {
       try {
-        const cfg = await getConfig();
+        const res = await fetch(`${apiUrl}/api/config`, { cache: 'no-store' });
+        if (!res.ok) return;
+        const cfg = (await res.json()) as Record<string, unknown>;
         const zone = Array.isArray(cfg.RESTRICTED_ZONE) ? cfg.RESTRICTED_ZONE : [];
         const points = zone
           .filter((pt) => Array.isArray(pt) && pt.length === 2)
@@ -459,7 +482,7 @@ export default function LiveMonitoring() {
   const overlayPolygon = overlayPoints.map((p) => `${p.x},${p.y}`).join(' ');
 
   const liveLabel = sourceMode === 'webcam' ? 'Backend camera' : sourceMode === 'mp4' ? 'MP4 upload' : 'RTSP source';
-  const frameSource = wsFrame;
+  const frameSource = pipelineStatus === 'running' ? `${apiUrl}/api/stream?ts=${streamToken}` : '';
 
   return (
     <div className="space-y-6">
@@ -519,7 +542,7 @@ export default function LiveMonitoring() {
             <div className="grid gap-5 px-5 py-5 md:grid-cols-[16rem_1fr]">
               <div className="space-y-2">
                 <label className="text-[10px] font-semibold uppercase tracking-[0.28em] text-slate-400">Mode</label>
-                <Select value={sourceMode} onValueChange={(value) => setSourceMode(value as SourceMode)}>
+                <Select value={sourceMode} onValueChange={setSourceMode}>
                   <SelectTrigger className="h-12 w-full border-slate-300 bg-white text-slate-900 dark:border-slate-700 dark:bg-[#101721] dark:text-white">
                     <SelectValue placeholder="Choose source" />
                   </SelectTrigger>
@@ -736,8 +759,8 @@ export default function LiveMonitoring() {
                 <p className="mt-3 text-3xl font-semibold text-slate-900 dark:text-white">{humanCount}</p>
               </div>
               <div className="border border-slate-300 bg-white p-4 dark:border-slate-700 dark:bg-[#101721]">
-                <p className="text-[10px] uppercase tracking-[0.28em] text-slate-400">Incidents</p>
-                <p className="mt-3 text-3xl font-semibold text-slate-900 dark:text-white">{incidentCount}</p>
+                <p className="text-[10px] uppercase tracking-[0.28em] text-slate-400">Violations</p>
+                <p className="mt-3 text-3xl font-semibold text-slate-900 dark:text-white">{violationCount}</p>
               </div>
             </div>
             <div className="mt-5">
@@ -758,7 +781,7 @@ export default function LiveMonitoring() {
                 2. For camera mode, backend opens local camera index 0. For MP4 or RTSP, frontend only sends file path or URL.
               </p>
               <p>
-                3. The backend streams processed frames and live detection status back through the websocket.
+                3. The backend streams processed frames over MJPEG and the status is polled over HTTP.
               </p>
             </div>
           </div>

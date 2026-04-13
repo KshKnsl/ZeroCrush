@@ -13,35 +13,29 @@ enum Role {
 }
 
 model User {
-  id        Int        @id @default(autoincrement())
+  id        Int      @id @default(autoincrement())
   name      String?
-  email     String     @unique
+  email     String   @unique
   password  String
-  role      Role       @default(VIEWER)
-  createdAt DateTime   @default(now())
-  incidents Incident[] @relation("IncidentCreator")
+  role      Role     @default(VIEWER)
+  createdAt DateTime @default(now())
 }
 
-enum IncidentType {
-  VIOLENCE
-  RESTRICTED_ZONE
-  ABNORMAL
-  MANUAL
-}
-
-enum IncidentStatus {
-  OPEN
-  RESOLVED
-}
-
-model Incident {
-  id          Int            @id @default(autoincrement())
-  type        IncidentType
-  status      IncidentStatus @default(OPEN)
-  description String?
-  source      String         @default("manual")
-  createdAt   DateTime       @default(now())
-  resolvedAt  DateTime?
-  createdById Int?
-  createdBy   User?          @relation("IncidentCreator", fields: [createdById], references: [id], onDelete: SetNull)
+model Session {
+  id                  String   @id @default(uuid())
+  source              String
+  startTime           DateTime
+  endTime             DateTime
+  videoFps            Float
+  processedFrameSize  Int
+  trackMaxAge         Int
+  tracksImageBase64   String?
+  heatmapImageBase64  String?
+  previewImageBase64  String?
+  crowdPeakBase64     String?
+  violationPeakBase64 String?
+  crowdData           Json?
+  energyBuckets       Json?
+  logEvents           Json?
+  createdAt           DateTime @default(now())
 }

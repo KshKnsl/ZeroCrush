@@ -98,7 +98,7 @@ export default function UsersManagement() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1 rounded-3xl border border-slate-300 bg-slate-50 p-5 dark:border-slate-700 dark:bg-[#141b25]">
+        <div className="lg:col-span-1  border border-slate-300 bg-slate-50 p-5 dark:border-slate-700 dark:bg-[#141b25]">
           <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-4">Add User Account</h3>
           <form className="space-y-4" onSubmit={handleCreate}>
             <div>
@@ -121,30 +121,30 @@ export default function UsersManagement() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="VIEWER">Viewer (Read-only alerts)</SelectItem>
-                  <SelectItem value="OPERATOR">Operator (Manage incidents)</SelectItem>
+                  <SelectItem value="OPERATOR">Operator (Monitor streams)</SelectItem>
                   <SelectItem value="ADMIN">Admin (Full Control)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-                <Button disabled={createLoading} className="w-full rounded-2xl bg-emerald-900 text-white hover:bg-emerald-800 dark:bg-emerald-950 dark:text-emerald-100 dark:hover:bg-emerald-900">
+                <Button disabled={createLoading} className="w-full  bg-emerald-900 text-white hover:bg-emerald-800 dark:bg-emerald-950 dark:text-emerald-100 dark:hover:bg-emerald-900">
               Create Account
             </Button>
           </form>
         </div>
 
-        <div className="lg:col-span-2 rounded-3xl border border-slate-300 bg-slate-50 p-5 dark:border-slate-700 dark:bg-[#141b25]">
+        <div className="lg:col-span-2  border border-slate-300 bg-slate-50 p-5 dark:border-slate-700 dark:bg-[#141b25]">
           <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-4">Active Accounts</h3>
           {loading ? (
             <div className="space-y-3">
-              <div className="h-10 animate-pulse rounded-xl bg-slate-200/80 dark:bg-slate-800/70" />
-              <div className="h-14 animate-pulse rounded-xl bg-slate-200/80 dark:bg-slate-800/70" />
-              <div className="h-14 animate-pulse rounded-xl bg-slate-200/80 dark:bg-slate-800/70" />
+              <div className="h-10 animate-pulse  bg-slate-200/80 dark:bg-slate-800/70" />
+              <div className="h-14 animate-pulse  bg-slate-200/80 dark:bg-slate-800/70" />
+              <div className="h-14 animate-pulse  bg-slate-200/80 dark:bg-slate-800/70" />
             </div>
           ) : (
             <div>
               <div className="space-y-3 md:hidden">
                 {users.map((u) => (
-                  <div key={u.id} className="rounded-2xl border border-slate-300 bg-white p-4 dark:border-slate-700 dark:bg-[#101721]">
+                  <div key={u.id} className=" border border-slate-300 bg-white p-4 dark:border-slate-700 dark:bg-[#101721]">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{u.name || 'Unnamed user'}</p>
@@ -159,14 +159,14 @@ export default function UsersManagement() {
                       </span>
                     </div>
                     {u.id !== 0 && (
-                      <button onClick={() => handleDelete(u.id)} className="mt-3 w-full rounded-xl border border-rose-300 bg-rose-50 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-rose-700 transition-colors hover:bg-rose-100 dark:border-rose-700 dark:bg-rose-900/20 dark:text-rose-300 dark:hover:bg-rose-900/35">
+                      <button onClick={() => handleDelete(u.id)} className="mt-3 w-full  border border-rose-300 bg-rose-50 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-rose-700 transition-colors hover:bg-rose-100 dark:border-rose-700 dark:bg-rose-900/20 dark:text-rose-300 dark:hover:bg-rose-900/35">
                         Revoke access
                       </button>
                     )}
                   </div>
                 ))}
                 {users.length === 0 && (
-                  <p className="rounded-2xl border border-slate-300 bg-white px-4 py-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-[#101721] dark:text-slate-400">
+                  <p className=" border border-slate-300 bg-white px-4 py-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-[#101721] dark:text-slate-400">
                     No user accounts. Create one to begin.
                   </p>
                 )}
@@ -174,12 +174,12 @@ export default function UsersManagement() {
 
               <div className="hidden overflow-x-auto md:block">
                 <table className="w-full text-sm text-left text-slate-500 dark:text-slate-400">
-                  <thead className="text-xs uppercase bg-slate-50 text-slate-700 dark:bg-[#151515] dark:text-slate-300 rounded-lg">
+                  <thead className="text-xs uppercase bg-slate-50 text-slate-700 dark:bg-[#151515] dark:text-slate-300 ">
                     <tr>
-                      <th scope="col" className="px-4 py-3 rounded-l-lg">Name</th>
+                      <th scope="col" className="px-4 py-3 ">Name</th>
                       <th scope="col" className="px-4 py-3">Email</th>
                       <th scope="col" className="px-4 py-3">Role</th>
-                      <th scope="col" className="px-4 py-3 text-right rounded-r-lg">Actions</th>
+                      <th scope="col" className="px-4 py-3 text-right ">Actions</th>
                     </tr>
                   </thead>
                   <tbody>

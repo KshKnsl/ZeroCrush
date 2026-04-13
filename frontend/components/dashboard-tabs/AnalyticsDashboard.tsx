@@ -1,187 +1,77 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { useSession } from 'next-auth/react';
-import { Activity, CheckCircle2, Flame, Route, ShieldAlert, Timer, Trash2 } from 'lucide-react';
-import {
-  getCrowdLogs,
-  getEnergyDistribution,
-  getSessionSummaries,
-  heatmapImageUrl,
-  processedImageUrl,
-  tracksImageUrl,
-  type CrowdRow,
-  type EnergyBucket,
-  type SessionSummary,
-  useBackendUrl,
-} from '@/lib/api';
+import { useEffect, useState, type ReactNode } from 'react';
+import { Activity, Camera, Clock3, Flame, Route, Timer } from 'lucide-react';
 import { toast } from 'sonner';
 
-type Incident = {
-  id: number;
-  type: 'VIOLENCE' | 'RESTRICTED_ZONE' | 'ABNORMAL' | 'MANUAL';
-  status: 'OPEN' | 'RESOLVED';
-  description: string | null;
-  createdAt: string;
-  resolvedAt: string | null;
+type SessionFull = {
+  id?: string;
+  source?: string;
+  startTime?: string;
+  endTime?: string;
+  videoFps?: number;
+  processedFrameSize?: number;
+  trackMaxAge?: number;
+  previewImageBase64?: string | null;
+  crowdPeakBase64?: string | null;
+  violationPeakBase64?: string | null;
+  heatmapImageBase64?: string | null;
+  tracksImageBase64?: string | null;
+  crowdData?: unknown;
+  energyBuckets?: unknown;
+  logEvents?: unknown;
+  createdAt?: string;
 };
 
-function IncidentsPanel() {
-  const [incidents, setIncidents] = useState<Incident[]>([]);
-  const [loading, setLoading] = useState(true);
-  const fetchErrorToastShown = useRef(false);
+type SessionSummary = {
+  id: string;
+  source: string;
+  startTime: string | null;
+  endTime: string | null;
+  updatedAt: string | null;
+};
 
-  const fetchIncidents = async () => {
-    try {
-      const res = await fetch('/api/incidents', { credentials: 'include' });
-      const data = await res.json();
-      if (data.incidents) {
-        setIncidents(data.incidents);
-        fetchErrorToastShown.current = false;
-      }
-    } catch {
-      if (!fetchErrorToastShown.current) {
-        toast.error('Failed to fetch incidents. Retrying in background...');
-        fetchErrorToastShown.current = true;
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
+type CrowdPoint = {
+  x: number;
+  crowd: number;
+  violations: number;
+  restricted: boolean;
+  abnormal: boolean;
+};
 
-  useEffect(() => {
-    fetchIncidents();
-    const interval = setInterval(fetchIncidents, 5000);
-    return () => clearInterval(interval);
-  }, []);
+type LogEvent = {
+  type?: string;
+  time?: string;
+  severity?: string;
+  label?: string;
+};
 
-  const handleResolve = async (id: number) => {
-    const toastId = toast.loading('Resolving incident...');
-    try {
-      setIncidents((prev) => prev.map((item) => (item.id === id ? { ...item, status: 'RESOLVED' } : item)));
-      const res = await fetch(`/api/incidents?id=${id}`, {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'RESOLVED' }),
-      });
-      if (!res.ok) throw new Error('Failed to resolve incident');
-      fetchIncidents();
-      toast.success('Incident marked as resolved.', { id: toastId });
-    } catch {
-      toast.error('Failed to resolve incident.', { id: toastId });
-      fetchIncidents();
-    }
-  };
-
-  const handleDelete = async (id: number) => {
-    if (!confirm('Are you sure you want to permanently delete this incident record?')) return;
-    const toastId = toast.loading('Deleting incident...');
-    try {
-      setIncidents((prev) => prev.filter((item) => item.id !== id));
-      const res = await fetch(`/api/incidents?id=${id}`, { method: 'DELETE', credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to delete incident');
-      toast.success('Incident deleted.', { id: toastId });
-    } catch {
-      toast.error('Failed to delete incident.', { id: toastId });
-      fetchIncidents();
-    }
-  };
-
-  const typeStyle: Record<Incident['type'], string> = {
-    VIOLENCE: 'bg-rose-100 text-rose-700 dark:bg-rose-900/25 dark:text-rose-300 border-rose-300 dark:border-rose-700',
-    RESTRICTED_ZONE: 'bg-slate-200 text-slate-700 dark:bg-slate-700/50 dark:text-slate-200 border-slate-300 dark:border-slate-600',
-    ABNORMAL: 'bg-slate-200 text-slate-700 dark:bg-slate-700/50 dark:text-slate-200 border-slate-300 dark:border-slate-600',
-    MANUAL: 'bg-slate-100 text-slate-700 dark:bg-slate-800/40 dark:text-slate-300 border-slate-300 dark:border-slate-700',
-  };
-
-  if (loading) {
-    return (
-      <div className="space-y-3">
-        <div className="h-16 animate-pulse rounded-2xl bg-slate-200/80 dark:bg-slate-800/70" />
-        <div className="h-16 animate-pulse rounded-2xl bg-slate-200/80 dark:bg-slate-800/70" />
-      </div>
-    );
-  }
-
-  if (incidents.length === 0) {
-    return (
-      <div className="rounded-2xl border border-slate-300 bg-slate-50 p-6 text-sm text-slate-600 dark:border-slate-700 dark:bg-[#141b25] dark:text-slate-300">
-        No incidents logged yet.
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-3">
-      {incidents.map((incident) => (
-        <div
-          key={incident.id}
-          className={`rounded-2xl border p-4 ${
-            incident.status === 'OPEN'
-              ? 'border-l-4 border-l-rose-600 border-y-slate-300 border-r-slate-300 dark:border-y-slate-700 dark:border-r-slate-700'
-              : 'border-slate-300 opacity-80 dark:border-slate-700'
-          }`}
-        >
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className={`rounded border px-2 py-1 text-[10px] font-bold uppercase tracking-wider ${typeStyle[incident.type]}`}>
-                  {incident.type.replace(/_/g, ' ')}
-                </span>
-                <span className="text-xs text-slate-400">{new Date(incident.createdAt).toLocaleString()}</span>
-                {incident.status === 'RESOLVED' && (
-                  <span className="flex items-center gap-1 border border-slate-300 bg-slate-200 px-2 py-0.5 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-700/40 dark:text-slate-200">
-                    <CheckCircle2 className="h-3 w-3" />
-                    Resolved
-                  </span>
-                )}
-              </div>
-              <p className="text-sm font-medium text-slate-900 dark:text-white">{incident.description}</p>
-            </div>
-            <div className="flex items-center gap-2">
-              {incident.status === 'OPEN' && (
-                <button
-                  onClick={() => handleResolve(incident.id)}
-                  className="whitespace-nowrap bg-emerald-900 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-emerald-800 dark:bg-emerald-950 dark:text-emerald-100 dark:hover:bg-emerald-900"
-                >
-                  Mark Resolved
-                </button>
-              )}
-              <button
-                onClick={() => handleDelete(incident.id)}
-                className="border border-transparent p-2 text-rose-600 transition-colors hover:border-rose-300 hover:bg-rose-100 dark:hover:border-rose-700 dark:hover:bg-rose-900/25"
-                title="Permanently remove"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
+const toNumber = (value: unknown) => Number(value) || 0;
+const toBool = (value: unknown) => Boolean(Number(value) || value);
 
 export default function AnalyticsDashboard() {
-  const apiUrl = useBackendUrl();
-  const { data } = useSession();
   const [streams, setStreams] = useState<SessionSummary[]>([]);
-  const [selectedStream, setSelectedStream] = useState<string>('');
-  const [crowdRows, setCrowdRows] = useState<CrowdRow[]>([]);
-  const [energyBuckets, setEnergyBuckets] = useState<EnergyBucket[]>([]);
+  const [selectedStreamId, setSelectedStreamId] = useState<string>('');
+  const [sessionDetail, setSessionDetail] = useState<SessionFull | null>(null);
   const [loadingStreams, setLoadingStreams] = useState(true);
-  const [loadingGraphs, setLoadingGraphs] = useState(false);
-
-  const role = ((data?.user as { role?: string } | undefined)?.role ?? 'VIEWER') as string;
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
   useEffect(() => {
     const fetchStreams = async () => {
       try {
-        const rows: SessionSummary[] = await getSessionSummaries();
+        const res = await fetch('/api/sessions');
+        if (!res.ok) throw new Error('Failed to fetch sessions');
+        const data = await res.json();
+        const rows: SessionSummary[] = (data.items || []).map((item: any) => ({
+          id: item.id,
+          source: item.source,
+          startTime: item.startTime ,
+          endTime: item.endTime ,
+          updatedAt: item.updatedAt ,
+        }));
         setStreams(rows);
         if (rows.length > 0) {
-          setSelectedStream((prev) => (prev && rows.some((r: SessionSummary) => r.id === prev) ? prev : rows[0].id));
+          setSelectedStreamId(rows[0].id);
         }
       } catch (err) {
         console.error(err);
@@ -192,57 +82,50 @@ export default function AnalyticsDashboard() {
     };
 
     fetchStreams();
-  }, [apiUrl]);
+    const interval = setInterval(fetchStreams, 15000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
-    if (!selectedStream) return;
+    if (!selectedStreamId) return;
 
     let active = true;
-
-    const loadGraphs = async () => {
-      setLoadingGraphs(true);
+    const fetchDetail = async () => {
+      setLoadingDetail(true);
       try {
-        const [crowd, energy] = await Promise.all([
-          getCrowdLogs({ session: selectedStream, limit: 120 }),
-          getEnergyDistribution(selectedStream),
-        ]);
-        if (!active) return;
-        setCrowdRows(crowd.rows ?? []);
-        setEnergyBuckets(energy ?? []);
+        const res = await fetch(`/api/sessions?id=${selectedStreamId}`);
+        if (!res.ok) throw new Error('Fetch failed');
+        const data = await res.json();
+        if (active) setSessionDetail(data);
       } catch (err) {
         console.error(err);
         if (active) {
-          setCrowdRows([]);
-          setEnergyBuckets([]);
-          toast.error('Failed to load analytics for this stream.');
+          setSessionDetail(null);
+          toast.error('Failed to load session details.');
         }
       } finally {
-        if (active) setLoadingGraphs(false);
+        if (active) setLoadingDetail(false);
       }
     };
 
-    loadGraphs();
+    fetchDetail();
     return () => {
       active = false;
     };
-  }, [selectedStream, apiUrl]);
+  }, [selectedStreamId]);
 
-  const selectedMeta = streams.find((stream) => stream.id === selectedStream) ?? null;
-  const tracksUrl = selectedStream ? tracksImageUrl(selectedStream) : '';
-  const heatmapUrl = selectedStream ? heatmapImageUrl(selectedStream) : '';
-  const previewUrl = selectedStream ? processedImageUrl(selectedStream, 'preview') : '';
-  const crowdPeakUrl = selectedStream ? processedImageUrl(selectedStream, 'crowd') : '';
-  const violationPeakUrl = selectedStream ? processedImageUrl(selectedStream, 'violation') : '';
+  const selectedMeta = streams.find((stream) => stream.id === selectedStreamId) ?? null;
+  const sessionStart = sessionDetail?.startTime ?? selectedMeta?.startTime;
+  const sessionEnd = sessionDetail?.endTime ?? selectedMeta?.endTime;
 
-  const crowdSeries = crowdRows
-    .map((row, index) => ({
-      x: index,
-      crowd: Number(row.human_count) || 0,
-      violations: Number(row.violations) || 0,
-      restricted: Boolean(row.restricted),
-      abnormal: Boolean(row.abnormal),
-    }))
-    .slice(-36);
+  const crowdRows = Array.isArray(sessionDetail?.crowdData) ? (sessionDetail.crowdData as Record<string, unknown>[]) : [];
+  const crowdSeries: CrowdPoint[] = crowdRows.map((row, index) => ({
+    x: index,
+    crowd: toNumber(row['Human Count']) || toNumber(row.human_count),
+    violations: toNumber(row['Social Distance violate']) || toNumber(row.violations),
+    restricted: toBool(row['Restricted Entry']) || toBool(row.restricted),
+    abnormal: toBool(row['Abnormal Activity']) || toBool(row.abnormal),
+  })).slice(-36);
 
   const maxSeriesValue = Math.max(
     1,
@@ -257,9 +140,12 @@ export default function AnalyticsDashboard() {
     .map((row, index) => `${(index / Math.max(crowdSeries.length - 1, 1)) * 100},${100 - (row.violations / maxSeriesValue) * 100}`)
     .join(' ');
 
+  const energyBuckets = Array.isArray(sessionDetail?.energyBuckets) ? (sessionDetail.energyBuckets as Array<{ bucket: string; count: number }>) : [];
   const maxBucket = Math.max(1, ...energyBuckets.map((bucket) => bucket.count));
+  const logEvents = Array.isArray(sessionDetail?.logEvents) ? (sessionDetail.logEvents as LogEvent[]) : [];
+  const recentCrowdRows = crowdRows.slice(-20).reverse();
 
-  const formatTimestamp = (value: string | null) => {
+  const formatTimestamp = (value: string | null | undefined) => {
     if (!value) return 'Unknown';
     const maybeDate = new Date(value);
     return Number.isNaN(maybeDate.getTime()) ? value : maybeDate.toLocaleString();
@@ -274,7 +160,7 @@ export default function AnalyticsDashboard() {
     icon: ReactNode;
     children: ReactNode;
   }) => (
-    <div className="rounded-3xl border border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-[#141b25] overflow-hidden">
+    <div className="border border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-[#141b25] overflow-hidden">
       <div className="flex items-center gap-2 border-b border-slate-300 px-4 py-3 text-xs font-semibold uppercase tracking-[0.12em] text-slate-600 dark:border-slate-700 dark:text-slate-300">
         {icon}
         {title}
@@ -283,27 +169,20 @@ export default function AnalyticsDashboard() {
     </div>
   );
 
-  const SessionImage = ({ src, alt }: { src: string; alt: string }) => {
-    const [failed, setFailed] = useState(false);
-
-    useEffect(() => {
-      setFailed(false);
-    }, [src]);
-
-    if (!src || failed) {
-      return <div className="flex h-full w-full items-center justify-center text-sm text-slate-400">Image unavailable for this session</div>;
+  const SessionImage = ({ src, alt }: { src?: string | null; alt: string }) => {
+    if (!src) {
+      return <div className="flex h-full w-full items-center justify-center text-sm text-slate-400 border border-dashed border-slate-300 dark:border-slate-700">Not generated for this session</div>;
     }
-
-    return <img src={src} alt={alt} className="h-full w-full object-cover" onError={() => setFailed(true)} />;
+    return <img src={src} alt={alt} className="h-full w-full object-cover" />;
   };
 
   if (loadingStreams) {
     return (
       <div className="space-y-4">
-        <div className="h-4 w-40 animate-pulse rounded-full bg-slate-200 dark:bg-slate-700" />
+        <div className="h-4 w-40 animate-pulse bg-slate-200 dark:bg-slate-700" />
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
-          <div className="h-72 animate-pulse rounded-3xl bg-slate-200/80 dark:bg-slate-800/70" />
-          <div className="aspect-video animate-pulse rounded-3xl bg-slate-200/80 dark:bg-slate-800/70" />
+          <div className="h-72 animate-pulse bg-slate-200/80 dark:bg-slate-800/70" />
+          <div className="aspect-video animate-pulse bg-slate-200/80 dark:bg-slate-800/70" />
         </div>
       </div>
     );
@@ -311,10 +190,10 @@ export default function AnalyticsDashboard() {
 
   if (streams.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-3xl p-10 bg-slate-50 border border-slate-300 dark:bg-[#141b25] dark:border-slate-700">
+      <div className="flex flex-col items-center justify-center p-10 bg-slate-50 border border-slate-300 dark:bg-[#141b25] dark:border-slate-700">
         <Activity className="w-12 h-12 text-slate-300 dark:text-slate-700 mb-4" />
         <h3 className="text-lg font-medium text-slate-900 dark:text-white">No stream sessions found</h3>
-        <p className="text-slate-500 dark:text-slate-400 mt-1 max-w-sm text-center">Run the processing pipeline first. Sessions will appear here with start and end timestamps.</p>
+        <p className="text-slate-500 dark:text-slate-400 mt-1 max-w-sm text-center">Run the processing pipeline first. Sessions will automatically log here when they end.</p>
       </div>
     );
   }
@@ -322,30 +201,30 @@ export default function AnalyticsDashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white">Analytics + Incidents</h2>
-        <p className="text-sm text-slate-500 dark:text-slate-400">Pick a stream in the sidebar to load full analytics visuals: processed frames, trajectories, heatmap, crowd timeline, and energy distribution.</p>
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white">Session Analytics</h2>
+        <p className="text-sm text-slate-500 dark:text-slate-400">Pick a stream session in the sidebar to review full analytics visuals.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
-        <aside className="rounded-3xl border border-slate-300 bg-slate-50 p-4 dark:border-slate-700 dark:bg-[#141b25]">
+        <aside className="border border-slate-300 bg-slate-50 p-4 dark:border-slate-700 dark:bg-[#141b25]">
           <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-600 dark:text-slate-300">
             <Timer className="h-4 w-4" />
-            Streams
+            Sessions
           </div>
-          <div className="space-y-2 max-h-[560px] overflow-auto pr-1">
+          <div className="space-y-2 max-h-140 overflow-auto pr-1">
             {streams.map((stream) => {
-              const active = selectedStream === stream.id;
+              const active = selectedStreamId === stream.id;
               return (
                 <button
                   key={stream.id}
-                  onClick={() => setSelectedStream(stream.id)}
-                  className={`w-full rounded-2xl border p-3 text-left transition-colors ${
+                  onClick={() => setSelectedStreamId(stream.id)}
+                  className={`w-full border p-3 text-left transition-colors ${
                     active
                       ? 'border-emerald-700/60 bg-emerald-200/70 dark:border-emerald-700/55 dark:bg-emerald-950/35'
                       : 'border-slate-300 bg-white hover:border-emerald-500 hover:bg-emerald-50 dark:border-slate-700 dark:bg-[#101821] dark:hover:border-emerald-700/45 dark:hover:bg-emerald-950/20'
                   }`}
                 >
-                  <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">{stream.id}</p>
+                  <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">{stream.source || stream.id}</p>
                   <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">Start: {formatTimestamp(stream.startTime)}</p>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">End: {formatTimestamp(stream.endTime)}</p>
                 </button>
@@ -355,43 +234,70 @@ export default function AnalyticsDashboard() {
         </aside>
 
         <section className="space-y-4">
-          <div className="rounded-2xl border border-slate-300/70 bg-white/80 p-3 text-xs font-medium text-slate-600 dark:border-slate-700/70 dark:bg-[#0f141b]/80 dark:text-slate-300">
-            Selected stream: <span className="font-semibold">{selectedMeta?.id ?? 'None'}</span> | Start: {formatTimestamp(selectedMeta?.startTime ?? null)} | End: {formatTimestamp(selectedMeta?.endTime ?? null)}
+          <div className="border border-slate-300/70 bg-white/80 p-3 text-xs font-medium text-slate-600 dark:border-slate-700/70 dark:bg-[#0f141b]/80 dark:text-slate-300">
+             Session: <span className="font-semibold">{sessionDetail?.source || selectedMeta?.source || selectedMeta?.id || 'None'}</span> | Start: {formatTimestamp(sessionStart)} | End: {formatTimestamp(sessionEnd)}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+            <div className="border border-slate-300 bg-slate-50 p-3 dark:border-slate-700 dark:bg-[#141b25]">
+              <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Source</p>
+              <p className="mt-2 truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{sessionDetail?.source || selectedMeta?.source || 'Unknown'}</p>
+            </div>
+            <div className="border border-slate-300 bg-slate-50 p-3 dark:border-slate-700 dark:bg-[#141b25]">
+              <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">FPS</p>
+              <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-100">{toNumber(sessionDetail?.videoFps) || 'N/A'}</p>
+            </div>
+            <div className="border border-slate-300 bg-slate-50 p-3 dark:border-slate-700 dark:bg-[#141b25]">
+              <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Frame Size</p>
+              <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-100">{toNumber(sessionDetail?.processedFrameSize) || 'N/A'}</p>
+            </div>
+            <div className="border border-slate-300 bg-slate-50 p-3 dark:border-slate-700 dark:bg-[#141b25]">
+              <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Track Age</p>
+              <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-100">{toNumber(sessionDetail?.trackMaxAge) || 'N/A'}</p>
+            </div>
+            <div className="border border-slate-300 bg-slate-50 p-3 dark:border-slate-700 dark:bg-[#141b25]">
+              <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Crowd Rows</p>
+              <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-100">{crowdRows.length}</p>
+            </div>
+            <div className="border border-slate-300 bg-slate-50 p-3 dark:border-slate-700 dark:bg-[#141b25]">
+              <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Events</p>
+              <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-100">{logEvents.length}</p>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-            <GraphFrame title="Processed Output Preview" icon={<Activity className="h-4 w-4" />}>
-              <div className="aspect-video overflow-hidden rounded-xl border border-slate-300 bg-slate-100 dark:border-slate-700 dark:bg-black">
-                <SessionImage src={previewUrl} alt="Processed preview" />
-              </div>
-            </GraphFrame>
-
-            <GraphFrame title="Peak Violation Frame" icon={<ShieldAlert className="h-4 w-4" />}>
-              <div className="aspect-video overflow-hidden rounded-xl border border-slate-300 bg-slate-100 dark:border-slate-700 dark:bg-black">
-                <SessionImage src={violationPeakUrl} alt="Peak violation frame" />
+            <GraphFrame title="Processed Output Preview" icon={<Camera className="h-4 w-4" />}>
+              <div className="aspect-video overflow-hidden border border-slate-300 bg-slate-100 dark:border-slate-700 dark:bg-black">
+                <SessionImage src={sessionDetail?.previewImageBase64} alt="Processed preview" />
               </div>
             </GraphFrame>
 
             <GraphFrame title="Peak Crowd Frame" icon={<Timer className="h-4 w-4" />}>
-              <div className="aspect-video overflow-hidden rounded-xl border border-slate-300 bg-slate-100 dark:border-slate-700 dark:bg-black">
-                <SessionImage src={crowdPeakUrl} alt="Peak crowd frame" />
+              <div className="aspect-video overflow-hidden border border-slate-300 bg-slate-100 dark:border-slate-700 dark:bg-black">
+                <SessionImage src={sessionDetail?.crowdPeakBase64} alt="Peak crowd frame" />
+              </div>
+            </GraphFrame>
+
+            <GraphFrame title="Peak Violation Frame" icon={<Clock3 className="h-4 w-4" />}>
+              <div className="aspect-video overflow-hidden border border-slate-300 bg-slate-100 dark:border-slate-700 dark:bg-black">
+                <SessionImage src={sessionDetail?.violationPeakBase64} alt="Peak violation frame" />
               </div>
             </GraphFrame>
 
             <GraphFrame title="Density Heatmap" icon={<Flame className="h-4 w-4" />}>
-              <div className="aspect-video overflow-hidden rounded-xl border border-slate-300 bg-slate-100 dark:border-slate-700 dark:bg-black">
-                <SessionImage src={heatmapUrl} alt="Heatmap" />
+              <div className="aspect-video overflow-hidden border border-slate-300 bg-slate-100 dark:border-slate-700 dark:bg-black">
+                <SessionImage src={sessionDetail?.heatmapImageBase64} alt="Heatmap" />
               </div>
             </GraphFrame>
 
             <GraphFrame title="Movement Trajectories" icon={<Route className="h-4 w-4" />}>
-              <div className="aspect-video overflow-hidden rounded-xl border border-slate-300 bg-slate-100 dark:border-slate-700 dark:bg-black">
-                <SessionImage src={tracksUrl} alt="Tracks" />
+              <div className="aspect-video overflow-hidden border border-slate-300 bg-slate-100 dark:border-slate-700 dark:bg-black">
+                <SessionImage src={sessionDetail?.tracksImageBase64} alt="Tracks" />
               </div>
             </GraphFrame>
 
             <GraphFrame title="Crowd vs Violations" icon={<Activity className="h-4 w-4" />}>
-              <div className="aspect-video rounded-xl border border-slate-300 bg-white p-3 dark:border-slate-700 dark:bg-[#0f141c]">
+              <div className="aspect-video border border-slate-300 bg-white p-3 dark:border-slate-700 dark:bg-[#0f141c]">
                 {crowdSeries.length === 0 ? (
                   <div className="flex h-full items-center justify-center text-sm text-slate-400">No crowd data</div>
                 ) : (
@@ -414,7 +320,7 @@ export default function AnalyticsDashboard() {
             </GraphFrame>
 
             <GraphFrame title="Energy Distribution" icon={<Activity className="h-4 w-4" />}>
-              <div className="aspect-video rounded-xl border border-slate-300 bg-white p-3 dark:border-slate-700 dark:bg-[#0f141c]">
+              <div className="aspect-video border border-slate-300 bg-white p-3 dark:border-slate-700 dark:bg-[#0f141c]">
                 {energyBuckets.length === 0 ? (
                   <div className="flex h-full items-center justify-center text-sm text-slate-400">No energy data</div>
                 ) : (
@@ -422,7 +328,7 @@ export default function AnalyticsDashboard() {
                     {energyBuckets.slice(0, 16).map((bucket) => (
                       <div key={bucket.bucket} className="flex min-w-0 flex-1 flex-col items-center justify-end gap-2">
                         <div
-                          className="w-full rounded-t bg-emerald-500/80"
+                          className="w-full bg-emerald-500/80"
                           style={{ height: `${Math.max(6, (bucket.count / maxBucket) * 88)}%` }}
                           title={`${bucket.bucket}: ${bucket.count}`}
                         />
@@ -435,22 +341,81 @@ export default function AnalyticsDashboard() {
             </GraphFrame>
           </div>
 
-          {loadingGraphs && <p className="text-xs text-slate-500 dark:text-slate-400">Loading selected stream graphs...</p>}
-        </section>
-      </div>
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+            <GraphFrame title="Recent Crowd Data Rows" icon={<Activity className="h-4 w-4" />}>
+              {recentCrowdRows.length === 0 ? (
+                <div className="text-sm text-slate-400">No crowd rows stored</div>
+              ) : (
+                <div className="max-h-72 overflow-auto text-xs">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="border-b border-slate-200 dark:border-slate-700">
+                        <th className="px-2 py-1">Time</th>
+                        <th className="px-2 py-1">Crowd</th>
+                        <th className="px-2 py-1">Violations</th>
+                        <th className="px-2 py-1">Restricted</th>
+                        <th className="px-2 py-1">Abnormal</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {recentCrowdRows.map((row, index) => (
+                        <tr key={`${row.time ?? index}-${index}`} className="border-b border-slate-100 dark:border-slate-800/70">
+                          <td className="px-2 py-1">{String(row.time ?? '-')}</td>
+                          <td className="px-2 py-1">{toNumber(row['Human Count']) || toNumber(row.human_count)}</td>
+                          <td className="px-2 py-1">{toNumber(row['Social Distance violate']) || toNumber(row.violations)}</td>
+                          <td className="px-2 py-1">{toBool(row['Restricted Entry']) || toBool(row.restricted) ? 'Yes' : 'No'}</td>
+                          <td className="px-2 py-1">{toBool(row['Abnormal Activity']) || toBool(row.abnormal) ? 'Yes' : 'No'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </GraphFrame>
 
-      <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <ShieldAlert className="h-5 w-5 text-slate-700 dark:text-slate-300" />
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Incidents</h3>
-        </div>
-        {role === 'VIEWER' ? (
-          <div className="rounded-2xl border border-slate-300 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-[#141b25] dark:text-slate-300">
-            Incident management is restricted to operator and admin roles.
+            <GraphFrame title="Session Events" icon={<Clock3 className="h-4 w-4" />}>
+              {logEvents.length === 0 ? (
+                <div className="text-sm text-slate-400">No events stored</div>
+              ) : (
+                <div className="max-h-72 space-y-2 overflow-auto">
+                  {logEvents.map((event, index) => (
+                    <div key={`${event.time ?? index}-${index}`} className="border border-slate-200 px-2 py-2 text-xs dark:border-slate-700">
+                      <p className="font-semibold text-slate-900 dark:text-slate-100">{event.label || event.type || 'Event'}</p>
+                      <p className="mt-1 text-slate-600 dark:text-slate-300">Time: {event.time ?? 'Unknown'}</p>
+                      <p className="text-slate-600 dark:text-slate-300">Severity: {event.severity ?? 'unknown'}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </GraphFrame>
+
+            <GraphFrame title="Raw Session Analysis JSON" icon={<Route className="h-4 w-4" />}>
+              <div className="max-h-72 overflow-auto border border-slate-300 bg-slate-100 p-2 text-[11px] dark:border-slate-700 dark:bg-[#0d131c]">
+                <pre className="whitespace-pre-wrap wrap-break-word text-slate-700 dark:text-slate-300">
+{JSON.stringify(
+  {
+    id: sessionDetail?.id,
+    source: sessionDetail?.source,
+    startTime: sessionDetail?.startTime,
+    endTime: sessionDetail?.endTime,
+    createdAt: sessionDetail?.createdAt,
+    videoFps: sessionDetail?.videoFps,
+    processedFrameSize: sessionDetail?.processedFrameSize,
+    trackMaxAge: sessionDetail?.trackMaxAge,
+    crowdData: sessionDetail?.crowdData ?? [],
+    energyBuckets: sessionDetail?.energyBuckets ?? [],
+    logEvents: sessionDetail?.logEvents ?? [],
+  },
+  null,
+  2
+)}
+                </pre>
+              </div>
+            </GraphFrame>
           </div>
-        ) : (
-          <IncidentsPanel />
-        )}
+
+          {loadingDetail && <p className="text-xs text-slate-500 dark:text-slate-400">Loading session details...</p>}
+        </section>
       </div>
     </div>
   );

@@ -1,21 +1,12 @@
 import 'server-only';
+import nodemailer from 'nodemailer';
+import { buildLoginMailTemplate } from './mailtemplate.js';
 
-type LoginMailParams = {
-  to: string;
-  name?: string | null;
-  role?: string;
-};
-
-export async function sendLoginMail({ to, name, role }: LoginMailParams) {
-  const [{ default: nodemailer }, { buildLoginMailTemplate }] = await Promise.all([
-    import('nodemailer'),
-    import('./mailtemplate.js'),
-  ]);
-
+export async function sendLoginMail({ to, name, role }: { to: string; name?: string | null; role?: string }) {
   const email = process.env.EMAIL;
   const password = process.env.EMAILPASSWORD;
-  const fromAddress = process.env.MAIL_FROM_ADDRESS || email;
-  const fromName = process.env.MAIL_FROM_NAME || 'SmartMonitor Events';
+  const fromName = process.env.MAIL_FROM_NAME;
+  const fromAddress = process.env.MAIL_FROM_ADDRESS;
 
   const now = new Date().toLocaleString('en-IN', {
     dateStyle: 'medium',
