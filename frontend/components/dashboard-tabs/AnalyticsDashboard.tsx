@@ -4,11 +4,12 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Activity, Camera, Clock3, Flame, Route, Timer } from 'lucide-react';
 import { toast } from 'sonner';
 
-type SessionFull = {
-  id?: string;
-  source?: string;
-  startTime?: string;
-  endTime?: string;
+type Session = {
+  id: string;
+  source: string;
+  startTime: string | null;
+  endTime: string | null;
+  updatedAt: string | null;
   videoFps?: number;
   processedFrameSize?: number;
   trackMaxAge?: number;
@@ -21,14 +22,6 @@ type SessionFull = {
   energyBuckets?: unknown;
   logEvents?: unknown;
   createdAt?: string;
-};
-
-type SessionSummary = {
-  id: string;
-  source: string;
-  startTime: string | null;
-  endTime: string | null;
-  updatedAt: string | null;
 };
 
 type CrowdPoint = {
@@ -50,9 +43,9 @@ const toNumber = (value: unknown) => Number(value) || 0;
 const toBool = (value: unknown) => Boolean(Number(value) || value);
 
 export default function AnalyticsDashboard() {
-  const [streams, setStreams] = useState<SessionSummary[]>([]);
+  const [streams, setStreams] = useState<Session[]>([]);
   const [selectedStreamId, setSelectedStreamId] = useState<string>('');
-  const [sessionDetail, setSessionDetail] = useState<SessionFull | null>(null);
+  const [sessionDetail, setSessionDetail] = useState<Session | null>(null);
   const [loadingStreams, setLoadingStreams] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
@@ -62,12 +55,12 @@ export default function AnalyticsDashboard() {
         const res = await fetch('/api/sessions');
         if (!res.ok) throw new Error('Failed to fetch sessions');
         const data = await res.json();
-        const rows: SessionSummary[] = (data.items || []).map((item: any) => ({
+        const rows: Session[] = (data.items || []).map((item: any) => ({
           id: item.id,
-          source: item.source,
-          startTime: item.startTime ,
-          endTime: item.endTime ,
-          updatedAt: item.updatedAt ,
+          source: item.source || String(item.id),
+          startTime: item.startTime || null,
+          endTime: item.endTime || null,
+          updatedAt: item.updatedAt || null,
         }));
         setStreams(rows);
         if (rows.length > 0) {
@@ -95,7 +88,7 @@ export default function AnalyticsDashboard() {
       try {
         const res = await fetch(`/api/sessions?id=${selectedStreamId}`);
         if (!res.ok) throw new Error('Fetch failed');
-        const data = await res.json();
+        const data = (await res.json()) as Session;
         if (active) setSessionDetail(data);
       } catch (err) {
         console.error(err);
