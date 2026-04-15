@@ -36,9 +36,9 @@ def update_artifact_state(artifact_state, frame, crowd_count, violation_count):
     if artifact_state is None:
         return
     artifact_state["last_frame"] = frame.copy()
-    if crowd_count > int(artifact_state.get("max_crowd", -1)):
+    if crowd_count > int(artifact_state["max_crowd"]):
         artifact_state["max_crowd"] = crowd_count
         artifact_state["max_crowd_frame"] = frame.copy()
-    if violation_count > int(artifact_state.get("max_violations", -1)):
+    if violation_count > int(artifact_state["max_violations"]):
         artifact_state["max_violations"] = violation_count
         artifact_state["max_violation_frame"] = frame.copy()

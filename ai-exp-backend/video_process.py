@@ -1,37 +1,28 @@
 import time
 import datetime
 import numpy as np
-import imutils
 import cv2
-import pathlib
 from typing import Any, Optional
-from scipy.spatial.distance import euclidean
+from ultralytics import YOLO
 
-
-_original_path_exists = pathlib.Path.exists
-
-
-def _safe_path_exists(path_obj):
-	try:
-		return _original_path_exists(path_obj)
-	except OSError:
-		return False
-
-
-pathlib.Path.exists = _safe_path_exists
-try:
-	from ultralytics import YOLO
-finally:
-	pathlib.Path.exists = _original_path_exists
-
-from util import rect_distance, progress, kinetic_energy
+from util import progress
 from pipeline.artifact import end_video, initialize_artifact_state, record_crowd_data, update_artifact_state
+from pipeline.analysis import (
+	detect_restricted_entry,
+	evaluate_abnormal,
+	evaluate_social_distance,
+	resize_frame_by_width,
+	update_track_histories,
+)
+from pipeline.annotators import (
+	annotate_abnormal,
+	annotate_crowd_count_if_needed,
+	annotate_detections,
+	apply_frame_smoothing,
+)
 from pipeline.detection import detect_tracks, smooth_tracks
 from pipeline.overlay import (
 	apply_warning_overlays,
-	draw_abnormal_boxes,
-	draw_crowd_count,
-	draw_detection_box,
 	draw_restricted_zone,
 )
 
@@ -50,19 +41,21 @@ def video_process(
 	status_callback=None,
 	artifact_state: Optional[dict[str, Any]] = None,
 ):
-	active_settings = settings or {}
-	IS_CAM = bool(active_settings.get("IS_REALTIME", False))
-	DISTANCE_THRESHOLD = float(active_settings.get("DISTANCE_THRESHOLD", 100))
-	DATA_RECORD_RATE = int(active_settings.get("DATA_RECORD_RATE", 10))
-	CHECK_ABNORMAL = bool(active_settings.get("CHECK_ABNORMAL", True))
-	ENERGY_THRESHOLD = float(active_settings.get("ENERGY_THRESHOLD", 1500))
-	ABNORMAL_RATIO_THRESHOLD = float(active_settings.get("ABNORMAL_RATIO_THRESHOLD", 0.66))
-	MIN_PERSONS_ABNORMAL = int(active_settings.get("MIN_PERSONS_ABNORMAL", 5))
+	if settings is None:
+		raise ValueError("Missing settings")
+	active_settings = settings
+	IS_CAM = bool(active_settings["IS_REALTIME"])
+	DISTANCE_THRESHOLD = float(active_settings["DISTANCE_THRESHOLD"])
+	DATA_RECORD_RATE = int(active_settings["DATA_RECORD_RATE"])
+	CHECK_ABNORMAL = bool(active_settings["CHECK_ABNORMAL"])
+	ENERGY_THRESHOLD = float(active_settings["ENERGY_THRESHOLD"])
+	ABNORMAL_RATIO_THRESHOLD = float(active_settings["ABNORMAL_RATIO_THRESHOLD"])
+	MIN_PERSONS_ABNORMAL = int(active_settings["MIN_PERSONS_ABNORMAL"])
 	YOLO_MODEL_PATH = FIXED_YOLO_MODEL_PATH
-	YOLO_CONFIDENCE = float(active_settings.get("YOLO_CONFIDENCE", 0.4))
-	TRACK_SMOOTHING_ALPHA = float(active_settings.get("TRACK_SMOOTHING_ALPHA", 0.6))
-	FRAME_SMOOTHING_ALPHA = float(active_settings.get("FRAME_SMOOTHING_ALPHA", 0.85))
-	TRACK_MAX_AGE = int(active_settings.get("TRACK_MAX_AGE", 30))
+	YOLO_CONFIDENCE = float(active_settings["YOLO_CONFIDENCE"])
+	TRACK_SMOOTHING_ALPHA = float(active_settings["TRACK_SMOOTHING_ALPHA"])
+	FRAME_SMOOTHING_ALPHA = float(active_settings["FRAME_SMOOTHING_ALPHA"])
+	TRACK_MAX_AGE = int(active_settings["TRACK_MAX_AGE"])
 	CHECK_SOCIAL_DISTANCE = DISTANCE_THRESHOLD > 0
 	model = YOLO(YOLO_MODEL_PATH)
 	show_window = not headless
@@ -79,9 +72,11 @@ def video_process(
 		TIME_STEP = 1
 		t0 = time.time()
 	else:
-		VID_FPS = cap.get(cv2.CAP_PROP_FPS) or 0.0
-		DATA_RECORD_FRAME = max(1, int(VID_FPS / DATA_RECORD_RATE)) if VID_FPS > 0 else 1
-		TIME_STEP = DATA_RECORD_FRAME / (VID_FPS if VID_FPS > 0 else float(DATA_RECORD_RATE))
+		VID_FPS = float(cap.get(cv2.CAP_PROP_FPS))
+		if VID_FPS <= 0:
+			raise ValueError("Invalid source FPS")
+		DATA_RECORD_FRAME = max(1, int(VID_FPS / DATA_RECORD_RATE))
+		TIME_STEP = DATA_RECORD_FRAME / VID_FPS
 
 	frame_count = 0
 	display_frame_count = 0
@@ -132,7 +127,7 @@ def video_process(
 		display_frame_count += 1
 
 		# Resize Frame to given size
-		frame = imutils.resize(frame, width=frame_size)
+		frame = resize_frame_by_width(frame, frame_size)
 
 		# Get current time
 		current_datetime = datetime.datetime.now()
@@ -146,90 +141,37 @@ def video_process(
 		# Run detection with YOLOv8 and update Deep SORT tracks.
 		humans_detected = detect_tracks(model, frame, YOLO_CONFIDENCE, TRACK_MAX_AGE)
 		smooth_tracks(humans_detected, track_visual_state, TRACK_SMOOTHING_ALPHA)
-
-		for track in humans_detected:
-			track_id = track["track_id"]
-			if track_id not in track_histories:
-				track_histories[track_id] = {"entry": record_time, "positions": []}
-			track_histories[track_id]["positions"].append(track["centroid"])
-		
-		violate_set = set()
-		violate_count = [0] * len(humans_detected)
+		update_track_histories(track_histories, humans_detected, record_time)
 
 		# Check for restricted entry (centroid inside polygon)
-		restricted_zone = active_settings.get("RESTRICTED_ZONE", [])
+		restricted_zone = active_settings["RESTRICTED_ZONE"]
 		zone_points = list(restricted_zone) if isinstance(restricted_zone, list) else []
 		check_restricted_zone = len(zone_points) >= 3
-		high_cam = bool(active_settings.get("CAMERA_ELEVATED", True))
-
-		if check_restricted_zone:
-			RE = False
-			zone_pts = np.array(zone_points, dtype=np.int32)
-			for track in humans_detected:
-				cx, cy = track["centroid"]
-				if cv2.pointPolygonTest(zone_pts, (float(cx), float(cy)), False) >= 0:
-					RE = True
-					break
-		else:
-			RE = False
+		high_cam = bool(active_settings["CAMERA_ELEVATED"])
+		RE = detect_restricted_entry(humans_detected, zone_points)
 
 		if check_restricted_zone:
 			draw_restricted_zone(frame, np.array(zone_points, dtype=np.int32))
 
-		abnormal_individual = []
-		ABNORMAL = False
+		violate_set = evaluate_social_distance(
+			humans_detected,
+			CHECK_SOCIAL_DISTANCE,
+			high_cam,
+			DISTANCE_THRESHOLD,
+		)
+		abnormal_individual, ABNORMAL = evaluate_abnormal(
+			humans_detected,
+			track_histories,
+			CHECK_ABNORMAL,
+			ENERGY_THRESHOLD,
+			MIN_PERSONS_ABNORMAL,
+			ABNORMAL_RATIO_THRESHOLD,
+			TIME_STEP,
+		)
 
-		# Initiate video process loop
-		if (not headless) or CHECK_SOCIAL_DISTANCE or check_restricted_zone or CHECK_ABNORMAL:
-			for i, track in enumerate(humans_detected):
-				# Get object bounding box (ltrb)
-				x1, y1, x2, y2 = list(map(int, track["bbox"]))
-				# Get object centroid
-				[cx, cy] = list(map(int, track["centroid"]))
-				# Get object id
-				idx = track["track_id"]
-				# Check for social distance violation
-				if CHECK_SOCIAL_DISTANCE:
-					if len(humans_detected) >= 2:
-						# Check the distance between current loop object with the rest of the object in the list
-						for j, track_2 in enumerate(humans_detected[i+1:], start=i+1):
-							if high_cam:
-								[cx_2, cy_2] = list(map(int, track_2["centroid"]))
-								distance = euclidean((cx, cy), (cx_2, cy_2))
-							else:
-								x1b, y1b, x2b, y2b = list(map(int, track_2["bbox"]))
-								distance = rect_distance((x1, y1, x2, y2), (x1b, y1b, x2b, y2b))
-							if distance < DISTANCE_THRESHOLD:
-								# Distance between detection less than minimum social distance 
-								violate_set.add(i)
-								violate_count[i] += 1
-								violate_set.add(j)
-								violate_count[j] += 1
-
-				# Compute energy level for each detection
-				if CHECK_ABNORMAL:
-					track_positions = track_histories[idx]["positions"]
-					if len(track_positions) >= 2:
-						ke = kinetic_energy(track_positions[-1], track_positions[-2], TIME_STEP)
-						if ke > ENERGY_THRESHOLD:
-							abnormal_individual.append(idx)
-
-				# If restricted entry is on, draw red boxes around each detection
-				draw_detection_box(frame, (x1, y1, x2, y2), violation=i in violate_set, restricted=RE, show_green=not headless)
-			
-			# Check for overall abnormal level, trigger notification if exceeds threshold
-			if len(humans_detected) > MIN_PERSONS_ABNORMAL:
-				if len(abnormal_individual) / len(humans_detected) > ABNORMAL_RATIO_THRESHOLD:
-					ABNORMAL = True
-
-		# Draw abnormal individuals; warning text is handled by apply_warning_overlays().
-		if CHECK_ABNORMAL:
-			if ABNORMAL:
-				draw_abnormal_boxes(frame, humans_detected, abnormal_individual)
-
-		# Display crowd count on screen
-		if not headless:
-			draw_crowd_count(frame, len(humans_detected))
+		annotate_detections(frame, humans_detected, violate_set, RE, show_green=not headless)
+		annotate_abnormal(frame, humans_detected, abnormal_individual, ABNORMAL)
+		annotate_crowd_count_if_needed(frame, len(humans_detected), headless)
 
 		sd_warning_timeout, re_warning_timeout, ab_warning_timeout = apply_warning_overlays(
 			frame,
@@ -246,9 +188,7 @@ def video_process(
 		)
 
 		# Record crowd data to file
-		if FRAME_SMOOTHING_ALPHA > 0 and prev_output_frame is not None and prev_output_frame.shape == frame.shape:
-			alpha = float(FRAME_SMOOTHING_ALPHA)
-			frame = cv2.addWeighted(prev_output_frame, 1.0 - alpha, frame, alpha, 0)
+		frame = apply_frame_smoothing(frame, prev_output_frame, float(FRAME_SMOOTHING_ALPHA))
 		prev_output_frame = frame.copy()
 
 		if frame_callback is not None:

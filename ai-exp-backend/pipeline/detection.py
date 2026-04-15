@@ -22,11 +22,11 @@ def smooth_tracks(humans_detected, visual_state, alpha):
 
         bbox = np.array(track["bbox"], dtype=np.float32)
         centroid = np.array(track["centroid"], dtype=np.float32)
-        prev = visual_state.get(track_id)
-        if prev is None:
+        if track_id not in visual_state:
             smoothed_bbox = bbox
             smoothed_centroid = centroid
         else:
+            prev = visual_state[track_id]
             smoothed_bbox = ((1.0 - alpha) * prev["bbox"]) + (alpha * bbox)
             smoothed_centroid = ((1.0 - alpha) * prev["centroid"]) + (alpha * centroid)
 

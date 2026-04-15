@@ -4,17 +4,24 @@ import math
 import os
 
 import cv2
-import imutils
 import numpy as np
-from scipy.spatial.distance import euclidean
 
 
-def _to_int(value, default=0):
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return default
+def _euclidean(p1, p2):
+    return float(np.linalg.norm(np.array(p1, dtype=np.float32) - np.array(p2, dtype=np.float32)))
 
+
+def _resize_by_width(frame, width):
+    h, w = frame.shape[:2]
+    if w == width:
+        return frame
+    ratio = float(width) / float(max(w, 1))
+    height = max(1, int(round(h * ratio)))
+    return cv2.resize(frame, (width, height), interpolation=cv2.INTER_LINEAR)
+
+
+def _to_int(value):
+    return int(value)
 
 def _iter_csv_rows(path, min_columns=0):
     with open(path, "r") as file:
@@ -56,11 +63,10 @@ def load_movement_tracks(log_dir):
     for row in _iter_csv_rows(os.path.join(log_dir, "movement_data.csv"), min_columns=7):
         temp = []
         data = row[3:]
+        if len(data) % 2 != 0:
+            raise ValueError("Invalid movement track row: odd number of coordinates")
         for i in range(0, len(data), 2):
-            try:
-                temp.append([int(data[i]), int(data[i + 1])])
-            except (ValueError, IndexError):
-                break
+            temp.append([int(data[i]), int(data[i + 1])])
         if temp:
             tracks.append(temp)
     return tracks
@@ -73,10 +79,9 @@ def render_movement_images(video_source, tracks, frame_size, vid_fps, data_recor
     cap.release()
 
     if not ret:
-        # Fallback blank frame if source cannot be read
-        tracks_frame = np.zeros((frame_size, frame_size, 3), dtype=np.uint8)
+        raise RuntimeError("Unable to read frame for movement rendering")
 
-    tracks_frame = imutils.resize(tracks_frame, width=frame_size)
+    tracks_frame = _resize_by_width(tracks_frame, frame_size)
     heatmap_frame = np.copy(tracks_frame)
 
     stationary_threshold_seconds = 2
@@ -100,7 +105,7 @@ def render_movement_images(video_source, tracks, frame_size, vid_fps, data_recor
         stationary = movement[0]
         stationary_time = 0
         for point in movement[1:]:
-            if euclidean(stationary, point) < stationary_distance:
+            if _euclidean(stationary, point) < stationary_distance:
                 stationary_time += 1
             else:
                 temp_movement_point.append(point)
@@ -168,7 +173,7 @@ def build_energy_series(tracks, frame_size, time_steps, track_max_age):
         track = movement[:check_index]
         while check_index < len(movement):
             for point in movement[check_index:]:
-                if euclidean(movement[start_point], point) > stationary_distance:
+                if _euclidean(movement[start_point], point) > stationary_distance:
                     track.append(point)
                     start_point += 1
                     check_index += 1
@@ -182,7 +187,7 @@ def build_energy_series(tracks, frame_size, time_steps, track_max_age):
     energies = []
     for movement in useful_tracks:
         for i in range(len(movement) - 1):
-            speed = euclidean(movement[i], movement[i + 1]) / safe_time_step
+            speed = _euclidean(movement[i], movement[i + 1]) / safe_time_step
             energy = int(0.5 * speed**2)
             energies.append(energy)
     return energies
