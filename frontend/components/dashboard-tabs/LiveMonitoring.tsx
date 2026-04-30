@@ -14,6 +14,7 @@ type StatusPayload = {
   error?: string | null;
   stream_ready?: boolean;
   human_count?: number;
+  alerts?: number;
   violations?: number;
   restricted?: boolean;
   abnormal?: boolean;
@@ -49,7 +50,7 @@ export default function LiveMonitoring(): JSX.Element {
   const [streamReady, setStreamReady] = useState(false);
   const [streamError, setStreamError] = useState<string | null>(null);
   const [humanCount, setHumanCount] = useState(0);
-  const [violationCount, setViolationCount] = useState(0);
+  const [alertCount, setAlertCount] = useState(0);
   const [riskLevel, setRiskLevel] = useState<string>(initialRisk);
   const [rtspUrl, setRtspUrl] = useState('');
   const [selectedFileName, setSelectedFileName] = useState('');
@@ -67,7 +68,7 @@ export default function LiveMonitoring(): JSX.Element {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastErrorToastRef = useRef('');
   const humanCountRef = useRef(0);
-  const violationCountRef = useRef(0);
+  const alertCountRef = useRef(0);
   const previousStatusRef = useRef('idle');
   const sessionSummaryPendingRef = useRef(false);
   const sessionSummaryInFlightRef = useRef(false);
@@ -86,12 +87,12 @@ export default function LiveMonitoring(): JSX.Element {
     setStreamError(null);
   };
 
-  const updateRisk = (count: number, violations: number, restricted: boolean, abnormal: boolean) => {
-    const activeAlerts = Number(Boolean(restricted)) + Number(Boolean(abnormal)) + Number(violations > 0);
+  const updateRisk = (count: number, alerts: number, restricted: boolean, abnormal: boolean) => {
+    const activeAlerts = Number(Boolean(restricted)) + Number(Boolean(abnormal)) + Number(alerts > 0);
     humanCountRef.current = count;
-    violationCountRef.current = violations;
+    alertCountRef.current = alerts;
     setHumanCount(count);
-    setViolationCount(violations);
+    setAlertCount(alerts);
 
     if (activeAlerts > 1 || count > 60) {
       setRiskLevel('HIGH');
@@ -169,14 +170,17 @@ export default function LiveMonitoring(): JSX.Element {
 
     const hasMetrics =
       typeof payload.human_count === 'number' ||
+      typeof payload.alerts === 'number' ||
       typeof payload.violations === 'number' ||
       typeof payload.restricted === 'boolean' ||
       typeof payload.abnormal === 'boolean';
 
     if (hasMetrics) {
       const nextCount = typeof payload.human_count === 'number' ? payload.human_count : humanCountRef.current;
-      const nextViolations = typeof payload.violations === 'number' ? payload.violations : violationCountRef.current;
-      updateRisk(nextCount, nextViolations, Boolean(payload.restricted), Boolean(payload.abnormal));
+      const nextAlerts = typeof payload.alerts === 'number'
+        ? payload.alerts
+        : (typeof payload.violations === 'number' ? payload.violations : alertCountRef.current);
+      updateRisk(nextCount, nextAlerts, Boolean(payload.restricted), Boolean(payload.abnormal));
     }
   };
 
@@ -763,8 +767,8 @@ export default function LiveMonitoring(): JSX.Element {
                 <p className="mt-3 text-3xl font-semibold text-slate-900 dark:text-white">{humanCount}</p>
               </div>
               <div className="border border-slate-300 bg-white p-4 dark:border-slate-700 dark:bg-[#101721]">
-                <p className="text-[10px] uppercase tracking-[0.28em] text-slate-400">Violations</p>
-                <p className="mt-3 text-3xl font-semibold text-slate-900 dark:text-white">{violationCount}</p>
+                <p className="text-[10px] uppercase tracking-[0.28em] text-slate-400">Alerts</p>
+                <p className="mt-3 text-3xl font-semibold text-slate-900 dark:text-white">{alertCount}</p>
               </div>
             </div>
             <div className="mt-5">

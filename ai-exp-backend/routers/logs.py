@@ -23,7 +23,7 @@ async def api_logs_crowd(session: Optional[str] = None, limit: int = 100) -> JSO
         return JSONResponse(content={"rows": []})
 
     rows = read_crowd_tail(path, limit)
-    header = ["Time", "Human Count", "Social Distance violate", "Restricted Entry", "Abnormal Activity"]
+    header = ["Time", "Human Count", "Alerts", "Restricted Entry", "Abnormal Activity"]
     parsed_rows: list[dict[str, Any]] = []
     for row in rows:
         parsed = parse_crowd_row(row)

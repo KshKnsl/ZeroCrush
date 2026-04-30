@@ -1,5 +1,5 @@
 import numpy as np
-
+# It saves crowd stats, movement histories, and key frames during video processing.
 
 def record_movement_data(movement_data_writer, track_id, entry_time, exit_time, positions):
     data = [track_id, entry_time, exit_time, *list(np.array(positions).flatten())]

@@ -2,13 +2,8 @@ from typing import Any
 
 import cv2
 import numpy as np
-
-from util import kinetic_energy, rect_distance
-
-
-def centroid_distance(p1: tuple[int, int], p2: tuple[int, int]) -> float:
-    return float(np.linalg.norm(np.array(p1, dtype=np.float32) - np.array(p2, dtype=np.float32)))
-
+from util import kinetic_energy
+# A low-level behavior analysis module that converts tracked human motion into signals like restricted entry and abnormal activity.
 
 def update_track_histories(track_histories: dict[int, dict[str, Any]], humans_detected: list[dict[str, Any]], record_time: Any) -> None:
     for track in humans_detected:
@@ -28,32 +23,6 @@ def detect_restricted_entry(humans_detected: list[dict[str, Any]], zone_points: 
         if cv2.pointPolygonTest(zone_pts, (float(cx), float(cy)), False) >= 0:
             return True
     return False
-
-
-def evaluate_social_distance(
-    humans_detected: list[dict[str, Any]],
-    check_social_distance: bool,
-    high_cam: bool,
-    distance_threshold: float,
-) -> set[int]:
-    if not check_social_distance or len(humans_detected) < 2:
-        return set()
-
-    violate_set: set[int] = set()
-    for i, track in enumerate(humans_detected):
-        x1, y1, x2, y2 = list(map(int, track["bbox"]))
-        cx, cy = list(map(int, track["centroid"]))
-        for j, track_2 in enumerate(humans_detected[i + 1 :], start=i + 1):
-            if high_cam:
-                cx_2, cy_2 = list(map(int, track_2["centroid"]))
-                distance = centroid_distance((cx, cy), (cx_2, cy_2))
-            else:
-                x1b, y1b, x2b, y2b = list(map(int, track_2["bbox"]))
-                distance = rect_distance((x1, y1, x2, y2), (x1b, y1b, x2b, y2b))
-            if distance < distance_threshold:
-                violate_set.add(i)
-                violate_set.add(j)
-    return violate_set
 
 
 def evaluate_abnormal(

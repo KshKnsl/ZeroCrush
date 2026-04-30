@@ -31,11 +31,6 @@
       "description": "Controls real-time mode behavior and frame-timestamp handling.",
       "category": "Video Source"
     },
-    "CAMERA_ELEVATED": {
-      "default": true,
-      "description": "Switches distance logic between centroid mode and box-edge mode.",
-      "category": "Video Source"
-    },
     "FRAME_WIDTH": {
       "default": 640,
       "description": "Target width used when resizing frames before inference.",
@@ -46,16 +41,7 @@
       "description": "Minimum confidence required to keep person detections.",
       "category": "Detection & Model"
     },
-    "TRACK_SMOOTHING_ALPHA": {
-      "default": 0.6,
-      "description": "Bounding-box smoothing factor. Lower is steadier, higher is more reactive.",
-      "category": "Tracking & Smoothing"
-    },
-    "FRAME_SMOOTHING_ALPHA": {
-      "default": 0.85,
-      "description": "Temporal frame blend factor for smoother output frames.",
-      "category": "Tracking & Smoothing"
-    },
+    
     "STREAM_JPEG_QUALITY": {
       "default": 90,
       "description": "JPEG quality used for stream encoding (1-100).",
@@ -65,11 +51,6 @@
       "default": 30,
       "description": "Maximum tracker age before stale tracks are dropped.",
       "category": "Tracking & Smoothing"
-    },
-    "DISTANCE_THRESHOLD": {
-      "default": 100,
-      "description": "Minimum spacing threshold used for social-distance checks.",
-      "category": "Rules & Alerts"
     },
     "MIN_CROWD_FOR_ANALYSIS": {
       "default": 3,
@@ -107,7 +88,7 @@
       "category": "Storage & Timeline"
     },
     "LOG_DIR": {
-      "default": "processed_data",
+      "default": "assets/processed_data",
       "description": "Directory where CSV logs and session artifacts are stored.",
       "category": "Storage & Timeline"
     },

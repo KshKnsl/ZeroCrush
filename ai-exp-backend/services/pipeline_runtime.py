@@ -10,13 +10,14 @@ import cv2
 
 from core.session_summary import build_session_summary
 from core.source import open_video_capture, safe_stem
-from services.runtime_settings import get_setting
+from services.runtime_settings import get_setting, get_log_dir
 
 latest_frame: Optional[bytes] = None
 latest_frame_lock = threading.Lock()
 latest_metrics: dict[str, Any] = {
     "human_count": 0,
     "violations": 0,
+    "alerts": 0,
     "restricted": False,
     "abnormal": False,
 }
@@ -49,6 +50,7 @@ def set_metrics(*args) -> None:
     with latest_metrics_lock:
         latest_metrics["human_count"] = int(human_count)
         latest_metrics["violations"] = int(violations)
+        latest_metrics["alerts"] = int(violations)
         latest_metrics["restricted"] = bool(restricted)
         latest_metrics["abnormal"] = bool(abnormal)
 
@@ -107,10 +109,10 @@ def _process_single_video(
     if is_realtime is None:
         is_realtime = bool(active_settings["IS_REALTIME"])
 
-    cap = open_video_capture(video_source, is_realtime)
+    cap = open_video_capture(video_source)
 
     video_stem = safe_stem(video_source)
-    log_dir = str(active_settings["LOG_DIR"])
+    log_dir = get_log_dir()
     video_log_dir = os.path.join(log_dir, video_stem)
     os.makedirs(video_log_dir, exist_ok=True)
 
@@ -124,7 +126,7 @@ def _process_single_video(
         crowd_data_writer = csv.writer(crowd_data_file)
         movement_data_writer.writerow(["Track ID", "Entry time", "Exit Time", "Movement Tracks"])
         crowd_data_writer.writerow(
-            ["Time", "Human Count", "Social Distance violate", "Restricted Entry", "Abnormal Activity"]
+            ["Time", "Human Count", "Alerts", "Restricted Entry", "Abnormal Activity"]
         )
 
         artifact_state: dict[str, Any] = {}
@@ -237,22 +239,18 @@ def start_pipeline(source: Any, is_realtime: bool) -> None:
         session_start_time = time.time()
         settings_snapshot = {
             "FRAME_WIDTH": int(get_setting("FRAME_WIDTH")),
-            "LOG_DIR": str(get_setting("LOG_DIR")),
+            "LOG_DIR": get_log_dir(),
             "DATA_RECORD_RATE": int(get_setting("DATA_RECORD_RATE")),
             "START_TIME": str(get_setting("START_TIME")),
             "TRACK_MAX_AGE": int(get_setting("TRACK_MAX_AGE")),
             "STREAM_JPEG_QUALITY": int(get_setting("STREAM_JPEG_QUALITY")),
             "IS_REALTIME": bool(get_setting("IS_REALTIME")),
-            "DISTANCE_THRESHOLD": float(get_setting("DISTANCE_THRESHOLD")),
             "CHECK_ABNORMAL": bool(get_setting("CHECK_ABNORMAL")),
             "ENERGY_THRESHOLD": float(get_setting("ENERGY_THRESHOLD")),
             "ABNORMAL_RATIO_THRESHOLD": float(get_setting("ABNORMAL_RATIO_THRESHOLD")),
             "MIN_PERSONS_ABNORMAL": int(get_setting("MIN_PERSONS_ABNORMAL")),
             "YOLO_CONFIDENCE": float(get_setting("YOLO_CONFIDENCE")),
-            "TRACK_SMOOTHING_ALPHA": float(get_setting("TRACK_SMOOTHING_ALPHA")),
-            "FRAME_SMOOTHING_ALPHA": float(get_setting("FRAME_SMOOTHING_ALPHA")),
             "RESTRICTED_ZONE": get_setting("RESTRICTED_ZONE"),
-            "CAMERA_ELEVATED": bool(get_setting("CAMERA_ELEVATED")),
         }
         _process_single_video(source, is_realtime=is_realtime, settings=settings_snapshot)
         set_status("idle", None)

@@ -10,7 +10,6 @@ from pipeline.artifact import end_video, initialize_artifact_state, record_crowd
 from pipeline.analysis import (
 	detect_restricted_entry,
 	evaluate_abnormal,
-	evaluate_social_distance,
 	resize_frame_by_width,
 	update_track_histories,
 )
@@ -18,12 +17,13 @@ from pipeline.annotators import (
 	annotate_abnormal,
 	annotate_crowd_count_if_needed,
 	annotate_detections,
-	apply_frame_smoothing,
 )
-from pipeline.detection import detect_tracks, smooth_tracks
+from pipeline.detection import detect_tracks
 from pipeline.overlay import (
 	apply_warning_overlays,
 	draw_restricted_zone,
+	draw_motion_trails,
+	draw_risk_meter,
 )
 
 FIXED_YOLO_MODEL_PATH = "yolov8n.pt"
@@ -45,7 +45,6 @@ def video_process(
 		raise ValueError("Missing settings")
 	active_settings = settings
 	IS_CAM = bool(active_settings["IS_REALTIME"])
-	DISTANCE_THRESHOLD = float(active_settings["DISTANCE_THRESHOLD"])
 	DATA_RECORD_RATE = int(active_settings["DATA_RECORD_RATE"])
 	CHECK_ABNORMAL = bool(active_settings["CHECK_ABNORMAL"])
 	ENERGY_THRESHOLD = float(active_settings["ENERGY_THRESHOLD"])
@@ -53,10 +52,7 @@ def video_process(
 	MIN_PERSONS_ABNORMAL = int(active_settings["MIN_PERSONS_ABNORMAL"])
 	YOLO_MODEL_PATH = FIXED_YOLO_MODEL_PATH
 	YOLO_CONFIDENCE = float(active_settings["YOLO_CONFIDENCE"])
-	TRACK_SMOOTHING_ALPHA = float(active_settings["TRACK_SMOOTHING_ALPHA"])
-	FRAME_SMOOTHING_ALPHA = float(active_settings["FRAME_SMOOTHING_ALPHA"])
 	TRACK_MAX_AGE = int(active_settings["TRACK_MAX_AGE"])
-	CHECK_SOCIAL_DISTANCE = DISTANCE_THRESHOLD > 0
 	model = YOLO(YOLO_MODEL_PATH)
 	show_window = not headless
 	# Some sources (especially RTSP) need a short warm-up before first frame.
@@ -81,12 +77,23 @@ def video_process(
 	frame_count = 0
 	display_frame_count = 0
 	re_warning_timeout = 0
-	sd_warning_timeout = 0
 	ab_warning_timeout = 0
 	track_histories = {}
 	track_visual_state = {}
-	prev_output_frame = None
 	initialize_artifact_state(artifact_state)
+
+	def _motion_score_from_tracks() -> int:
+		motion_samples = []
+		for data in track_histories.values():
+			positions = data.get("positions", [])
+			if len(positions) < 2:
+				continue
+			(px, py), (cx, cy) = positions[-2], positions[-1]
+			distance = float(((cx - px) ** 2 + (cy - py) ** 2) ** 0.5)
+			motion_samples.append(distance)
+		if not motion_samples:
+			return 0
+		return int(min(100, round((sum(motion_samples) / len(motion_samples)) * 10)))
 
 	while True:
 		if stop_event is not None and stop_event.is_set():
@@ -140,25 +147,18 @@ def video_process(
 
 		# Run detection with YOLOv8 and update Deep SORT tracks.
 		humans_detected = detect_tracks(model, frame, YOLO_CONFIDENCE, TRACK_MAX_AGE)
-		smooth_tracks(humans_detected, track_visual_state, TRACK_SMOOTHING_ALPHA)
 		update_track_histories(track_histories, humans_detected, record_time)
 
 		# Check for restricted entry (centroid inside polygon)
 		restricted_zone = active_settings["RESTRICTED_ZONE"]
 		zone_points = list(restricted_zone) if isinstance(restricted_zone, list) else []
 		check_restricted_zone = len(zone_points) >= 3
-		high_cam = bool(active_settings["CAMERA_ELEVATED"])
 		RE = detect_restricted_entry(humans_detected, zone_points)
 
 		if check_restricted_zone:
 			draw_restricted_zone(frame, np.array(zone_points, dtype=np.int32))
 
-		violate_set = evaluate_social_distance(
-			humans_detected,
-			CHECK_SOCIAL_DISTANCE,
-			high_cam,
-			DISTANCE_THRESHOLD,
-		)
+		violations = 0
 		abnormal_individual, ABNORMAL = evaluate_abnormal(
 			humans_detected,
 			track_histories,
@@ -169,34 +169,40 @@ def video_process(
 			TIME_STEP,
 		)
 
-		annotate_detections(frame, humans_detected, violate_set, RE, show_green=not headless)
+		annotate_detections(frame, humans_detected, RE, show_green=not headless)
 		annotate_abnormal(frame, humans_detected, abnormal_individual, ABNORMAL)
 		annotate_crowd_count_if_needed(frame, len(humans_detected), headless)
 
-		sd_warning_timeout, re_warning_timeout, ab_warning_timeout = apply_warning_overlays(
+		re_warning_timeout, ab_warning_timeout = apply_warning_overlays(
 			frame,
 			display_frame_count,
-			len(violate_set),
 			RE,
 			ABNORMAL,
-			CHECK_SOCIAL_DISTANCE,
 			check_restricted_zone,
 			CHECK_ABNORMAL,
-			sd_warning_timeout,
 			re_warning_timeout,
 			ab_warning_timeout,
+			humans_detected,
+			abnormal_individual,
+			track_histories,
 		)
 
-		# Record crowd data to file
-		frame = apply_frame_smoothing(frame, prev_output_frame, float(FRAME_SMOOTHING_ALPHA))
-		prev_output_frame = frame.copy()
+		# Draw motion trails and risk meter
+		draw_motion_trails(frame, track_histories)
+		crowd_score = int(min(100, len(humans_detected) * 8))
+		abnormal_score = 0
+		if len(humans_detected) > 0:
+			abnormal_score = int(min(100, (len(abnormal_individual) / max(1, len(humans_detected))) * 100))
+		motion_score = _motion_score_from_tracks()
+		risk_percent = max(abnormal_score, int(round((crowd_score * 0.45) + (motion_score * 0.55))))
+		draw_risk_meter(frame, risk_percent)
 
 		if frame_callback is not None:
 			frame_callback(frame)
-		record_crowd_data(record_time, len(humans_detected), len(violate_set), RE, ABNORMAL, crowd_data_writer)
+		record_crowd_data(record_time, len(humans_detected), violations, RE, ABNORMAL, crowd_data_writer)
 		if status_callback is not None:
-			status_callback(record_time, len(humans_detected), len(violate_set), RE, ABNORMAL)
-		update_artifact_state(artifact_state, frame, len(humans_detected), len(violate_set))
+			status_callback(record_time, len(humans_detected), violations, RE, ABNORMAL)
+		update_artifact_state(artifact_state, frame, len(humans_detected), violations)
 		if show_window:
 			cv2.imshow("Processed Output", frame)
 		else:

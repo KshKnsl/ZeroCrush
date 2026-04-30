@@ -54,6 +54,7 @@ async def api_processed_image(session: Optional[str] = None, kind: str = "previe
     kind_map = {
         "preview": "processed_preview.png",
         "crowd": "crowd_peak.png",
+        "alert": "violation_peak.png",
         "violation": "violation_peak.png",
     }
     if kind not in kind_map:

@@ -4,12 +4,17 @@ RUNTIME_SETTINGS: dict[str, Any] = {
     "API_HOST": "0.0.0.0",
     "API_PORT": 8000,
     "DATA_RECORD_RATE": 10,
-    "FRAME_WIDTH": 640,
-    "LOG_DIR": "processed_data",
+    "FRAME_WIDTH": 960,
     "START_TIME": "2025:1:1:0:0:0:0",
-    "TRACK_MAX_AGE": 30,
-    "STREAM_JPEG_QUALITY": 90,
-    "IS_REALTIME": False,
+    "TRACK_MAX_AGE": 15,
+    "STREAM_JPEG_QUALITY": 60,
+    "IS_REALTIME": True,
+    "CHECK_ABNORMAL": False,
+    "ENERGY_THRESHOLD": 0.5,
+    "ABNORMAL_RATIO_THRESHOLD": 0.3,
+    "MIN_PERSONS_ABNORMAL": 5,
+    "YOLO_CONFIDENCE": 0.65,
+    "RESTRICTED_ZONE": [],
 }
 
 
@@ -54,4 +59,4 @@ def get_api_port() -> int:
 
 
 def get_log_dir() -> str:
-    return str(get_setting("LOG_DIR"))
+    return "assets/processed_data"

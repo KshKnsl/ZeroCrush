@@ -15,6 +15,7 @@ type Session = {
   trackMaxAge?: number;
   previewImageBase64?: string | null;
   crowdPeakBase64?: string | null;
+  alertPeakBase64?: string | null;
   violationPeakBase64?: string | null;
   heatmapImageBase64?: string | null;
   tracksImageBase64?: string | null;
@@ -27,7 +28,7 @@ type Session = {
 type CrowdPoint = {
   x: number;
   crowd: number;
-  violations: number;
+  alerts: number;
   restricted: boolean;
   abnormal: boolean;
 };
@@ -115,14 +116,14 @@ export default function AnalyticsDashboard() {
   const crowdSeries: CrowdPoint[] = crowdRows.map((row, index) => ({
     x: index,
     crowd: toNumber(row['Human Count']) || toNumber(row.human_count),
-    violations: toNumber(row['Social Distance violate']) || toNumber(row.violations),
+    alerts: toNumber(row.alerts) || toNumber(row.violations),
     restricted: toBool(row['Restricted Entry']) || toBool(row.restricted),
     abnormal: toBool(row['Abnormal Activity']) || toBool(row.abnormal),
   })).slice(-36);
 
   const maxSeriesValue = Math.max(
     1,
-    ...crowdSeries.map((row) => Math.max(row.crowd, row.violations))
+    ...crowdSeries.map((row) => Math.max(row.crowd, row.alerts))
   );
 
   const crowdLine = crowdSeries
@@ -130,7 +131,7 @@ export default function AnalyticsDashboard() {
     .join(' ');
 
   const violationLine = crowdSeries
-    .map((row, index) => `${(index / Math.max(crowdSeries.length - 1, 1)) * 100},${100 - (row.violations / maxSeriesValue) * 100}`)
+    .map((row, index) => `${(index / Math.max(crowdSeries.length - 1, 1)) * 100},${100 - (row.alerts / maxSeriesValue) * 100}`)
     .join(' ');
 
   const energyBuckets = Array.isArray(sessionDetail?.energyBuckets) ? (sessionDetail.energyBuckets as Array<{ bucket: string; count: number }>) : [];
@@ -271,9 +272,9 @@ export default function AnalyticsDashboard() {
               </div>
             </GraphFrame>
 
-            <GraphFrame title="Peak Violation Frame" icon={<Clock3 className="h-4 w-4" />}>
+            <GraphFrame title="Peak Alert Frame" icon={<Clock3 className="h-4 w-4" />}>
               <div className="aspect-video overflow-hidden border border-slate-300 bg-slate-100 dark:border-slate-700 dark:bg-black">
-                <SessionImage src={sessionDetail?.violationPeakBase64} alt="Peak violation frame" />
+                <SessionImage src={sessionDetail?.alertPeakBase64 || sessionDetail?.violationPeakBase64} alt="Peak alert frame" />
               </div>
             </GraphFrame>
 
@@ -289,7 +290,7 @@ export default function AnalyticsDashboard() {
               </div>
             </GraphFrame>
 
-            <GraphFrame title="Crowd vs Violations" icon={<Activity className="h-4 w-4" />}>
+            <GraphFrame title="Crowd vs Alerts" icon={<Activity className="h-4 w-4" />}>
               <div className="aspect-video border border-slate-300 bg-white p-3 dark:border-slate-700 dark:bg-[#0f141c]">
                 {crowdSeries.length === 0 ? (
                   <div className="flex h-full items-center justify-center text-sm text-slate-400">No crowd data</div>
@@ -345,7 +346,7 @@ export default function AnalyticsDashboard() {
                       <tr className="border-b border-slate-200 dark:border-slate-700">
                         <th className="px-2 py-1">Time</th>
                         <th className="px-2 py-1">Crowd</th>
-                        <th className="px-2 py-1">Violations</th>
+                        <th className="px-2 py-1">Alerts</th>
                         <th className="px-2 py-1">Restricted</th>
                         <th className="px-2 py-1">Abnormal</th>
                       </tr>
@@ -355,7 +356,7 @@ export default function AnalyticsDashboard() {
                         <tr key={`${row.time ?? index}-${index}`} className="border-b border-slate-100 dark:border-slate-800/70">
                           <td className="px-2 py-1">{String(row.time ?? '-')}</td>
                           <td className="px-2 py-1">{toNumber(row['Human Count']) || toNumber(row.human_count)}</td>
-                          <td className="px-2 py-1">{toNumber(row['Social Distance violate']) || toNumber(row.violations)}</td>
+                          <td className="px-2 py-1">{toNumber(row.alerts) || toNumber(row.violations)}</td>
                           <td className="px-2 py-1">{toBool(row['Restricted Entry']) || toBool(row.restricted) ? 'Yes' : 'No'}</td>
                           <td className="px-2 py-1">{toBool(row['Abnormal Activity']) || toBool(row.abnormal) ? 'Yes' : 'No'}</td>
                         </tr>
