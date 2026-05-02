@@ -18,11 +18,7 @@
     },
     {
       "id": "Storage & Timeline",
-      "description": "Logging frequency, output folder and offline timeline values."
-    },
-    {
-      "id": "API Runtime",
-      "description": "Backend API host/port runtime settings."
+      "description": "Logging frequency for processed data points."
     }
   ],
   "settings": {
@@ -81,26 +77,6 @@
       "default": 10,
       "description": "How many processed data points are recorded per second.",
       "category": "Storage & Timeline"
-    },
-    "LOG_DIR": {
-      "default": "assets/processed_data",
-      "description": "Directory where CSV logs and session artifacts are stored.",
-      "category": "Storage & Timeline"
-    },
-    "START_TIME": {
-      "default": "2025:1:1:0:0:0:0",
-      "description": "Start timestamp used for offline video timeline alignment.",
-      "category": "Storage & Timeline"
-    },
-    "API_HOST": {
-      "default": "0.0.0.0",
-      "description": "Host interface used by the backend API server.",
-      "category": "API Runtime"
-    },
-    "API_PORT": {
-      "default": 8000,
-      "description": "Port used by the backend API server.",
-      "category": "API Runtime"
     }
   }
 }

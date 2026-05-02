@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 
 type StatusPayload = {
+  session_id?: string;
   status?: string;
   error?: string | null;
   stream_ready?: boolean;
@@ -61,6 +62,13 @@ export default function LiveMonitoring(): JSX.Element {
   const [zoneSaving, setZoneSaving] = useState(false);
   const [overlayGeometry, setOverlayGeometry] = useState<OverlayGeometry | null>(null);
   const [streamToken, setStreamToken] = useState(0);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [allSessions, setAllSessions] = useState<StatusPayload[]>([]);
+  const [multiRtspUrl, setMultiRtspUrl] = useState('');
+  const [multiStarting, setMultiStarting] = useState(false);
+  const [multiViewMode, setMultiViewMode] = useState<'grid' | 'list'>('grid');
+  const [multiGridPreset, setMultiGridPreset] = useState<'2x2' | '3x3'>('2x2');
+  const [sessionLabels, setSessionLabels] = useState<Record<string, string>>({});
   const { color: riskColor, bg: riskBg, border: riskBorder, Icon: RiskIcon } = riskConfig[riskLevel as keyof typeof riskConfig] ?? riskConfig.LOW;
 
   const imageRef = useRef<HTMLImageElement>(null);
@@ -198,6 +206,14 @@ export default function LiveMonitoring(): JSX.Element {
     return response;
   };
 
+  const buildApiPathWithSession = (path: string) => {
+    if (!currentSessionId) {
+      return `${apiUrl}${path}`;
+    }
+    const separator = path.includes('?') ? '&' : '?';
+    return `${apiUrl}${path}${separator}session_id=${encodeURIComponent(currentSessionId)}`;
+  };
+
   const saveSessionSummary = async () => {
     if (sessionSummaryInFlightRef.current) {
       return;
@@ -205,7 +221,7 @@ export default function LiveMonitoring(): JSX.Element {
 
     sessionSummaryInFlightRef.current = true;
     try {
-      const response = await fetch(`${apiUrl}/api/session-summary`, { cache: 'no-store' });
+      const response = await fetch(buildApiPathWithSession('/api/session-summary'), { cache: 'no-store' });
       if (!response.ok) {
         return;
       }
@@ -291,7 +307,7 @@ export default function LiveMonitoring(): JSX.Element {
     setZonePoints((current) => [...current, next]);
   };
 
-  const startRemoteSource = async () => {
+  const startRemoteSource = async (): Promise<string> => {
     if (sourceMode === 'mp4') {
       const file = fileInputRef.current?.files?.[0];
       if (!file) {
@@ -316,15 +332,24 @@ export default function LiveMonitoring(): JSX.Element {
       }
 
       setSelectedFileName(file.name);
-      await postJson('/api/start', { source: 'file', path: uploadData.file_path });
-      return;
+      const response = await postJson('/api/start', { source: 'file', path: uploadData.file_path });
+      const startData = (await response.json()) as { session_id?: string };
+      if (!startData.session_id) {
+        throw new Error('Backend did not return a session id');
+      }
+      return startData.session_id;
     }
 
     if (!rtspUrl.trim()) {
       throw new Error('Enter an RTSP URL first');
     }
 
-    await postJson('/api/start', { source: 'rtsp', url: rtspUrl.trim() });
+    const response = await postJson('/api/start', { source: 'rtsp', url: rtspUrl.trim() });
+    const startData = (await response.json()) as { session_id?: string };
+    if (!startData.session_id) {
+      throw new Error('Backend did not return a session id');
+    }
+    return startData.session_id;
   };
 
   const handleStart = async () => {
@@ -339,7 +364,8 @@ export default function LiveMonitoring(): JSX.Element {
     const toastId = toast.loading('Starting monitoring session...');
 
     try {
-      await startRemoteSource();
+      const sessionId = await startRemoteSource();
+      setCurrentSessionId(sessionId);
       toast.success('Monitoring session started.', { id: toastId });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to start stream';
@@ -354,18 +380,61 @@ export default function LiveMonitoring(): JSX.Element {
 
   const handleStop = async () => {
     try {
-      await postJson('/api/stop', {});
+      const stopPath = currentSessionId ? `/api/stop?session_id=${encodeURIComponent(currentSessionId)}` : '/api/stop';
+      await postJson(stopPath, {});
       setPipelineStatus('idle');
       setPipelineError(null);
       setStreamError(null);
       setStreamReady(false);
       setConnectionState('polling');
+      setCurrentSessionId(null);
       toast.success('Monitoring session stopped.');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to stop stream';
       setStreamError(message);
       notifyError(message);
     }
+  };
+
+  const handleStartAdditionalRtsp = async () => {
+    if (!multiRtspUrl.trim()) {
+      toast.error('Enter an RTSP URL first');
+      return;
+    }
+    setMultiStarting(true);
+    const toastId = toast.loading('Starting additional RTSP session...');
+    try {
+      const response = await postJson('/api/start', { source: 'rtsp', url: multiRtspUrl.trim() });
+      const payload = (await response.json()) as { session_id?: string };
+      if (!payload.session_id) {
+        throw new Error('Backend did not return a session id');
+      }
+      setCurrentSessionId((prev) => prev ?? payload.session_id ?? null);
+      setMultiRtspUrl('');
+      toast.success('Additional RTSP session started.', { id: toastId });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to start RTSP session';
+      toast.error(message, { id: toastId });
+    } finally {
+      setMultiStarting(false);
+    }
+  };
+
+  const handleStopSessionById = async (sessionId: string) => {
+    try {
+      await postJson(`/api/stop?session_id=${encodeURIComponent(sessionId)}`, {});
+      if (currentSessionId === sessionId) {
+        setCurrentSessionId(null);
+      }
+      toast.success(`Stopped session ${sessionId}.`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to stop session';
+      toast.error(message);
+    }
+  };
+
+  const upsertSessionLabel = (sessionId: string, label: string) => {
+    setSessionLabels((current) => ({ ...current, [sessionId]: label }));
   };
 
   useEffect(() => {
@@ -392,7 +461,7 @@ export default function LiveMonitoring(): JSX.Element {
 
       pollInFlightRef.current = true;
       try {
-        const response = await fetch(`${apiUrl}/api/status`, { cache: 'no-store' });
+        const response = await fetch(buildApiPathWithSession('/api/status'), { cache: 'no-store' });
         if (!response.ok) {
           throw new Error(`Failed to load status (${response.status})`);
         }
@@ -441,7 +510,52 @@ export default function LiveMonitoring(): JSX.Element {
       cancelled = true;
       window.clearInterval(interval);
     };
-  }, [apiUrl]);
+  }, [apiUrl, currentSessionId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const pollAllStatuses = async () => {
+      try {
+        const response = await fetch(`${apiUrl}/api/status/all`, { cache: 'no-store' });
+        if (!response.ok) {
+          return;
+        }
+        const payload = (await response.json()) as { sessions?: StatusPayload[] };
+        if (cancelled) {
+          return;
+        }
+        const sessions = Array.isArray(payload.sessions) ? payload.sessions : [];
+        setAllSessions(sessions);
+        setSessionLabels((current) => {
+          const next = { ...current };
+          let changed = false;
+          sessions.forEach((session, index) => {
+            const sid = session.session_id ?? '';
+            if (!sid) return;
+            if (!next[sid]) {
+              next[sid] = `Cam ${index + 1}`;
+              changed = true;
+            }
+          });
+          return changed ? next : current;
+        });
+
+        if (!currentSessionId && sessions.length > 0) {
+          setCurrentSessionId(sessions[0].session_id ?? null);
+        }
+      } catch {
+        // Keep single-session mode working even if all-status endpoint fails.
+      }
+    };
+
+    pollAllStatuses();
+    const interval = window.setInterval(pollAllStatuses, 5000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [apiUrl, currentSessionId]);
 
   useEffect(() => {
     const onResize = () => refreshOverlayGeometry();
@@ -481,7 +595,9 @@ export default function LiveMonitoring(): JSX.Element {
   const overlayPolygon = overlayPoints.map((p) => `${p.x},${p.y}`).join(' ');
 
   const liveLabel = sourceMode === 'mp4' ? 'MP4 upload' : 'RTSP source';
-  const frameSource = pipelineStatus === 'running' ? `${apiUrl}/api/stream?ts=${streamToken}` : '';
+  const frameSource = pipelineStatus === 'running'
+    ? `${buildApiPathWithSession('/api/stream')}${buildApiPathWithSession('/api/stream').includes('?') ? '&' : '?'}ts=${streamToken}`
+    : '';
 
   return (
     <div className="space-y-6">
@@ -520,142 +636,34 @@ export default function LiveMonitoring(): JSX.Element {
         </div>
       </motion.section>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.7fr_1fr]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-6">
           <motion.section
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.08 }}
             className="overflow-hidden border border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-[#141b25]"
           >
-            <div className="flex flex-col gap-4 border-b border-slate-100 px-5 py-5 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-4 border-b border-slate-200 px-5 py-4 dark:border-slate-800 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Stream source</p>
-                <h3 className="mt-1 text-xl font-semibold text-slate-900 dark:text-white">Select input source</h3>
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Primary feed</p>
+                <h3 className="mt-1 text-xl font-semibold text-slate-900 dark:text-white">Processed live stream</h3>
               </div>
-              <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                <MonitorPlay className="h-4 w-4" />
-                Frontend controls source selection; backend handles video processing.
-              </div>
-            </div>
-
-            <div className="px-5 pt-4 pb-5">
-              <Tabs value={sourceMode} onValueChange={setSourceMode} className="w-full">
-                <TabsList variant="line" className="w-full justify-start border-b border-slate-200 dark:border-slate-800 mb-6 pb-0">
-                  <TabsTrigger value="rtsp" className="min-w-28 flex gap-2"><Link2 className="h-4 w-4"/> RTSP Stream</TabsTrigger>
-                  <TabsTrigger value="mp4" className="min-w-28 flex gap-2"><Upload className="h-4 w-4"/> Upload</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="rtsp" className="mt-0 outline-none">
-                  <div className="flex max-w-2xl flex-col gap-3 rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-[#101721]">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-slate-100 dark:bg-slate-800 p-2.5 rounded-md"><Link2 className="h-4 w-4 text-slate-600 dark:text-slate-300" /></div>
-                      <div>
-                        <h4 className="text-sm font-medium text-slate-900 dark:text-white">RTSP URL Stream</h4>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">Processed server-side.</p>
-                      </div>
-                    </div>
-                    <Input
-                      value={rtspUrl}
-                      onChange={(event) => setRtspUrl(event.target.value)}
-                      placeholder="rtsp://user:password@host:554/stream"
-                      className="h-11 mt-2 border-slate-300 bg-slate-50 font-mono text-sm dark:border-slate-700 dark:bg-[#0f141c]"
-                    />
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {[
+                  ['Status', pipelineStatus],
+                  ['Source', liveLabel],
+                  ['Connection', connectionState],
+                  ['Session', currentSessionId ?? 'none'],
+                ].map(([label, value]) => (
+                  <div key={label} className="border border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-[#101721]">
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">{label}</p>
+                    <p className="mt-1 max-w-32 truncate text-xs font-medium text-slate-900 dark:text-white">{value}</p>
                   </div>
-                </TabsContent>
-
-                <TabsContent value="mp4" className="mt-0 outline-none">
-                  <div className="flex max-w-2xl flex-col gap-3 rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-[#101721]">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-slate-100 dark:bg-slate-800 p-2.5 rounded-md"><Upload className="h-4 w-4 text-slate-600 dark:text-slate-300" /></div>
-                      <div>
-                        <h4 className="text-sm font-medium text-slate-900 dark:text-white">Upload Pre-recorded Video</h4>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">Select MP4 file to run through pipeline.</p>
-                      </div>
-                    </div>
-                    <Input ref={fileInputRef} type="file" accept="video/mp4" className="h-11 mt-2 border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-[#0f141c] hover:bg-slate-100 dark:hover:bg-[#141b25] transition-colors cursor-pointer" />
-                    {selectedFileName && (
-                      <p className="px-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-                        Selected: {selectedFileName}
-                      </p>
-                    )}
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 px-5 py-4 dark:border-slate-800 bg-slate-100/50 dark:bg-[#101721]/50">
-              <Button
-                onClick={handleStart}
-                disabled={starting || connectionState === 'connecting'}
-                className="h-11 bg-emerald-600 px-6 font-semibold text-white hover:bg-emerald-700 dark:bg-emerald-600 dark:text-white dark:hover:bg-emerald-700 shadow-sm transition-all"
-              >
-                <Play className="mr-2 h-4 w-4" />
-                {starting ? 'Starting...' : 'Start Session'}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={handleStop}
-                className="h-11 border-slate-300 bg-white px-6 text-slate-900 hover:bg-slate-100 dark:border-slate-700 dark:bg-[#101721] dark:text-white dark:hover:bg-[#182231] shadow-sm transition-all"
-              >
-                <Square className="mr-2 h-4 w-4" />
-                Stop
-              </Button>
-              <div className="ml-auto flex items-center gap-2 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#101721] px-4 py-2 text-xs font-medium text-slate-500 dark:text-slate-400 shadow-sm">
-                <MonitorPlay className="h-3.5 w-3.5 text-slate-600 dark:text-slate-300" />
-                Backend: <span className="text-slate-900 dark:text-white">{apiUrl}</span>
+                ))}
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 px-5 py-3 dark:border-slate-800">
-              <p className="mr-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Zone Tools</p>
-              <Button
-                type="button"
-                variant={drawingZone ? 'default' : 'outline'}
-                onClick={() => setDrawingZone((v) => !v)}
-                className="h-9 px-3 text-xs"
-              >
-                {drawingZone ? 'Drawing enabled' : 'Draw restricted zone'}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setZonePoints((pts) => pts.slice(0, -1))}
-                disabled={zonePoints.length === 0 || zoneSaving}
-                className="h-9 px-3 text-xs"
-              >
-                Undo point
-              </Button>
-              <Button
-                type="button"
-                onClick={handleZoneSave}
-                disabled={zoneSaving || zonePoints.length < 3}
-                className="h-9 bg-slate-800 px-3 text-xs font-semibold text-white hover:bg-slate-700 dark:bg-slate-200 dark:text-slate-900 dark:hover:bg-white"
-              >
-                {zoneSaving ? 'Saving...' : 'Save zone'}
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={handleZoneClear}
-                disabled={zoneSaving}
-                className="h-9 px-3 text-xs text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/30 dark:hover:text-rose-300"
-              >
-                Clear zone
-              </Button>
-              <p className="ml-auto flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 bg-slate-100 dark:bg-[#101721]">
-                <span>Points: <strong className="text-slate-700 dark:text-slate-300">{zonePoints.length}</strong></span>
-                {drawingZone && <span className="text-amber-500 dark:text-amber-400"> • Click video to place points</span>}
-              </p>
-            </div>
-
-          </motion.section>
-
-          <motion.section
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.08 }}
-            className="overflow-hidden border border-slate-300 bg-black dark:border-slate-700"
-          >
             <div
               ref={imageWrapRef}
               className="relative aspect-video overflow-hidden bg-black"
@@ -733,14 +741,264 @@ export default function LiveMonitoring(): JSX.Element {
                 {streamReady ? 'stream live' : 'buffering'}
               </div>
             </div>
+            {(streamError || pipelineError || drawingZone) && (
+              <div className="border-t border-slate-200 bg-white px-5 py-3 text-xs text-slate-600 dark:border-slate-800 dark:bg-[#101721] dark:text-slate-300">
+                {drawingZone && !streamError && !pipelineError && 'Drawing enabled. Click the video to place restricted-zone points.'}
+                {(streamError || pipelineError) && (
+                  <span className="text-rose-600 dark:text-rose-300">{streamError ?? pipelineError}</span>
+                )}
+              </div>
+            )}
+          </motion.section>
+
+          <motion.section
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="overflow-hidden border border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-[#141b25]"
+          >
+            <div className="flex flex-col gap-3 border-b border-slate-200 px-5 py-4 dark:border-slate-800">
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Multi-camera view</p>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Input
+                  value={multiRtspUrl}
+                  onChange={(event) => setMultiRtspUrl(event.target.value)}
+                  placeholder="rtsp://user:password@host:554/stream"
+                  className="h-10 border-slate-300 bg-white font-mono text-xs dark:border-slate-700 dark:bg-[#101721]"
+                />
+                <Button
+                  type="button"
+                  onClick={handleStartAdditionalRtsp}
+                  disabled={multiStarting}
+                  className="h-10 bg-emerald-600 px-4 text-xs font-semibold text-white hover:bg-emerald-700"
+                >
+                  {multiStarting ? 'Starting...' : 'Add RTSP camera'}
+                </Button>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant={multiViewMode === 'grid' ? 'default' : 'outline'}
+                  className="h-8 px-3 text-[11px]"
+                  onClick={() => setMultiViewMode('grid')}
+                >
+                  Grid
+                </Button>
+                <Button
+                  type="button"
+                  variant={multiViewMode === 'list' ? 'default' : 'outline'}
+                  className="h-8 px-3 text-[11px]"
+                  onClick={() => setMultiViewMode('list')}
+                >
+                  List
+                </Button>
+                <div className="ml-2 flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant={multiGridPreset === '2x2' ? 'default' : 'outline'}
+                    className="h-8 px-3 text-[11px]"
+                    onClick={() => setMultiGridPreset('2x2')}
+                    disabled={multiViewMode === 'list'}
+                  >
+                    2x2
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={multiGridPreset === '3x3' ? 'default' : 'outline'}
+                    className="h-8 px-3 text-[11px]"
+                    onClick={() => setMultiGridPreset('3x3')}
+                    disabled={multiViewMode === 'list'}
+                  >
+                    3x3
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <div
+              className={clsx(
+                'gap-4 p-4',
+                multiViewMode === 'list'
+                  ? 'grid grid-cols-1'
+                  : multiGridPreset === '3x3'
+                    ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3'
+                    : 'grid grid-cols-1 md:grid-cols-2'
+              )}
+            >
+              {allSessions.length === 0 ? (
+                <div className="col-span-full border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-[#101721] dark:text-slate-400">
+                  No active sessions yet. Start a session to see multi-camera cards.
+                </div>
+              ) : (
+                allSessions.map((session) => {
+                  const sessionId = session.session_id ?? '';
+                  const isFocused = Boolean(currentSessionId && sessionId && currentSessionId === sessionId);
+                  const streamUrl = `${apiUrl}/api/stream?session_id=${encodeURIComponent(sessionId)}&ts=${streamToken}`;
+                  const displayLabel = sessionLabels[sessionId] || 'Camera';
+                  return (
+                    <article key={sessionId} className={clsx('overflow-hidden border bg-black', isFocused ? 'border-emerald-500' : 'border-slate-700', multiViewMode === 'list' ? 'grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr]' : '')}>
+                      <div className={clsx('relative bg-black', multiViewMode === 'list' ? 'aspect-video lg:aspect-auto lg:min-h-48' : 'aspect-video')}>
+                        <img src={streamUrl} alt={`Session ${sessionId}`} className="h-full w-full object-cover" />
+                        <div className="absolute left-2 top-2 border border-white/20 bg-black/60 px-2 py-1 text-[10px] text-white">
+                          {session.status ?? 'idle'}
+                        </div>
+                      </div>
+                      <div className={clsx('flex flex-wrap items-center gap-2 bg-[#0f141c] px-3 py-2 text-[11px] text-slate-300', multiViewMode === 'list' ? 'border-l border-slate-700' : 'border-t border-slate-700')}>
+                        <Input
+                          value={displayLabel}
+                          onChange={(event) => upsertSessionLabel(sessionId, event.target.value)}
+                          className="h-8 w-40 border-slate-700 bg-[#121923] text-xs text-slate-100"
+                          placeholder="Camera label"
+                        />
+                        <span className="font-mono text-[10px] text-slate-400">{sessionId}</span>
+                        <span className="ml-auto">People: {session.human_count ?? 0}</span>
+                        <span>Alerts: {session.alerts ?? 0}</span>
+                        <Button type="button" variant="outline" className="h-7 px-2 text-[10px]" onClick={() => setCurrentSessionId(sessionId)}>
+                          Focus
+                        </Button>
+                        <Button type="button" variant="outline" className="h-7 px-2 text-[10px]" onClick={() => handleStopSessionById(sessionId)}>
+                          Stop
+                        </Button>
+                      </div>
+                    </article>
+                  );
+                })
+              )}
+            </div>
           </motion.section>
         </div>
 
         <motion.aside
           initial={{ opacity: 0, x: 12 }}
           animate={{ opacity: 1, x: 0 }}
-          className="space-y-4"
+          className="space-y-4 xl:sticky xl:top-4 xl:self-start"
         >
+          <div className="border border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-[#141b25]">
+            <div className="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-400">Stream source</p>
+              <h3 className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">Select input source</h3>
+              <p className="mt-2 flex items-start gap-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                <MonitorPlay className="mt-0.5 h-4 w-4 shrink-0" />
+                Frontend controls source selection; backend handles video processing.
+              </p>
+            </div>
+
+            <div className="p-5">
+              <Tabs value={sourceMode} onValueChange={setSourceMode} className="w-full">
+                <TabsList variant="line" className="mb-4 grid w-full grid-cols-2 border-b border-slate-200 pb-0 dark:border-slate-800">
+                  <TabsTrigger value="rtsp" className="flex gap-2 text-xs"><Link2 className="h-4 w-4"/> RTSP Stream</TabsTrigger>
+                  <TabsTrigger value="mp4" className="flex gap-2 text-xs"><Upload className="h-4 w-4"/> Upload</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="rtsp" className="mt-0 outline-none">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-slate-100 p-2.5 dark:bg-slate-800"><Link2 className="h-4 w-4 text-slate-600 dark:text-slate-300" /></div>
+                      <div>
+                        <h4 className="text-sm font-medium text-slate-900 dark:text-white">RTSP URL Stream</h4>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Processed server-side.</p>
+                      </div>
+                    </div>
+                    <Input
+                      value={rtspUrl}
+                      onChange={(event) => setRtspUrl(event.target.value)}
+                      placeholder="rtsp://user:password@host:554/stream"
+                      className="h-11 border-slate-300 bg-white font-mono text-xs dark:border-slate-700 dark:bg-[#0f141c]"
+                    />
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="mp4" className="mt-0 outline-none">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-slate-100 p-2.5 dark:bg-slate-800"><Upload className="h-4 w-4 text-slate-600 dark:text-slate-300" /></div>
+                      <div>
+                        <h4 className="text-sm font-medium text-slate-900 dark:text-white">Upload Pre-recorded Video</h4>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Select MP4 file to run through pipeline.</p>
+                      </div>
+                    </div>
+                    <Input ref={fileInputRef} type="file" accept="video/mp4" className="h-11 border-slate-300 bg-white text-xs dark:border-slate-700 dark:bg-[#0f141c]" />
+                    {selectedFileName && (
+                      <p className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                        Selected: {selectedFileName}
+                      </p>
+                    )}
+                  </div>
+                </TabsContent>
+              </Tabs>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 border-t border-slate-200 p-5 dark:border-slate-800">
+              <Button
+                onClick={handleStart}
+                disabled={starting || connectionState === 'connecting'}
+                className="h-11 bg-emerald-600 font-semibold text-white hover:bg-emerald-700"
+              >
+                <Play className="mr-2 h-4 w-4" />
+                {starting ? 'Starting...' : 'Start'}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleStop}
+                className="h-11 border-slate-300 bg-white text-slate-900 hover:bg-slate-100 dark:border-slate-700 dark:bg-[#101721] dark:text-white dark:hover:bg-[#182231]"
+              >
+                <Square className="mr-2 h-4 w-4" />
+                Stop
+              </Button>
+              <div className="col-span-2 border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500 dark:border-slate-800 dark:bg-[#101721] dark:text-slate-400">
+                Backend: <span className="font-medium text-slate-900 dark:text-white">{apiUrl}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="border border-slate-300 bg-slate-50 p-5 dark:border-slate-700 dark:bg-[#141b25]">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-400">Zone Tools</p>
+              <span className="border border-slate-200 bg-white px-2.5 py-1 text-[11px] text-slate-600 dark:border-slate-800 dark:bg-[#101721] dark:text-slate-300">
+                Points: <strong>{zonePoints.length}</strong>
+              </span>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <Button
+                type="button"
+                variant={drawingZone ? 'default' : 'outline'}
+                onClick={() => setDrawingZone((v) => !v)}
+                className="col-span-2 h-10 text-xs"
+              >
+                {drawingZone ? 'Drawing enabled' : 'Draw restricted zone'}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setZonePoints((pts) => pts.slice(0, -1))}
+                disabled={zonePoints.length === 0 || zoneSaving}
+                className="h-9 text-xs"
+              >
+                Undo point
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleZoneClear}
+                disabled={zoneSaving}
+                className="h-9 text-xs text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/30 dark:hover:text-rose-300"
+              >
+                Clear
+              </Button>
+              <Button
+                type="button"
+                onClick={handleZoneSave}
+                disabled={zoneSaving || zonePoints.length < 3}
+                className="col-span-2 h-10 bg-slate-800 text-xs font-semibold text-white hover:bg-slate-700 dark:bg-slate-200 dark:text-slate-900 dark:hover:bg-white"
+              >
+                {zoneSaving ? 'Saving...' : 'Save zone'}
+              </Button>
+            </div>
+            {drawingZone && (
+              <p className="mt-3 text-xs leading-5 text-amber-600 dark:text-amber-400">Click the primary video to place points.</p>
+            )}
+          </div>
+
           <div className="border border-slate-300 bg-slate-50 p-5 dark:border-slate-700 dark:bg-[#141b25]">
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-400">Live metrics</p>
             <div className="mt-4 grid grid-cols-2 gap-4">
@@ -758,21 +1016,6 @@ export default function LiveMonitoring(): JSX.Element {
                 <RiskIcon className={clsx('w-4 h-4', riskColor)} />
                 <span className={clsx('text-xs font-medium', riskColor)}>RISK: {riskLevel}</span>
               </div>
-            </div>
-          </div>
-
-          <div className="border border-slate-300 bg-slate-50 p-5 dark:border-slate-700 dark:bg-[#141b25]">
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-400">How it works</p>
-            <div className="mt-4 space-y-4 text-sm leading-6 text-slate-600 dark:text-slate-300">
-              <p>
-                1. Select RTSP stream or upload mode.
-              </p>
-              <p>
-                2. For MP4 or RTSP, frontend sends the uploaded file path or RTSP URL to backend.
-              </p>
-              <p>
-                3. The backend streams processed frames over MJPEG and the status is polled over HTTP.
-              </p>
             </div>
           </div>
         </motion.aside>

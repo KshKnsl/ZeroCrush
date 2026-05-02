@@ -42,4 +42,4 @@ async def api_logs_events() -> JSONResponse:
     rows = read_crowd_tail(path, 200)
     events = build_events_from_rows(rows)
     events.reverse()
-    return JSONResponse(content={"events": events, "session_start": pipeline_runtime.session_start_time})
+    return JSONResponse(content={"events": events, "session_start": pipeline_runtime.get_session_start_time()})

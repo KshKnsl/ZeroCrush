@@ -4,42 +4,72 @@ import json
 import os
 import threading
 import time
+import uuid
+from dataclasses import dataclass, field
 from typing import Any, Optional
 
 import cv2
 
 from core.session_summary import build_session_summary
 from core.source import open_video_capture, safe_stem
-from services.runtime_settings import get_setting, get_log_dir
-
-latest_frame: Optional[bytes] = None
-latest_frame_lock = threading.Lock()
-latest_metrics: dict[str, Any] = {
-    "human_count": 0,
-    "violations": 0,
-    "alerts": 0,
-    "restricted": False,
-    "abnormal": False,
-}
-latest_metrics_lock = threading.Lock()
-pipeline_thread: Optional[threading.Thread] = None
-stop_event = threading.Event()
-status_state = "idle"
-status_lock = threading.Lock()
-error_message: Optional[str] = None
-session_start_time: Optional[float] = None
-latest_session_summary: Optional[dict[str, Any]] = None
-latest_session_summary_lock = threading.Lock()
+from services.runtime_settings import get_setting, get_log_dir, get_start_time
 
 
-def set_status(status: str, err: Optional[str] = None) -> None:
-    global status_state, error_message
-    with status_lock:
-        status_state = status
-        error_message = err
+@dataclass
+class PipelineSession:
+    session_id: str
+    source: Any
+    is_rtsp_stream: bool
+    thread: Optional[threading.Thread] = None
+    stop_event: threading.Event = field(default_factory=threading.Event)
+    latest_frame: Optional[bytes] = None
+    latest_frame_lock: threading.Lock = field(default_factory=threading.Lock)
+    latest_metrics: dict[str, Any] = field(
+        default_factory=lambda: {
+            "human_count": 0,
+            "violations": 0,
+            "alerts": 0,
+            "restricted": False,
+            "abnormal": False,
+        }
+    )
+    latest_metrics_lock: threading.Lock = field(default_factory=threading.Lock)
+    status_state: str = "idle"
+    error_message: Optional[str] = None
+    status_lock: threading.Lock = field(default_factory=threading.Lock)
+    session_start_time: Optional[float] = None
+    latest_session_summary: Optional[dict[str, Any]] = None
+    latest_session_summary_lock: threading.Lock = field(default_factory=threading.Lock)
 
 
-def set_metrics(*args) -> None:
+_sessions: dict[str, PipelineSession] = {}
+_sessions_lock = threading.Lock()
+_latest_session_id: Optional[str] = None
+_latest_completed_summary: Optional[dict[str, Any]] = None
+_latest_completed_summary_lock = threading.Lock()
+
+
+def _create_session(source: Any, is_rtsp_stream: bool) -> PipelineSession:
+    session_id = uuid.uuid4().hex[:12]
+    return PipelineSession(session_id=session_id, source=source, is_rtsp_stream=is_rtsp_stream)
+
+
+def _get_session(session_id: Optional[str]) -> Optional[PipelineSession]:
+    with _sessions_lock:
+        if session_id:
+            return _sessions.get(session_id)
+        if _latest_session_id:
+            return _sessions.get(_latest_session_id)
+    return None
+
+
+def _set_status(session: PipelineSession, status: str, err: Optional[str] = None) -> None:
+    with session.status_lock:
+        session.status_state = status
+        session.error_message = err
+
+
+def _set_metrics(session: PipelineSession, *args) -> None:
     if len(args) == 4:
         human_count, violations, restricted, abnormal = args
     elif len(args) == 5:
@@ -47,48 +77,85 @@ def set_metrics(*args) -> None:
     else:
         return
 
-    with latest_metrics_lock:
-        latest_metrics["human_count"] = int(human_count)
-        latest_metrics["violations"] = int(violations)
-        latest_metrics["alerts"] = int(violations)
-        latest_metrics["restricted"] = bool(restricted)
-        latest_metrics["abnormal"] = bool(abnormal)
+    with session.latest_metrics_lock:
+        session.latest_metrics["human_count"] = int(human_count)
+        session.latest_metrics["violations"] = int(violations)
+        session.latest_metrics["alerts"] = int(violations)
+        session.latest_metrics["restricted"] = bool(restricted)
+        session.latest_metrics["abnormal"] = bool(abnormal)
 
 
-def snapshot_status() -> dict[str, Any]:
-    with status_lock:
-        status = status_state
-        err = error_message
-    with latest_frame_lock:
-        stream_ready = latest_frame is not None
-    with latest_metrics_lock:
-        metrics = dict(latest_metrics)
-    return {"status": status, "error": err, "stream_ready": stream_ready, **metrics}
+def snapshot_status(session_id: Optional[str] = None) -> dict[str, Any]:
+    session = _get_session(session_id)
+    if session is None:
+        return {
+            "session_id": session_id,
+            "status": "idle",
+            "error": None,
+            "stream_ready": False,
+            "human_count": 0,
+            "violations": 0,
+            "alerts": 0,
+            "restricted": False,
+            "abnormal": False,
+        }
+
+    with session.status_lock:
+        status = session.status_state
+        err = session.error_message
+    with session.latest_frame_lock:
+        stream_ready = session.latest_frame is not None
+    with session.latest_metrics_lock:
+        metrics = dict(session.latest_metrics)
+    return {"session_id": session.session_id, "status": status, "error": err, "stream_ready": stream_ready, **metrics}
 
 
-def frame_callback(frame) -> None:
-    global latest_frame
-    quality = int(max(1, min(100, int(get_setting("STREAM_JPEG_QUALITY")))))
-    ok, buf = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
-    if not ok:
-        raise RuntimeError("Failed to encode frame as JPEG")
-    with latest_frame_lock:
-        latest_frame = buf.tobytes()
+def snapshot_all_statuses() -> list[dict[str, Any]]:
+    with _sessions_lock:
+        session_ids = list(_sessions.keys())
+    return [snapshot_status(sid) for sid in session_ids]
 
 
-def request_stop() -> None:
-    stop_event.set()
+def get_latest_frame(session_id: Optional[str] = None) -> Optional[bytes]:
+    session = _get_session(session_id)
+    if session is None:
+        return None
+    with session.latest_frame_lock:
+        return session.latest_frame
 
 
-def consume_latest_session_summary() -> Optional[dict[str, Any]]:
-    global latest_session_summary
-    with latest_session_summary_lock:
-        summary = latest_session_summary
-        latest_session_summary = None
+def get_session_start_time(session_id: Optional[str] = None) -> Optional[float]:
+    session = _get_session(session_id)
+    if session is None:
+        return None
+    return session.session_start_time
+
+
+def request_stop(session_id: Optional[str] = None) -> bool:
+    session = _get_session(session_id)
+    if session is None:
+        return False
+    session.stop_event.set()
+    return True
+
+
+def consume_latest_session_summary(session_id: Optional[str] = None) -> Optional[dict[str, Any]]:
+    session = _get_session(session_id)
+    if session is not None:
+        with session.latest_session_summary_lock:
+            summary = session.latest_session_summary
+            session.latest_session_summary = None
+        if summary is not None:
+            return summary
+
+    with _latest_completed_summary_lock:
+        summary = _latest_completed_summary
+        globals()["_latest_completed_summary"] = None
     return summary
 
 
 def _process_single_video(
+    session: PipelineSession,
     video_source: Any,
     is_rtsp_stream: bool = False,
     settings: Optional[dict[str, Any]] = None,
@@ -134,10 +201,10 @@ def _process_single_video(
             movement_data_writer,
             crowd_data_writer,
             settings=active_settings,
-            frame_callback=frame_callback,
-            stop_event=stop_event,
+            frame_callback=lambda frame: _frame_callback(session, frame),
+            stop_event=session.stop_event,
             headless=False,
-            status_callback=set_metrics,
+            status_callback=lambda *args: _set_metrics(session, *args),
             artifact_state=artifact_state,
         )
         end_wall_time = time.time()
@@ -157,7 +224,7 @@ def _process_single_video(
         data_record_rate = int(active_settings["DATA_RECORD_RATE"])
         data_record_frame = max(1, int(vid_fps / data_record_rate))
 
-        start_time = str(active_settings["START_TIME"])
+        start_time = get_start_time()
         parts = [int(p) for p in start_time.split(":")]
         start_dt = datetime.datetime(parts[0], parts[1], parts[2], parts[3], parts[4], parts[5], parts[6] * 1000)
         time_elapsed = round(frame_count / vid_fps)
@@ -200,9 +267,10 @@ def _process_single_video(
         int(active_settings["TRACK_MAX_AGE"]),
     )
 
-    global latest_session_summary
-    with latest_session_summary_lock:
-        latest_session_summary = summary
+    with session.latest_session_summary_lock:
+        session.latest_session_summary = summary
+    with _latest_completed_summary_lock:
+        globals()["_latest_completed_summary"] = summary
 
     for artifact_name, artifact_key in (
         ("processed_preview.png", "last_frame"),
@@ -214,42 +282,46 @@ def _process_single_video(
             cv2.imwrite(os.path.join(video_log_dir, artifact_name), artifact_frame)
 
 
-def start_pipeline(source: Any, is_rtsp_stream: bool) -> None:
-    global pipeline_thread, session_start_time, latest_frame, latest_session_summary
+def _frame_callback(session: PipelineSession, frame) -> None:
+    quality = int(max(1, min(100, int(get_setting("STREAM_JPEG_QUALITY")))))
+    ok, buf = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
+    if not ok:
+        raise RuntimeError("Failed to encode frame as JPEG")
+    with session.latest_frame_lock:
+        session.latest_frame = buf.tobytes()
 
-    with status_lock:
-        if status_state == "running":
-            raise RuntimeError("Pipeline already running")
 
-    stop_event.clear()
-    with latest_frame_lock:
-        latest_frame = None
-    with latest_session_summary_lock:
-        latest_session_summary = None
+def start_pipeline(source: Any, is_rtsp_stream: bool) -> str:
+    session = _create_session(source=source, is_rtsp_stream=is_rtsp_stream)
+    _set_metrics(session, 0, 0, False, False)
+    _set_status(session, "running", None)
 
-    set_metrics(0, 0, False, False)
-    set_status("running", None)
+    settings_snapshot = {
+        "FRAME_WIDTH": int(get_setting("FRAME_WIDTH")),
+        "DATA_RECORD_RATE": int(get_setting("DATA_RECORD_RATE")),
+        "TRACK_MAX_AGE": int(get_setting("TRACK_MAX_AGE")),
+        "STREAM_JPEG_QUALITY": int(get_setting("STREAM_JPEG_QUALITY")),
+        "IS_RTSP_STREAM": bool(is_rtsp_stream),
+        "CHECK_ABNORMAL": bool(get_setting("CHECK_ABNORMAL")),
+        "ENERGY_THRESHOLD": float(get_setting("ENERGY_THRESHOLD")),
+        "ABNORMAL_RATIO_THRESHOLD": float(get_setting("ABNORMAL_RATIO_THRESHOLD")),
+        "MIN_PERSONS_ABNORMAL": int(get_setting("MIN_PERSONS_ABNORMAL")),
+        "YOLO_CONFIDENCE": float(get_setting("YOLO_CONFIDENCE")),
+        "RESTRICTED_ZONE": get_setting("RESTRICTED_ZONE"),
+    }
 
     def run() -> None:
-        global session_start_time
-        session_start_time = time.time()
-        settings_snapshot = {
-            "FRAME_WIDTH": int(get_setting("FRAME_WIDTH")),
-            "LOG_DIR": get_log_dir(),
-            "DATA_RECORD_RATE": int(get_setting("DATA_RECORD_RATE")),
-            "START_TIME": str(get_setting("START_TIME")),
-            "TRACK_MAX_AGE": int(get_setting("TRACK_MAX_AGE")),
-            "STREAM_JPEG_QUALITY": int(get_setting("STREAM_JPEG_QUALITY")),
-            "IS_RTSP_STREAM": bool(is_rtsp_stream),
-            "CHECK_ABNORMAL": bool(get_setting("CHECK_ABNORMAL")),
-            "ENERGY_THRESHOLD": float(get_setting("ENERGY_THRESHOLD")),
-            "ABNORMAL_RATIO_THRESHOLD": float(get_setting("ABNORMAL_RATIO_THRESHOLD")),
-            "MIN_PERSONS_ABNORMAL": int(get_setting("MIN_PERSONS_ABNORMAL")),
-            "YOLO_CONFIDENCE": float(get_setting("YOLO_CONFIDENCE")),
-            "RESTRICTED_ZONE": get_setting("RESTRICTED_ZONE"),
-        }
-        _process_single_video(source, is_rtsp_stream=is_rtsp_stream, settings=settings_snapshot)
-        set_status("idle", None)
+        session.session_start_time = time.time()
+        try:
+            _process_single_video(session, source, is_rtsp_stream=is_rtsp_stream, settings=settings_snapshot)
+        except Exception as exc:
+            _set_status(session, "error", str(exc))
+            return
+        _set_status(session, "idle", None)
 
-    pipeline_thread = threading.Thread(target=run, daemon=True)
-    pipeline_thread.start()
+    session.thread = threading.Thread(target=run, daemon=True)
+    with _sessions_lock:
+        _sessions[session.session_id] = session
+        globals()["_latest_session_id"] = session.session_id
+    session.thread.start()
+    return session.session_id

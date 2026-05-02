@@ -13,16 +13,15 @@ router = APIRouter(prefix="/api", tags=["analytics"])
 
 
 @router.get("/session-summary")
-async def api_session_summary() -> dict[str, Any]:
-    return {"sessionData": pipeline_runtime.consume_latest_session_summary()}
+async def api_session_summary(session_id: str | None = None) -> dict[str, Any]:
+    return {"sessionData": pipeline_runtime.consume_latest_session_summary(session_id)}
 
 
 @router.get("/stream")
-async def api_stream() -> StreamingResponse:
+async def api_stream(session_id: str | None = None) -> StreamingResponse:
     async def gen():
         while True:
-            with pipeline_runtime.latest_frame_lock:
-                data = pipeline_runtime.latest_frame
+            data = pipeline_runtime.get_latest_frame(session_id)
             if data:
                 yield b"--frame\r\nContent-Type: image/jpeg\r\n\r\n" + data + b"\r\n"
             await asyncio.sleep(0.05)

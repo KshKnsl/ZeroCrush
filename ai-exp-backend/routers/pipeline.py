@@ -24,13 +24,15 @@ async def api_upload(file: UploadFile = File(...)) -> dict[str, str]:
 
 
 @router.post("/stop")
-async def api_stop() -> dict[str, str]:
-    request_stop()
+async def api_stop(session_id: str | None = None) -> dict[str, str]:
+    stopped = request_stop(session_id)
+    if not stopped:
+        raise HTTPException(status_code=404, detail="Session not found")
     return {"message": "stop requested"}
 
 
 @router.post("/start")
 async def api_start(body: dict[str, Any]) -> dict[str, Any]:
-    source_value, is_realtime = resolve_start_source(body)
-    start_pipeline(source_value, is_realtime)
-    return {"message": "start requested", **snapshot_status()}
+    source_value, is_rtsp_stream = resolve_start_source(body)
+    session_id = start_pipeline(source_value, is_rtsp_stream)
+    return {"message": "start requested", **snapshot_status(session_id)}

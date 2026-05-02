@@ -1,11 +1,13 @@
 from typing import Any
 
+API_HOST = "0.0.0.0"
+API_PORT = 8000
+LOG_DIR = "assets/processed_data"
+START_TIME = "2025:1:1:0:0:0:0"
+
 RUNTIME_SETTINGS: dict[str, Any] = {
-    "API_HOST": "0.0.0.0",
-    "API_PORT": 8000,
     "DATA_RECORD_RATE": 10,
     "FRAME_WIDTH": 960,
-    "START_TIME": "2025:1:1:0:0:0:0",
     "TRACK_MAX_AGE": 15,
     "STREAM_JPEG_QUALITY": 60,
     "CHECK_ABNORMAL": False,
@@ -50,12 +52,16 @@ def update_runtime_settings(patch: dict[str, Any]) -> dict[str, Any]:
 
 
 def get_api_host() -> str:
-    return str(get_setting("API_HOST"))
+    return API_HOST
 
 
 def get_api_port() -> int:
-    return int(get_setting("API_PORT"))
+    return API_PORT
 
 
 def get_log_dir() -> str:
-    return "assets/processed_data"
+    return LOG_DIR
+
+
+def get_start_time() -> str:
+    return START_TIME
