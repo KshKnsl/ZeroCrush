@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type JSX, type MouseEvent } from 'react';
 import { motion } from 'motion/react';
 import { clsx } from 'clsx';
-import { Activity, Camera, Link2, MonitorPlay, Play, ShieldAlert, ShieldCheck, ShieldX, Square, Upload, Waves } from 'lucide-react';
+import { Activity, Link2, MonitorPlay, Play, ShieldAlert, ShieldCheck, ShieldX, Square, Upload, Waves } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -44,7 +44,7 @@ const initialRisk = 'LOW' as const;
 
 export default function LiveMonitoring(): JSX.Element {
   const [apiUrl] = useState(() => (typeof window === 'undefined' ? 'http://localhost:8000' : window.localStorage.getItem('backend-url') || 'http://localhost:8000'));
-  const [sourceMode, setSourceMode] = useState('webcam');
+  const [sourceMode, setSourceMode] = useState('rtsp');
   const [pipelineStatus, setPipelineStatus] = useState('idle');
   const [pipelineError, setPipelineError] = useState<string | null>(null);
   const [streamReady, setStreamReady] = useState(false);
@@ -292,11 +292,6 @@ export default function LiveMonitoring(): JSX.Element {
   };
 
   const startRemoteSource = async () => {
-    if (sourceMode === 'webcam') {
-      await postJson('/api/start', { source: 'webcam' });
-      return;
-    }
-
     if (sourceMode === 'mp4') {
       const file = fileInputRef.current?.files?.[0];
       if (!file) {
@@ -485,7 +480,7 @@ export default function LiveMonitoring(): JSX.Element {
     .filter((point): point is Point => point !== null);
   const overlayPolygon = overlayPoints.map((p) => `${p.x},${p.y}`).join(' ');
 
-  const liveLabel = sourceMode === 'webcam' ? 'Backend camera' : sourceMode === 'mp4' ? 'MP4 upload' : 'RTSP source';
+  const liveLabel = sourceMode === 'mp4' ? 'MP4 upload' : 'RTSP source';
   const frameSource = pipelineStatus === 'running' ? `${apiUrl}/api/stream?ts=${streamToken}` : '';
 
   return (
@@ -502,9 +497,9 @@ export default function LiveMonitoring(): JSX.Element {
               <Waves className="h-3.5 w-3.5" />
               Live monitoring control room
             </p>
-            <h2 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">Choose a backend source and start monitoring.</h2>
+            <h2 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">Choose RTSP or upload video and start monitoring.</h2>
             <p className="mt-3 max-w-xl text-sm leading-6 text-slate-300">
-              Frontend only sends source commands. The backend opens webcam, uploaded MP4, or RTSP feed server-side and returns processed frames with live metrics.
+              Frontend only sends source commands. The backend opens uploaded MP4 or RTSP feed server-side and returns processed frames with live metrics.
             </p>
           </div>
 
@@ -535,11 +530,11 @@ export default function LiveMonitoring(): JSX.Element {
             <div className="flex flex-col gap-4 border-b border-slate-100 px-5 py-5 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Stream source</p>
-                <h3 className="mt-1 text-xl font-semibold text-slate-900 dark:text-white">Select input mode</h3>
+                <h3 className="mt-1 text-xl font-semibold text-slate-900 dark:text-white">Select input source</h3>
               </div>
               <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                <Camera className="h-4 w-4" />
-                Frontend controls source selection; backend handles video capture and processing.
+                <MonitorPlay className="h-4 w-4" />
+                Frontend controls source selection; backend handles video processing.
               </div>
             </div>
 
@@ -547,7 +542,6 @@ export default function LiveMonitoring(): JSX.Element {
               <Tabs value={sourceMode} onValueChange={setSourceMode} className="w-full">
                 <TabsList variant="line" className="w-full justify-start border-b border-slate-200 dark:border-slate-800 mb-6 pb-0">
                   <TabsTrigger value="rtsp" className="min-w-28 flex gap-2"><Link2 className="h-4 w-4"/> RTSP Stream</TabsTrigger>
-                  <TabsTrigger value="webcam" className="min-w-28 flex gap-2"><Camera className="h-4 w-4"/> Hardware</TabsTrigger>
                   <TabsTrigger value="mp4" className="min-w-28 flex gap-2"><Upload className="h-4 w-4"/> Upload</TabsTrigger>
                 </TabsList>
 
@@ -563,21 +557,9 @@ export default function LiveMonitoring(): JSX.Element {
                     <Input
                       value={rtspUrl}
                       onChange={(event) => setRtspUrl(event.target.value)}
-                      placeholder="rtsp://user:password@camera-ip:554/stream"
+                      placeholder="rtsp://user:password@host:554/stream"
                       className="h-11 mt-2 border-slate-300 bg-slate-50 font-mono text-sm dark:border-slate-700 dark:bg-[#0f141c]"
                     />
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="webcam" className="mt-0 outline-none">
-                  <div className="flex max-w-2xl flex-col gap-3 rounded-lg border border-dashed border-slate-300 bg-slate-50/50 p-5 dark:border-slate-700 dark:bg-slate-800/20">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-slate-200 dark:bg-slate-800 p-2.5 rounded-md"><Camera className="h-4 w-4 text-slate-700 dark:text-slate-300" /></div>
-                      <div>
-                        <h4 className="text-sm font-medium text-slate-900 dark:text-white">Backend Camera Stream</h4>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">Uses primary camera index 0 on host device.</p>
-                      </div>
-                    </div>
                   </div>
                 </TabsContent>
 
@@ -783,10 +765,10 @@ export default function LiveMonitoring(): JSX.Element {
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-400">How it works</p>
             <div className="mt-4 space-y-4 text-sm leading-6 text-slate-600 dark:text-slate-300">
               <p>
-                1. Select the source mode in the dropdown.
+                1. Select RTSP stream or upload mode.
               </p>
               <p>
-                2. For camera mode, backend opens local camera index 0. For MP4 or RTSP, frontend only sends file path or URL.
+                2. For MP4 or RTSP, frontend sends the uploaded file path or RTSP URL to backend.
               </p>
               <p>
                 3. The backend streams processed frames over MJPEG and the status is polled over HTTP.

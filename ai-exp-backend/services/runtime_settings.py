@@ -8,7 +8,6 @@ RUNTIME_SETTINGS: dict[str, Any] = {
     "START_TIME": "2025:1:1:0:0:0:0",
     "TRACK_MAX_AGE": 15,
     "STREAM_JPEG_QUALITY": 60,
-    "IS_REALTIME": True,
     "CHECK_ABNORMAL": False,
     "ENERGY_THRESHOLD": 0.5,
     "ABNORMAL_RATIO_THRESHOLD": 0.3,

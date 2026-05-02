@@ -21,10 +21,7 @@ ai-exp-backend/venv/
 ai-exp-backend/.uv-cache/
 
 # Backend generated artifacts
-ai-exp-backend/processed_data/
-ai-exp-backend/video/*.mp4
-ai-exp-backend/video/*.avi
-ai-exp-backend/video/*.mov
+ai-exp-backend/assets/
 ai-exp-backend/models/*.h5
 ai-exp-backend/models/*.pt
 ai-exp-backend/YOLOv4-tiny/

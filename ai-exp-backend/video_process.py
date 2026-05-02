@@ -44,7 +44,7 @@ def video_process(
 	if settings is None:
 		raise ValueError("Missing settings")
 	active_settings = settings
-	IS_CAM = bool(active_settings["IS_REALTIME"])
+	IS_RTSP_STREAM = bool(active_settings["IS_RTSP_STREAM"])
 	DATA_RECORD_RATE = int(active_settings["DATA_RECORD_RATE"])
 	CHECK_ABNORMAL = bool(active_settings["CHECK_ABNORMAL"])
 	ENERGY_THRESHOLD = float(active_settings["ENERGY_THRESHOLD"])
@@ -62,7 +62,7 @@ def video_process(
 		t1 = time.time() - t0
 		VID_FPS = frame_count / t1
 
-	if IS_CAM:
+	if IS_RTSP_STREAM:
 		VID_FPS = None
 		DATA_RECORD_FRAME = 1
 		TIME_STEP = 1
@@ -140,7 +140,7 @@ def video_process(
 		current_datetime = datetime.datetime.now()
 
 		# Run detection algorithm
-		if IS_CAM:
+		if IS_RTSP_STREAM:
 			record_time = current_datetime
 		else:
 			record_time = frame_count

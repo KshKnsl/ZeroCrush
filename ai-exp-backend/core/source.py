@@ -31,8 +31,6 @@ def resolve_start_source(payload: dict[str, Any]) -> tuple[Any, bool]:
     source = str(payload.get("source", "")).strip().lower()
     if not source:
         raise ValueError("Missing source type")
-    if source == "webcam":
-        return 0, True
     source_map = {
         "file": ("path", "Missing uploaded video path"),
         "video": ("path", "Missing uploaded video path"),
@@ -42,5 +40,5 @@ def resolve_start_source(payload: dict[str, Any]) -> tuple[Any, bool]:
     }
     if source in source_map:
         key, message = source_map[source]
-        return _require_payload_value(payload, key, message), False
+        return _require_payload_value(payload, key, message), source in {"rtsp", "url"}
     raise ValueError(f"Unsupported source type: {source}")

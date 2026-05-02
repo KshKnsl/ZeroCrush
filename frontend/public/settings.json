@@ -26,11 +26,6 @@
     }
   ],
   "settings": {
-    "IS_REALTIME": {
-      "default": false,
-      "description": "Controls real-time mode behavior and frame-timestamp handling.",
-      "category": "Video Source"
-    },
     "FRAME_WIDTH": {
       "default": 640,
       "description": "Target width used when resizing frames before inference.",

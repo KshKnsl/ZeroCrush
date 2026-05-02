@@ -24,7 +24,6 @@ IMAGE_FILES = {
 def build_session_summary(
     video_log_dir: str,
     video_source: Any,
-    is_cam: bool,
     start_dt: datetime.datetime,
     end_dt: datetime.datetime,
     vid_fps: float,
@@ -34,7 +33,7 @@ def build_session_summary(
     crowd_rows = read_crowd_all(os.path.join(video_log_dir, "crowd_data.csv"))
     movement_tracks = load_movement_tracks(video_log_dir)
     return {
-        "source": "webcam" if is_cam else str(video_source),
+        "source": str(video_source),
         "startTime": start_dt.isoformat(),
         "endTime": end_dt.isoformat(),
         "videoFps": float(vid_fps),

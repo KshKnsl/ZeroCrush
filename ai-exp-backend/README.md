@@ -47,10 +47,10 @@ Configuration for video input.
 
 |Video configuration| Description |
 |-                  |-|
-| VIDEO_CAP         | Video path. Put integer 0 for webcam |
-| IS_CAM            | Is the video input real-time. The value accept boolean |
-|CAM_APPROX_FPS     |If it is real time, input an approximate processing speed according. The value affects the data analysis, not video processing. The system can be run for 5 minutes to compute a rough processing speed. |
-|HIGH_CAM           |Position of the camera. The value accepts boolean. This will affect the algorithm used to calculate distance for social distance checking. |
+| VIDEO_CAP         | Video path or RTSP URL |
+| IS_RTSP_STREAM    | Whether the source is an RTSP stream. The value accepts boolean |
+|LIVE_APPROX_FPS    |If it is a live stream, input an approximate processing speed according. The value affects data analysis, not video processing. The system can be run for 5 minutes to compute a rough processing speed. |
+|HIGH_VIEW          |Whether the scene is viewed from a high angle. This affects distance-related calculations. |
 |START_TIME         |Start time of the video process. In the format of (Y:M:D:H:M:S:ms)
 
 ### YOLO_CONFIG

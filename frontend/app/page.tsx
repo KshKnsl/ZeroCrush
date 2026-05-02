@@ -17,7 +17,7 @@ const highlights = [
   {
     icon: Radar,
     title: 'Multiple video inputs',
-    description: 'Use webcam, RTSP, or MP4 and track the stream status in real time.',
+    description: 'Use RTSP or MP4 upload and track the stream status in real time.',
   },
   {
     icon: BellRing,

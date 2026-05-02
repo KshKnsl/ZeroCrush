@@ -90,7 +90,7 @@ def consume_latest_session_summary() -> Optional[dict[str, Any]]:
 
 def _process_single_video(
     video_source: Any,
-    is_realtime: Optional[bool] = None,
+    is_rtsp_stream: bool = False,
     settings: Optional[dict[str, Any]] = None,
 ) -> None:
     from graph_grid_present import load_movement_tracks, render_movement_images
@@ -105,9 +105,6 @@ def _process_single_video(
         raise ValueError("Frame width is too large")
     if frame_width < 480:
         raise ValueError("Frame width is too small")
-
-    if is_realtime is None:
-        is_realtime = bool(active_settings["IS_REALTIME"])
 
     cap = open_video_capture(video_source)
 
@@ -147,7 +144,7 @@ def _process_single_video(
 
     process_time = max(end_wall_time - start_wall_time, 1e-6)
 
-    if is_realtime:
+    if is_rtsp_stream:
         vid_fps = processing_fps
         data_record_frame = 1
         start_dt = datetime.datetime.now()
@@ -169,7 +166,7 @@ def _process_single_video(
     cap.release()
 
     video_data = {
-        "IS_CAM": is_realtime,
+        "IS_RTSP_STREAM": is_rtsp_stream,
         "DATA_RECORD_FRAME": data_record_frame,
         "VID_FPS": vid_fps,
         "PROCESSED_FRAME_SIZE": frame_width,
@@ -196,7 +193,6 @@ def _process_single_video(
     summary = build_session_summary(
         video_log_dir,
         video_source,
-        is_realtime,
         start_dt,
         end_dt,
         float(vid_fps),
@@ -218,7 +214,7 @@ def _process_single_video(
             cv2.imwrite(os.path.join(video_log_dir, artifact_name), artifact_frame)
 
 
-def start_pipeline(source: Any, is_realtime: bool) -> None:
+def start_pipeline(source: Any, is_rtsp_stream: bool) -> None:
     global pipeline_thread, session_start_time, latest_frame, latest_session_summary
 
     with status_lock:
@@ -244,7 +240,7 @@ def start_pipeline(source: Any, is_realtime: bool) -> None:
             "START_TIME": str(get_setting("START_TIME")),
             "TRACK_MAX_AGE": int(get_setting("TRACK_MAX_AGE")),
             "STREAM_JPEG_QUALITY": int(get_setting("STREAM_JPEG_QUALITY")),
-            "IS_REALTIME": bool(get_setting("IS_REALTIME")),
+            "IS_RTSP_STREAM": bool(is_rtsp_stream),
             "CHECK_ABNORMAL": bool(get_setting("CHECK_ABNORMAL")),
             "ENERGY_THRESHOLD": float(get_setting("ENERGY_THRESHOLD")),
             "ABNORMAL_RATIO_THRESHOLD": float(get_setting("ABNORMAL_RATIO_THRESHOLD")),
@@ -252,7 +248,7 @@ def start_pipeline(source: Any, is_realtime: bool) -> None:
             "YOLO_CONFIDENCE": float(get_setting("YOLO_CONFIDENCE")),
             "RESTRICTED_ZONE": get_setting("RESTRICTED_ZONE"),
         }
-        _process_single_video(source, is_realtime=is_realtime, settings=settings_snapshot)
+        _process_single_video(source, is_rtsp_stream=is_rtsp_stream, settings=settings_snapshot)
         set_status("idle", None)
 
     pipeline_thread = threading.Thread(target=run, daemon=True)

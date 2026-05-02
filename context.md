@@ -8,7 +8,7 @@ Currently, it acts more like a monolithic prototype than a scalable product. It 
 ## 2. Current Concept
 At its core, the project is a **Full-Stack AI Surveillance Dashboard**. 
 - It uses a **Next.js frontend** to display a rich GUI with live video feed, real-time metrics (crowd size, violations), and historical session logs.
-- It uses a **FastAPI + YOLO Python backend** that accepts a video source (RTSP link, webcam, or an uploaded MP4), runs object detection frame-by-frame, continuously calculates crowd statistics, streams the annotated video back using MJPEG, and stores the session's analytical data (heatmaps, tracks, and CSV logs).
+- It uses a **FastAPI + YOLO Python backend** that accepts a video source (RTSP link or an uploaded MP4), runs object detection frame-by-frame, continuously calculates crowd statistics, streams the annotated video back using MJPEG, and stores the session's analytical data (heatmaps, tracks, and CSV logs).
 
 ## 3. End-to-End Flow
 * **Frontend Flow:** The user authenticates into the Next.js app via NextAuth. The `LiveMonitoring` tab handles User Interactions, saving/drawing restricted zones, and picking a video source.
