@@ -78,6 +78,7 @@ export default function LiveMonitoring(): JSX.Element {
   const imageWrapRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastErrorToastRef = useRef('');
+  const lastConsoleErrorRef = useRef('');
   const humanCountRef = useRef(0);
   const alertCountRef = useRef(0);
   const previousStatusRef = useRef('idle');
@@ -93,10 +94,31 @@ export default function LiveMonitoring(): JSX.Element {
     toast.error(message);
   };
 
+  const logFrontendError = (source: string, message: string) => {
+    const fingerprint = `${source}:${message}`;
+    if (lastConsoleErrorRef.current === fingerprint) {
+      return;
+    }
+    lastConsoleErrorRef.current = fingerprint;
+    console.error(`[LiveMonitoring] ${source}: ${message}`);
+  };
+
   const resetSession = () => {
     setStreamReady(false);
     setStreamError(null);
   };
+
+  useEffect(() => {
+    if (pipelineError) {
+      logFrontendError('pipeline', pipelineError);
+    }
+  }, [pipelineError]);
+
+  useEffect(() => {
+    if (streamError) {
+      logFrontendError('stream', streamError);
+    }
+  }, [streamError]);
 
   const updateRisk = (count: number, alerts: number, restricted: boolean, abnormal: boolean) => {
     const activeAlerts = Number(Boolean(restricted)) + Number(Boolean(abnormal)) + Number(alerts > 0);
@@ -483,8 +505,10 @@ export default function LiveMonitoring(): JSX.Element {
 
         if (isRunning) {
           sessionSummaryPendingRef.current = false;
-        } else if (wasRunning) {
+        } else if (wasRunning && nextStatus === 'idle') {
           sessionSummaryPendingRef.current = true;
+        } else if (nextStatus === 'error') {
+          sessionSummaryPendingRef.current = false;
         }
 
         previousStatusRef.current = nextStatus;
@@ -836,12 +860,20 @@ export default function LiveMonitoring(): JSX.Element {
                 allSessions.map((session) => {
                   const sessionId = session.session_id ?? '';
                   const isFocused = Boolean(currentSessionId && sessionId && currentSessionId === sessionId);
-                  const streamUrl = `${apiUrl}/api/stream?session_id=${encodeURIComponent(sessionId)}&ts=${streamToken}`;
+                  const streamUrl = session.status === 'running'
+                    ? `${apiUrl}/api/stream?session_id=${encodeURIComponent(sessionId)}&ts=${streamToken}`
+                    : '';
                   const displayLabel = sessionLabels[sessionId] || 'Camera';
                   return (
                     <article key={sessionId} className={clsx('overflow-hidden border bg-black', isFocused ? 'border-emerald-500' : 'border-slate-700', multiViewMode === 'list' ? 'grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr]' : '')}>
                       <div className={clsx('relative bg-black', multiViewMode === 'list' ? 'aspect-video lg:aspect-auto lg:min-h-48' : 'aspect-video')}>
-                        <img src={streamUrl} alt={`Session ${sessionId}`} className="h-full w-full object-cover" />
+                        {streamUrl ? (
+                          <img src={streamUrl} alt={`Session ${sessionId}`} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-xs text-slate-300">
+                            {session.status === 'error' ? 'Session error' : 'Session idle'}
+                          </div>
+                        )}
                         <div className="absolute left-2 top-2 border border-white/20 bg-black/60 px-2 py-1 text-[10px] text-white">
                           {session.status ?? 'idle'}
                         </div>

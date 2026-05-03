@@ -22,8 +22,20 @@ def encode_image_base64(path: str) -> str | None:
         return "data:image/png;base64," + base64.b64encode(image_file.read()).decode("ascii")
 
 def open_video_capture(video_source: Any) -> cv2.VideoCapture:
-    cap = cv2.VideoCapture(video_source)
+    source_text = str(video_source)
+    is_network_stream = source_text.strip().lower().startswith(("rtsp://", "http://", "https://"))
+    if is_network_stream:
+        cap = cv2.VideoCapture(source_text, cv2.CAP_FFMPEG)
+        cap.set(cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, 10000)
+        cap.set(cv2.CAP_PROP_READ_TIMEOUT_MSEC, 10000)
+    else:
+        cap = cv2.VideoCapture(video_source)
     if not cap.isOpened():
+        if is_network_stream:
+            raise RuntimeError(
+                f"Unable to open video source: {source_text}. "
+                "Check that the RTSP/URL is reachable and credentials are correct."
+            )
         raise RuntimeError(f"Unable to open video source: {video_source}")
     return cap
 

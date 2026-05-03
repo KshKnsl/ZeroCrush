@@ -1,6 +1,7 @@
 import csv
 import datetime
 import json
+import logging
 import os
 import threading
 import time
@@ -47,6 +48,7 @@ _sessions_lock = threading.Lock()
 _latest_session_id: Optional[str] = None
 _latest_completed_summary: Optional[dict[str, Any]] = None
 _latest_completed_summary_lock = threading.Lock()
+logger = logging.getLogger(__name__)
 
 
 def _create_session(source: Any, is_rtsp_stream: bool) -> PipelineSession:
@@ -295,6 +297,13 @@ def start_pipeline(source: Any, is_rtsp_stream: bool) -> str:
     session = _create_session(source=source, is_rtsp_stream=is_rtsp_stream)
     _set_metrics(session, 0, 0, False, False)
     _set_status(session, "running", None)
+    logger.info(
+        "Starting pipeline session_id=%s source=%s is_rtsp=%s headless=%s",
+        session.session_id,
+        source,
+        is_rtsp_stream,
+        False,
+    )
 
     settings_snapshot = {
         "FRAME_WIDTH": int(get_setting("FRAME_WIDTH")),
@@ -315,8 +324,10 @@ def start_pipeline(source: Any, is_rtsp_stream: bool) -> str:
         try:
             _process_single_video(session, source, is_rtsp_stream=is_rtsp_stream, settings=settings_snapshot)
         except Exception as exc:
+            logger.exception("Pipeline session failed session_id=%s", session.session_id)
             _set_status(session, "error", str(exc))
             return
+        logger.info("Pipeline session completed session_id=%s", session.session_id)
         _set_status(session, "idle", None)
 
     session.thread = threading.Thread(target=run, daemon=True)

@@ -3,6 +3,7 @@ import datetime
 import numpy as np
 import cv2
 from typing import Any, Optional
+import threading
 from ultralytics import YOLO
 
 from util import progress
@@ -27,6 +28,17 @@ from pipeline.overlay import (
 )
 
 FIXED_YOLO_MODEL_PATH = "yolov8n.pt"
+_MODEL_LOCK = threading.Lock()
+_MODEL_CACHE: dict[str, YOLO] = {}
+
+
+def _get_cached_model(model_path: str) -> YOLO:
+	with _MODEL_LOCK:
+		model = _MODEL_CACHE.get(model_path)
+		if model is None:
+			model = YOLO(model_path)
+			_MODEL_CACHE[model_path] = model
+		return model
 
 
 def video_process(
@@ -53,7 +65,8 @@ def video_process(
 	YOLO_MODEL_PATH = FIXED_YOLO_MODEL_PATH
 	YOLO_CONFIDENCE = float(active_settings["YOLO_CONFIDENCE"])
 	TRACK_MAX_AGE = int(active_settings["TRACK_MAX_AGE"])
-	model = YOLO(YOLO_MODEL_PATH)
+	model: Optional[YOLO] = None
+	preview_emitted = False
 	show_window = not headless
 	# Some sources (especially RTSP) need a short warm-up before first frame.
 	startup_deadline = time.time() + 15
@@ -135,6 +148,18 @@ def video_process(
 
 		# Resize Frame to given size
 		frame = resize_frame_by_width(frame, frame_size)
+
+		# Emit a frame immediately so stream/window becomes visible while model warms up.
+		if not preview_emitted:
+			if frame_callback is not None:
+				frame_callback(frame)
+			if show_window:
+				cv2.imshow("Processed Output", frame)
+				cv2.waitKey(1)
+			preview_emitted = True
+
+		if model is None:
+			model = _get_cached_model(YOLO_MODEL_PATH)
 
 		# Get current time
 		current_datetime = datetime.datetime.now()

@@ -2,6 +2,33 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getRequestAuth } from '@/lib/server-auth';
 
+function parseDateValue(value: unknown, fieldName: string): Date {
+  const date = value instanceof Date ? value : new Date(String(value));
+  if (Number.isNaN(date.getTime())) {
+    throw new Error(`Invalid ${fieldName}`);
+  }
+  return date;
+}
+
+function parseNumberValue(value: unknown, fieldName: string): number {
+  const number = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(number)) {
+    throw new Error(`Invalid ${fieldName}`);
+  }
+  return number;
+}
+
+function normalizeSessionData(body: Record<string, unknown>) {
+  return {
+    ...body,
+    startTime: parseDateValue(body.startTime, 'startTime'),
+    endTime: parseDateValue(body.endTime, 'endTime'),
+    videoFps: parseNumberValue(body.videoFps, 'videoFps'),
+    processedFrameSize: parseNumberValue(body.processedFrameSize, 'processedFrameSize'),
+    trackMaxAge: parseNumberValue(body.trackMaxAge, 'trackMaxAge'),
+  };
+}
+
 function parseSessionId(request: NextRequest): string | null {
   return request.nextUrl.searchParams.get('id');
 }
@@ -39,12 +66,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
     }
 
-    const body = await request.json();
-
-    const session = await prisma.session.create({ data: body });
+    const body = (await request.json()) as Record<string, unknown>;
+    const session = await prisma.session.create({ data: normalizeSessionData(body) });
 
     return NextResponse.json({ success: true, session }, { status: 201 });
   } catch (error) {
+    if (error instanceof Error && error.message.startsWith('Invalid ')) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     return NextResponse.json({ error: 'Failed to save session', details: String(error) }, { status: 500 });
   }
 }
