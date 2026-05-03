@@ -7,6 +7,7 @@ import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 
 from routers.analytics import router as analytics_router
 from routers.config import router as config_router
@@ -32,7 +33,22 @@ app.include_router(logs_router)
 app.include_router(analytics_router)
 app.include_router(config_router)
 
+
+@app.get("/")
+async def root() -> dict[str, str]:
+    return {"status": "ok", "docs": "/docs"}
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon() -> Response:
+    return Response(status_code=204)
+
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("api:app", host=get_api_host(), port=get_api_port(), reload=True)
+    uvicorn.run(
+        "api:app",
+        host=get_api_host(),
+        port=get_api_port(),
+        reload=os.getenv("UVICORN_RELOAD", "0") == "1",
+    )

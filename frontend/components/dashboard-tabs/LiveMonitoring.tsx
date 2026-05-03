@@ -41,6 +41,9 @@ const riskConfig = {
   HIGH: { color: 'text-rose-700 dark:text-rose-300', bg: 'bg-rose-100 dark:bg-rose-900/20', border: 'border-rose-300 dark:border-rose-700', Icon: ShieldX },
 } as const;
 
+const STATUS_POLL_INTERVAL_MS = 3000;
+const ALL_STATUS_POLL_INTERVAL_MS = 15000;
+
 const initialRisk = 'LOW' as const;
 
 export default function LiveMonitoring(): JSX.Element {
@@ -504,7 +507,7 @@ export default function LiveMonitoring(): JSX.Element {
     };
 
     pollStatus();
-    const interval = window.setInterval(pollStatus, 1200);
+    const interval = window.setInterval(pollStatus, STATUS_POLL_INTERVAL_MS);
 
     return () => {
       cancelled = true;
@@ -550,7 +553,7 @@ export default function LiveMonitoring(): JSX.Element {
     };
 
     pollAllStatuses();
-    const interval = window.setInterval(pollAllStatuses, 5000);
+    const interval = window.setInterval(pollAllStatuses, ALL_STATUS_POLL_INTERVAL_MS);
     return () => {
       cancelled = true;
       window.clearInterval(interval);

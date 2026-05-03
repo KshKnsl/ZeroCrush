@@ -1,8 +1,10 @@
 from typing import Any
+import os
+import tempfile
 
 API_HOST = "0.0.0.0"
 API_PORT = 8000
-LOG_DIR = "assets/processed_data"
+LOG_DIR = os.path.join(tempfile.gettempdir(), "smartwatch_ai", "processed_data")
 START_TIME = "2025:1:1:0:0:0:0"
 
 RUNTIME_SETTINGS: dict[str, Any] = {
@@ -60,6 +62,7 @@ def get_api_port() -> int:
 
 
 def get_log_dir() -> str:
+    os.makedirs(LOG_DIR, exist_ok=True)
     return LOG_DIR
 
 
