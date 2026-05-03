@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getRequestAuth } from '@/lib/server-auth';
+import type { Prisma } from '@prisma/client';
 
 function parseDateValue(value: unknown, fieldName: string): Date {
   const date = value instanceof Date ? value : new Date(String(value));
@@ -18,7 +19,7 @@ function parseNumberValue(value: unknown, fieldName: string): number {
   return number;
 }
 
-function normalizeSessionData(body: Record<string, unknown>) {
+function normalizeSessionData(body: Record<string, unknown>): Prisma.SessionCreateInput {
   return {
     ...body,
     startTime: parseDateValue(body.startTime, 'startTime'),
@@ -26,7 +27,7 @@ function normalizeSessionData(body: Record<string, unknown>) {
     videoFps: parseNumberValue(body.videoFps, 'videoFps'),
     processedFrameSize: parseNumberValue(body.processedFrameSize, 'processedFrameSize'),
     trackMaxAge: parseNumberValue(body.trackMaxAge, 'trackMaxAge'),
-  };
+  } as Prisma.SessionCreateInput;
 }
 
 function parseSessionId(request: NextRequest): string | null {
