@@ -10,6 +10,7 @@ from util import progress
 from pipeline.artifact import end_video, initialize_artifact_state, record_crowd_data, update_artifact_state
 from pipeline.analysis import (
 	detect_restricted_entry,
+	detect_restricted_track_ids,
 	evaluate_abnormal,
 	resize_frame_by_width,
 	update_track_histories,
@@ -182,6 +183,7 @@ def video_process(
 		zone_points = list(restricted_zone) if isinstance(restricted_zone, list) else []
 		check_restricted_zone = len(zone_points) >= 3
 		RE = detect_restricted_entry(humans_detected, zone_points)
+		restricted_track_ids = detect_restricted_track_ids(humans_detected, zone_points)
 
 		if check_restricted_zone:
 			draw_restricted_zone(frame, np.array(zone_points, dtype=np.int32))
@@ -197,7 +199,7 @@ def video_process(
 			TIME_STEP,
 		)
 
-		annotate_detections(frame, humans_detected, RE, show_green=not headless)
+		annotate_detections(frame, humans_detected, restricted_track_ids, show_green=not headless)
 		annotate_abnormal(frame, humans_detected, abnormal_individual, ABNORMAL)
 		annotate_crowd_count_if_needed(frame, len(humans_detected), headless)
 

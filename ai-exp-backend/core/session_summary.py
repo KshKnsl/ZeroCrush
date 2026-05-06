@@ -5,7 +5,6 @@ from typing import Any
 from graph_grid_present import load_movement_tracks
 
 from .crowd import parse_crowd_row, read_crowd_all
-from .energy import build_energy_buckets
 from .events import build_events_from_rows
 from .source import encode_image_base64
 
@@ -41,6 +40,5 @@ def build_session_summary(
         "trackMaxAge": int(track_max_age),
         **{key: encode_image_base64(os.path.join(video_log_dir, filename)) for key, filename in IMAGE_FILES.items()},
         "crowdData": [parsed for row in crowd_rows if (parsed := parse_crowd_row(row)) is not None],
-        "energyBuckets": build_energy_buckets(video_log_dir),
         "logEvents": build_events_from_rows(crowd_rows, movement_tracks=movement_tracks),
     }

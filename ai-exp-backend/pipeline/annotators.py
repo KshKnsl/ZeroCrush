@@ -27,10 +27,10 @@ def _annotate_with_supervision(frame, humans_detected: list[dict[str, Any]]) -> 
 def annotate_detections(
     frame,
     humans_detected: list[dict[str, Any]],
-    restricted_detected: bool,
+    restricted_ids: set[int],
     show_green: bool,
 ) -> None:
-    if not restricted_detected and show_green and _annotate_with_supervision(frame, humans_detected):
+    if not restricted_ids and show_green and _annotate_with_supervision(frame, humans_detected):
         return
 
     for i, track in enumerate(humans_detected):
@@ -38,7 +38,7 @@ def annotate_detections(
         draw_detection_box(
             frame,
             (x1, y1, x2, y2),
-            restricted=restricted_detected,
+            restricted=int(track["track_id"]) in restricted_ids,
             show_green=show_green,
         )
 

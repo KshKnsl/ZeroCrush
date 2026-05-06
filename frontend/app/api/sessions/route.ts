@@ -36,7 +36,6 @@ function normalizeSessionData(body: Record<string, unknown>): Prisma.SessionCrea
         ? body.violationPeakBase64
         : (typeof body.alertPeakBase64 === 'string' ? body.alertPeakBase64 : null),
     crowdData: Array.isArray(body.crowdData) ? body.crowdData : null,
-    energyBuckets: Array.isArray(body.energyBuckets) ? body.energyBuckets : null,
     logEvents: Array.isArray(body.logEvents) ? body.logEvents : null,
   } as Prisma.SessionCreateInput;
 }

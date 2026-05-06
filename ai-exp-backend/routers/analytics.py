@@ -5,7 +5,6 @@ from typing import Any, Optional
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 
-from core.energy import build_energy_buckets
 from services.logs_service import session_output_dir
 from services import pipeline_runtime
 
@@ -64,10 +63,3 @@ async def api_processed_image(session: Optional[str] = None, kind: str = "previe
         raise HTTPException(status_code=404, detail=f"{filename} not found")
     return FileResponse(path, media_type="image/png")
 
-
-@router.get("/analytics/energy")
-async def api_analytics_energy(session: Optional[str] = None) -> dict[str, Any]:
-    log_dir = session_output_dir(session)
-    if not os.path.isdir(log_dir):
-        raise HTTPException(status_code=404, detail="Session not found")
-    return {"buckets": build_energy_buckets(log_dir)}

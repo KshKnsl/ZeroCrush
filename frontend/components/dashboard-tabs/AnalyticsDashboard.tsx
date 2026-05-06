@@ -20,17 +20,8 @@ type Session = {
   heatmapImageBase64?: string | null;
   tracksImageBase64?: string | null;
   crowdData?: unknown;
-  energyBuckets?: unknown;
   logEvents?: unknown;
   createdAt?: string;
-};
-
-type CrowdPoint = {
-  x: number;
-  crowd: number;
-  alerts: number;
-  restricted: boolean;
-  abnormal: boolean;
 };
 
 type LogEvent = {
@@ -143,29 +134,6 @@ export default function AnalyticsDashboard() {
   const artifactKey = getSourceStem(sessionDetail?.source ?? selectedMeta?.source);
 
   const crowdRows = Array.isArray(sessionDetail?.crowdData) ? (sessionDetail.crowdData as Record<string, unknown>[]) : [];
-  const crowdSeries: CrowdPoint[] = crowdRows.map((row, index) => ({
-    x: index,
-    crowd: toNumber(row['Human Count']) || toNumber(row.human_count),
-    alerts: toNumber(row.alerts) || toNumber(row.violations),
-    restricted: toBool(row['Restricted Entry']) || toBool(row.restricted),
-    abnormal: toBool(row['Abnormal Activity']) || toBool(row.abnormal),
-  })).slice(-36);
-
-  const maxSeriesValue = Math.max(
-    1,
-    ...crowdSeries.map((row) => Math.max(row.crowd, row.alerts))
-  );
-
-  const crowdLine = crowdSeries
-    .map((row, index) => `${(index / Math.max(crowdSeries.length - 1, 1)) * 100},${100 - (row.crowd / maxSeriesValue) * 100}`)
-    .join(' ');
-
-  const violationLine = crowdSeries
-    .map((row, index) => `${(index / Math.max(crowdSeries.length - 1, 1)) * 100},${100 - (row.alerts / maxSeriesValue) * 100}`)
-    .join(' ');
-
-  const energyBuckets = Array.isArray(sessionDetail?.energyBuckets) ? (sessionDetail.energyBuckets as Array<{ bucket: string; count: number }>) : [];
-  const maxBucket = Math.max(1, ...energyBuckets.map((bucket) => bucket.count));
   const logEvents = Array.isArray(sessionDetail?.logEvents) ? (sessionDetail.logEvents as LogEvent[]) : [];
   const recentCrowdRows = crowdRows.slice(-20).reverse();
 
@@ -330,49 +298,6 @@ export default function AnalyticsDashboard() {
               </div>
             </GraphFrame>
 
-            <GraphFrame title="Crowd vs Alerts" icon={<Activity className="h-4 w-4" />}>
-              <div className="aspect-video border border-slate-300 bg-white p-3 dark:border-slate-700 dark:bg-[#0f141c]">
-                {crowdSeries.length === 0 ? (
-                  <div className="flex h-full items-center justify-center text-sm text-slate-400">No crowd data</div>
-                ) : (
-                  <svg viewBox="0 0 100 100" className="h-full w-full">
-                    {crowdSeries.map((row, index) => {
-                      const x = (index / Math.max(crowdSeries.length, 1)) * 100;
-                      const width = 100 / Math.max(crowdSeries.length, 1);
-                      return (
-                        <g key={`band-${row.x}`}>
-                          {row.restricted ? <rect x={x} y={90} width={width} height={10} fill="rgba(239,68,68,0.75)" /> : null}
-                          {row.abnormal ? <rect x={x} y={82} width={width} height={8} fill="rgba(37,99,235,0.75)" /> : null}
-                        </g>
-                      );
-                    })}
-                    <polyline fill="none" stroke="rgb(16 185 129)" strokeWidth="1.8" points={crowdLine} />
-                    <polyline fill="none" stroke="rgb(244 63 94)" strokeWidth="1.6" points={violationLine} />
-                  </svg>
-                )}
-              </div>
-            </GraphFrame>
-
-            <GraphFrame title="Energy Distribution" icon={<Activity className="h-4 w-4" />}>
-              <div className="aspect-video border border-slate-300 bg-white p-3 dark:border-slate-700 dark:bg-[#0f141c]">
-                {energyBuckets.length === 0 ? (
-                  <div className="flex h-full items-center justify-center text-sm text-slate-400">No energy data</div>
-                ) : (
-                  <div className="flex h-full items-end gap-2 overflow-hidden">
-                    {energyBuckets.slice(0, 16).map((bucket) => (
-                      <div key={bucket.bucket} className="flex min-w-0 flex-1 flex-col items-center justify-end gap-2">
-                        <div
-                          className="w-full bg-emerald-500/80"
-                          style={{ height: `${Math.max(6, (bucket.count / maxBucket) * 88)}%` }}
-                          title={`${bucket.bucket}: ${bucket.count}`}
-                        />
-                        <span className="w-full truncate text-center text-[10px] text-slate-500 dark:text-slate-400">{bucket.bucket}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </GraphFrame>
           </div>
 
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
@@ -423,29 +348,6 @@ export default function AnalyticsDashboard() {
               )}
             </GraphFrame>
 
-            <GraphFrame title="Raw Session Analysis JSON" icon={<Route className="h-4 w-4" />}>
-              <div className="max-h-72 overflow-auto border border-slate-300 bg-slate-100 p-2 text-[11px] dark:border-slate-700 dark:bg-[#0d131c]">
-                <pre className="whitespace-pre-wrap wrap-break-word text-slate-700 dark:text-slate-300">
-{JSON.stringify(
-  {
-    id: sessionDetail?.id,
-    source: sessionDetail?.source,
-    startTime: sessionDetail?.startTime,
-    endTime: sessionDetail?.endTime,
-    createdAt: sessionDetail?.createdAt,
-    videoFps: sessionDetail?.videoFps,
-    processedFrameSize: sessionDetail?.processedFrameSize,
-    trackMaxAge: sessionDetail?.trackMaxAge,
-    crowdData: sessionDetail?.crowdData ?? [],
-    energyBuckets: sessionDetail?.energyBuckets ?? [],
-    logEvents: sessionDetail?.logEvents ?? [],
-  },
-  null,
-  2
-)}
-                </pre>
-              </div>
-            </GraphFrame>
           </div>
 
           {loadingDetail && <p className="text-xs text-slate-500 dark:text-slate-400">Loading session details...</p>}

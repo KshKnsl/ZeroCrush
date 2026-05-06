@@ -25,6 +25,19 @@ def detect_restricted_entry(humans_detected: list[dict[str, Any]], zone_points: 
     return False
 
 
+def detect_restricted_track_ids(humans_detected: list[dict[str, Any]], zone_points: list[list[int]]) -> set[int]:
+    if len(zone_points) < 3:
+        return set()
+
+    zone_pts = np.array(zone_points, dtype=np.int32)
+    restricted_ids: set[int] = set()
+    for track in humans_detected:
+        cx, cy = track["centroid"]
+        if cv2.pointPolygonTest(zone_pts, (float(cx), float(cy)), False) >= 0:
+            restricted_ids.add(int(track["track_id"]))
+    return restricted_ids
+
+
 def evaluate_abnormal(
     humans_detected: list[dict[str, Any]],
     track_histories: dict[int, dict[str, Any]],

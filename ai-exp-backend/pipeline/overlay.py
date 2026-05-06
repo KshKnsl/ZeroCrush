@@ -80,11 +80,9 @@ def apply_warning_overlays(
     if check_restricted_zone:
         re_warning_timeout = 10 if restricted_detected else re_warning_timeout - 1
         if re_warning_timeout > 0 and display_frame_count % 3 != 0:
-            arrow = _dominant_direction(track_histories)
-            text = f"RESTRICTED ENTRY {arrow}"
+            text = "RESTRICTED ENTRY"
             _draw_panel(frame, 180, 58, 320, 58, (15, 15, 15), 0.65)
             cv2.putText(frame, text, (200, 96), cv2.FONT_HERSHEY_SIMPLEX, 1.0, RED, 3)
-            cv2.arrowedLine(frame, (190, 112), (490, 112), RED, 2, tipLength=0.06)
 
     if check_abnormal:
         ab_warning_timeout = 10 if abnormal_detected else ab_warning_timeout - 1
