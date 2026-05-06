@@ -69,7 +69,6 @@ def video_process(
 	model: Optional[YOLO] = None
 	preview_emitted = False
 	show_window = not headless
-	# Some sources (especially RTSP) need a short warm-up before first frame.
 	startup_deadline = time.time() + 15
 	def _calculate_FPS():
 		nonlocal VID_FPS
@@ -118,7 +117,6 @@ def video_process(
 
 		(ret, frame) = cap.read()
 
-		# Allow source warm-up before declaring startup timeout.
 		if not ret and frame_count == 0 and time.time() < startup_deadline:
 			time.sleep(0.05)
 			continue
@@ -126,31 +124,26 @@ def video_process(
 		if not ret and frame_count == 0:
 			raise RuntimeError("Timeout starting video source")
 
-		# Stop the loop when video ends
 		if not ret:
 			end_video(track_histories, frame_count, movement_data_writer)
 			if not VID_FPS:
 				_calculate_FPS()
 			break
 
-		# Update frame count
 		if frame_count > 1000000:
 			if not VID_FPS:
 				_calculate_FPS()
 			frame_count = 0
 			display_frame_count = 0
 		frame_count += 1
-		
-		# Skip frames according to given rate
+
 		if frame_count % DATA_RECORD_FRAME != 0:
 			continue
 
 		display_frame_count += 1
 
-		# Resize Frame to given size
 		frame = resize_frame_by_width(frame, frame_size)
 
-		# Emit a frame immediately so stream/window becomes visible while model warms up.
 		if not preview_emitted:
 			if frame_callback is not None:
 				frame_callback(frame)
@@ -162,21 +155,16 @@ def video_process(
 		if model is None:
 			model = _get_cached_model(YOLO_MODEL_PATH)
 
-		# Get current time
 		current_datetime = datetime.datetime.now()
 
-		# Run detection algorithm
 		if IS_RTSP_STREAM:
 			record_time = current_datetime
 		else:
 			record_time = frame_count
 
-		# Run detection with YOLOv8 and update Deep SORT tracks.
 		humans_detected = detect_tracks(model, frame, YOLO_CONFIDENCE, TRACK_MAX_AGE)
 		update_track_histories(track_histories, humans_detected, record_time)
 
-		# Check for restricted entry (centroid inside polygon)
-		# Read `RESTRICTED_ZONE` live from runtime settings so updates apply while streaming.
 		try:
 			restricted_zone = get_setting("RESTRICTED_ZONE")
 		except KeyError:
@@ -217,7 +205,6 @@ def video_process(
 			track_histories,
 		)
 
-		# Draw motion trails and risk meter
 		draw_motion_trails(frame, track_histories)
 		crowd_score = int(min(100, len(humans_detected) * 8))
 		abnormal_score = 0
@@ -238,11 +225,8 @@ def video_process(
 		else:
 			progress(display_frame_count)
 
-		# Press 'Q' to stop the video display
 		if show_window and (cv2.waitKey(1) & 0xFF == ord('q')):
-			# Record the movement when video ends
 			end_video(track_histories, frame_count, movement_data_writer)
-			# Compute the processing speed
 			if not VID_FPS:
 				_calculate_FPS()
 			break
