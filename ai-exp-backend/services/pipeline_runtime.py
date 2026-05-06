@@ -277,7 +277,6 @@ def _process_single_video(
     for artifact_name, artifact_key in (
         ("processed_preview.png", "last_frame"),
         ("crowd_peak.png", "max_crowd_frame"),
-        ("violation_peak.png", "max_violation_frame"),
     ):
         artifact_frame = artifact_state[artifact_key]
         if artifact_frame is not None:

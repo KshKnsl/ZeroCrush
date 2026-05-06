@@ -175,7 +175,14 @@ function DashboardPageContent() {
         </div>
       </aside>
       <main className="flex-1 overflow-auto px-3 pb-28 pt-3 sm:px-5 md:pb-8 md:pt-5">
-        <div className="mx-auto w-full max-w-7xl border border-slate-300/70 bg-white/70 p-3 shadow-[0_26px_50px_-24px_rgba(15,23,42,0.45)] backdrop-blur dark:border-slate-700/60 dark:bg-[#0f141b]/70 dark:shadow-[0_26px_52px_-22px_rgba(0,0,0,0.7)] sm:p-4 md:p-5">{panelByTab[activeTab]}</div>
+        <div
+          className={clsx(
+            'w-full border border-slate-300/70 bg-white/70 p-3 shadow-[0_26px_50px_-24px_rgba(15,23,42,0.45)] backdrop-blur dark:border-slate-700/60 dark:bg-[#0f141b]/70 dark:shadow-[0_26px_52px_-22px_rgba(0,0,0,0.7)] sm:p-4 md:p-5',
+            ['Analytics', 'Settings', 'Users'].includes(activeTab) ? 'max-w-none' : 'mx-auto max-w-7xl'
+          )}
+        >
+          {panelByTab[activeTab]}
+        </div>
       </main>
     </div>
   );

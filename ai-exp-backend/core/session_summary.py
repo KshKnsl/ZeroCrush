@@ -15,8 +15,6 @@ IMAGE_FILES = {
     "heatmapImageBase64": "heatmap.png",
     "previewImageBase64": "processed_preview.png",
     "crowdPeakBase64": "crowd_peak.png",
-    "alertPeakBase64": "violation_peak.png",
-    "violationPeakBase64": "violation_peak.png",
 }
 
 

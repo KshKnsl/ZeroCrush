@@ -15,8 +15,6 @@ type Session = {
   trackMaxAge?: number;
   previewImageBase64?: string | null;
   crowdPeakBase64?: string | null;
-  alertPeakBase64?: string | null;
-  violationPeakBase64?: string | null;
   heatmapImageBase64?: string | null;
   tracksImageBase64?: string | null;
   crowdData?: unknown;
@@ -39,7 +37,7 @@ const getBackendUrl = () => {
   return window.localStorage.getItem('backend-url') || 'http://localhost:8000';
 };
 
-const buildArtifactUrl = (backendUrl: string, sessionId: string, kind: 'preview' | 'crowd' | 'violation') => {
+const buildArtifactUrl = (backendUrl: string, sessionId: string, kind: 'preview' | 'crowd') => {
   const cacheBust = sessionId;
   return `${backendUrl}/api/analytics/processed-image?session=${encodeURIComponent(sessionId)}&kind=${kind}&ts=${encodeURIComponent(cacheBust)}`;
 };
@@ -139,7 +137,6 @@ export default function AnalyticsDashboard() {
 
   const previewImageSrc = artifactKey ? buildArtifactUrl(apiUrl, artifactKey, 'preview') : sessionDetail?.previewImageBase64;
   const crowdPeakImageSrc = artifactKey ? buildArtifactUrl(apiUrl, artifactKey, 'crowd') : sessionDetail?.crowdPeakBase64;
-  const alertPeakImageSrc = artifactKey ? buildArtifactUrl(apiUrl, artifactKey, 'violation') : (sessionDetail?.alertPeakBase64 || sessionDetail?.violationPeakBase64);
   const heatmapImageSrc = artifactKey ? buildHeatmapUrl(apiUrl, artifactKey) : sessionDetail?.heatmapImageBase64;
   const tracksImageSrc = artifactKey ? buildTracksUrl(apiUrl, artifactKey) : sessionDetail?.tracksImageBase64;
 
@@ -280,12 +277,6 @@ export default function AnalyticsDashboard() {
               </div>
             </GraphFrame>
 
-            <GraphFrame title="Peak Alert Frame" icon={<Clock3 className="h-4 w-4" />}>
-              <div className="aspect-video overflow-hidden border border-slate-300 bg-slate-100 dark:border-slate-700 dark:bg-black">
-                <SessionImage src={alertPeakImageSrc} fallbackSrc={sessionDetail?.alertPeakBase64 || sessionDetail?.violationPeakBase64} alt="Peak alert frame" />
-              </div>
-            </GraphFrame>
-
             <GraphFrame title="Density Heatmap" icon={<Flame className="h-4 w-4" />}>
               <div className="aspect-video overflow-hidden border border-slate-300 bg-slate-100 dark:border-slate-700 dark:bg-black">
                 <SessionImage src={heatmapImageSrc} fallbackSrc={sessionDetail?.heatmapImageBase64} alt="Heatmap" />
@@ -300,7 +291,7 @@ export default function AnalyticsDashboard() {
 
           </div>
 
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <GraphFrame title="Recent Crowd Data Rows" icon={<Activity className="h-4 w-4" />}>
               {recentCrowdRows.length === 0 ? (
                 <div className="text-sm text-slate-400">No crowd rows stored</div>
