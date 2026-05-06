@@ -66,6 +66,7 @@ def video_process(
 	YOLO_MODEL_PATH = FIXED_YOLO_MODEL_PATH
 	YOLO_CONFIDENCE = float(active_settings["YOLO_CONFIDENCE"])
 	TRACK_MAX_AGE = int(active_settings["TRACK_MAX_AGE"])
+	LIVE_ANALYSIS_STRIDE = max(1, int(active_settings.get("LIVE_ANALYSIS_STRIDE", 3)))
 	model: Optional[YOLO] = None
 	preview_emitted = False
 	show_window = not headless
@@ -139,7 +140,6 @@ def video_process(
 
 		if frame_count % DATA_RECORD_FRAME != 0:
 			continue
-
 		display_frame_count += 1
 
 		frame = resize_frame_by_width(frame, frame_size)
@@ -151,6 +151,16 @@ def video_process(
 				cv2.imshow("Processed Output", frame)
 				cv2.waitKey(1)
 			preview_emitted = True
+
+		if IS_RTSP_STREAM and frame_count % LIVE_ANALYSIS_STRIDE != 0:
+			if frame_callback is not None:
+				frame_callback(frame)
+			if show_window:
+				cv2.imshow("Processed Output", frame)
+				cv2.waitKey(1)
+			else:
+				progress(display_frame_count)
+			continue
 
 		if model is None:
 			model = _get_cached_model(YOLO_MODEL_PATH)

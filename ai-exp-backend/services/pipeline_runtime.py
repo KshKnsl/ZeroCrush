@@ -317,6 +317,7 @@ def start_pipeline(source: Any, is_rtsp_stream: bool) -> str:
         "MIN_PERSONS_ABNORMAL": int(get_setting("MIN_PERSONS_ABNORMAL")),
         "YOLO_CONFIDENCE": float(get_setting("YOLO_CONFIDENCE")),
         "RESTRICTED_ZONE": get_setting("RESTRICTED_ZONE"),
+        "LIVE_ANALYSIS_STRIDE": int(get_setting("LIVE_ANALYSIS_STRIDE")),
     }
 
     def run() -> None:

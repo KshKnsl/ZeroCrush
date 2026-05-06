@@ -43,7 +43,35 @@ type LogEvent = {
 const toNumber = (value: unknown) => Number(value) || 0;
 const toBool = (value: unknown) => Boolean(Number(value) || value);
 
+const getBackendUrl = () => {
+  if (typeof window === 'undefined') return 'http://localhost:8000';
+  return window.localStorage.getItem('backend-url') || 'http://localhost:8000';
+};
+
+const buildArtifactUrl = (backendUrl: string, sessionId: string, kind: 'preview' | 'crowd' | 'violation') => {
+  const cacheBust = sessionId;
+  return `${backendUrl}/api/analytics/processed-image?session=${encodeURIComponent(sessionId)}&kind=${kind}&ts=${encodeURIComponent(cacheBust)}`;
+};
+
+const buildTracksUrl = (backendUrl: string, sessionId: string) => {
+  const cacheBust = sessionId;
+  return `${backendUrl}/api/analytics/tracks-image?session=${encodeURIComponent(sessionId)}&ts=${encodeURIComponent(cacheBust)}`;
+};
+
+const buildHeatmapUrl = (backendUrl: string, sessionId: string) => {
+  const cacheBust = sessionId;
+  return `${backendUrl}/api/analytics/heatmap-image?session=${encodeURIComponent(sessionId)}&ts=${encodeURIComponent(cacheBust)}`;
+};
+
+const getSourceStem = (source: string | null | undefined) => {
+  if (!source) return '';
+  const fileName = source.split(/[\\/]/).pop() ?? source;
+  const stem = fileName.replace(/\.[^.]+$/, '');
+  return stem.replace(/[^\w-]/g, '_');
+};
+
 export default function AnalyticsDashboard() {
+  const [apiUrl] = useState(getBackendUrl);
   const [streams, setStreams] = useState<Session[]>([]);
   const [selectedStreamId, setSelectedStreamId] = useState<string>('');
   const [sessionDetail, setSessionDetail] = useState<Session | null>(null);
@@ -111,6 +139,8 @@ export default function AnalyticsDashboard() {
   const selectedMeta = streams.find((stream) => stream.id === selectedStreamId) ?? null;
   const sessionStart = sessionDetail?.startTime ?? selectedMeta?.startTime;
   const sessionEnd = sessionDetail?.endTime ?? selectedMeta?.endTime;
+  const selectedSessionId = sessionDetail?.id ?? selectedMeta?.id ?? selectedStreamId;
+  const artifactKey = getSourceStem(sessionDetail?.source ?? selectedMeta?.source);
 
   const crowdRows = Array.isArray(sessionDetail?.crowdData) ? (sessionDetail.crowdData as Record<string, unknown>[]) : [];
   const crowdSeries: CrowdPoint[] = crowdRows.map((row, index) => ({
@@ -139,6 +169,12 @@ export default function AnalyticsDashboard() {
   const logEvents = Array.isArray(sessionDetail?.logEvents) ? (sessionDetail.logEvents as LogEvent[]) : [];
   const recentCrowdRows = crowdRows.slice(-20).reverse();
 
+  const previewImageSrc = artifactKey ? buildArtifactUrl(apiUrl, artifactKey, 'preview') : sessionDetail?.previewImageBase64;
+  const crowdPeakImageSrc = artifactKey ? buildArtifactUrl(apiUrl, artifactKey, 'crowd') : sessionDetail?.crowdPeakBase64;
+  const alertPeakImageSrc = artifactKey ? buildArtifactUrl(apiUrl, artifactKey, 'violation') : (sessionDetail?.alertPeakBase64 || sessionDetail?.violationPeakBase64);
+  const heatmapImageSrc = artifactKey ? buildHeatmapUrl(apiUrl, artifactKey) : sessionDetail?.heatmapImageBase64;
+  const tracksImageSrc = artifactKey ? buildTracksUrl(apiUrl, artifactKey) : sessionDetail?.tracksImageBase64;
+
   const formatTimestamp = (value: string | null | undefined) => {
     if (!value) return 'Unknown';
     const maybeDate = new Date(value);
@@ -163,11 +199,15 @@ export default function AnalyticsDashboard() {
     </div>
   );
 
-  const SessionImage = ({ src, alt }: { src?: string | null; alt: string }) => {
-    if (!src) {
+  const SessionImage = ({ src, fallbackSrc, alt }: { src?: string | null; fallbackSrc?: string | null; alt: string }) => {
+    const [useFallback, setUseFallback] = useState(false);
+    const resolvedSrc = useFallback ? fallbackSrc : src;
+
+    if (!resolvedSrc) {
       return <div className="flex h-full w-full items-center justify-center text-sm text-slate-400 border border-dashed border-slate-300 dark:border-slate-700">Not generated for this session</div>;
     }
-    return <img src={src} alt={alt} className="h-full w-full object-cover" />;
+
+    return <img src={resolvedSrc} alt={alt} className="h-full w-full object-cover" onError={() => setUseFallback(true)} />;
   };
 
   if (loadingStreams) {
@@ -262,31 +302,31 @@ export default function AnalyticsDashboard() {
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <GraphFrame title="Processed Output Preview" icon={<Camera className="h-4 w-4" />}>
               <div className="aspect-video overflow-hidden border border-slate-300 bg-slate-100 dark:border-slate-700 dark:bg-black">
-                <SessionImage src={sessionDetail?.previewImageBase64} alt="Processed preview" />
+                <SessionImage src={previewImageSrc} fallbackSrc={sessionDetail?.previewImageBase64} alt="Processed preview" />
               </div>
             </GraphFrame>
 
             <GraphFrame title="Peak Crowd Frame" icon={<Timer className="h-4 w-4" />}>
               <div className="aspect-video overflow-hidden border border-slate-300 bg-slate-100 dark:border-slate-700 dark:bg-black">
-                <SessionImage src={sessionDetail?.crowdPeakBase64} alt="Peak crowd frame" />
+                <SessionImage src={crowdPeakImageSrc} fallbackSrc={sessionDetail?.crowdPeakBase64} alt="Peak crowd frame" />
               </div>
             </GraphFrame>
 
             <GraphFrame title="Peak Alert Frame" icon={<Clock3 className="h-4 w-4" />}>
               <div className="aspect-video overflow-hidden border border-slate-300 bg-slate-100 dark:border-slate-700 dark:bg-black">
-                <SessionImage src={sessionDetail?.alertPeakBase64 || sessionDetail?.violationPeakBase64} alt="Peak alert frame" />
+                <SessionImage src={alertPeakImageSrc} fallbackSrc={sessionDetail?.alertPeakBase64 || sessionDetail?.violationPeakBase64} alt="Peak alert frame" />
               </div>
             </GraphFrame>
 
             <GraphFrame title="Density Heatmap" icon={<Flame className="h-4 w-4" />}>
               <div className="aspect-video overflow-hidden border border-slate-300 bg-slate-100 dark:border-slate-700 dark:bg-black">
-                <SessionImage src={sessionDetail?.heatmapImageBase64} alt="Heatmap" />
+                <SessionImage src={heatmapImageSrc} fallbackSrc={sessionDetail?.heatmapImageBase64} alt="Heatmap" />
               </div>
             </GraphFrame>
 
             <GraphFrame title="Movement Trajectories" icon={<Route className="h-4 w-4" />}>
               <div className="aspect-video overflow-hidden border border-slate-300 bg-slate-100 dark:border-slate-700 dark:bg-black">
-                <SessionImage src={sessionDetail?.tracksImageBase64} alt="Tracks" />
+                <SessionImage src={tracksImageSrc} fallbackSrc={sessionDetail?.tracksImageBase64} alt="Tracks" />
               </div>
             </GraphFrame>
 

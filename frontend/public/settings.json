@@ -77,6 +77,11 @@
       "default": 10,
       "description": "How many processed data points are recorded per second.",
       "category": "Storage & Timeline"
+    },
+    "LIVE_ANALYSIS_STRIDE": {
+      "default": 3,
+      "description": "For live streams, analyze every Nth frame to improve throughput.",
+      "category": "Video Source"
     }
   }
 }
